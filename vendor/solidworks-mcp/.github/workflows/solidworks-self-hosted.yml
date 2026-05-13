@@ -1,0 +1,83 @@
+name: SolidWorks Self-Hosted
+
+on:
+  workflow_dispatch:
+    inputs:
+      runIntegration:
+        description: Run the cross-version bridge smoke suite that requires local SolidWorks
+        required: true
+        default: true
+        type: boolean
+      publishArtifact:
+        description: Publish the tray app single-file exe as a workflow artifact
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  solidworks-build:
+    runs-on:
+      - self-hosted
+      - windows
+      - solidworks
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore bridge solution
+        run: dotnet restore bridge/SolidWorksBridge.sln --nologo
+
+      - name: Restore tray app
+        run: dotnet restore app/SolidWorksMcpApp/SolidWorksMcpApp.csproj --nologo
+
+      - name: Build tray app
+        run: dotnet build app/SolidWorksMcpApp/SolidWorksMcpApp.csproj --configuration Release --no-restore --nologo
+
+      - name: Run bridge unit tests
+        run: dotnet test bridge/SolidWorksBridge.sln --configuration Release --no-restore --filter "Category!=Integration" --nologo
+
+      - name: Run bridge cross-version smoke suite
+        if: ${{ inputs.runIntegration }}
+        run: dotnet test bridge/SolidWorksBridge.sln --configuration Release --no-restore --filter "Category=Integration" --logger "console;verbosity=detailed" --nologo
+
+      - name: Upload smoke suite artifacts
+        if: ${{ inputs.runIntegration && always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: solidworks-smoke-artifacts-${{ github.run_number }}
+          path: artifacts/integration-visuals
+          if-no-files-found: warn
+
+      - name: Publish tray app exe
+        if: ${{ inputs.publishArtifact }}
+        run: |
+          dotnet publish app/SolidWorksMcpApp/SolidWorksMcpApp.csproj `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained true `
+            --no-restore `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=true `
+            -p:DebugType=None `
+            -p:DebugSymbols=false `
+            --output artifacts/self-hosted/win-x64
+
+      - name: Upload tray app artifact
+        if: ${{ inputs.publishArtifact }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: solidworks-mcp-self-hosted-${{ github.run_number }}
+          path: artifacts/self-hosted/win-x64/SolidWorksMcpApp.exe
+          if-no-files-found: error

@@ -1,0 +1,77 @@
+﻿using ModelContextProtocol.Server;
+using SolidWorksBridge.SolidWorks;
+using System.ComponentModel;
+using System.Text.Json;
+
+namespace SolidWorksMcpApp.Tools;
+
+[McpServerToolType]
+public class FeatureTools(StaDispatcher sta, IFeatureService feature)
+{
+    [McpServerTool, Description("Extrude the active sketch profile to create a boss/base feature. Requires at least one closed contour in the current sketch.")]
+    public async Task<string> Extrude(
+        [Description("Extrusion depth in meters")] double depth,
+        [Description("End condition: Blind=0, ThroughAll=1, MidPlane=6")] int endCondition = 0,
+        [Description("Flip the extrusion direction")] bool flipDirection = false)
+    {
+        var info = await sta.InvokeLoggedAsync(
+            nameof(Extrude),
+            new { depth, endCondition, flipDirection },
+            () =>
+            {
+                var parsedEndCondition = ToolArgumentParsing.ParseEndCondition(endCondition);
+                return feature.Extrude(depth, parsedEndCondition, flipDirection);
+            });
+        return JsonSerializer.Serialize(info);
+    }
+
+    [McpServerTool, Description("Extrude-cut the active sketch profile to remove material. Requires a valid sketch profile that is already prepared for cut creation. When cutting from an existing face outline, prefer CutFaceByProjectedEdges so the face-selection, edge projection, sketch exit, and sketch reselection steps happen in the proven order.")]
+    public async Task<string> ExtrudeCut(
+        [Description("Cut depth in meters")] double depth,
+        [Description("End condition: Blind=0, ThroughAll=1, MidPlane=6")] int endCondition = 0,
+        [Description("Flip the cut direction")] bool flipDirection = false)
+    {
+        var info = await sta.InvokeLoggedAsync(
+            nameof(ExtrudeCut),
+            new { depth, endCondition, flipDirection },
+            () =>
+            {
+                var parsedEndCondition = ToolArgumentParsing.ParseEndCondition(endCondition);
+                return feature.ExtrudeCut(depth, parsedEndCondition, flipDirection);
+            });
+        return JsonSerializer.Serialize(info);
+    }
+
+    [McpServerTool, Description("Revolve the active sketch profile around the selected axis. Requires a closed profile in the current sketch and a selected axis.")]
+    public async Task<string> Revolve(
+        [Description("Revolve angle in degrees (0-360)")] double angleDegrees,
+        [Description("True to create a cut revolve; False for a boss revolve")] bool isCut = false)
+    {
+        var info = await sta.InvokeLoggedAsync(nameof(Revolve), new { angleDegrees, isCut }, () => feature.Revolve(angleDegrees, isCut));
+        return JsonSerializer.Serialize(info);
+    }
+
+    [McpServerTool, Description("Apply a fillet to the currently selected edges.")]
+    public async Task<string> Fillet(
+        [Description("Fillet radius in meters")] double radius)
+    {
+        var info = await sta.InvokeLoggedAsync(nameof(Fillet), new { radius }, () => feature.Fillet(radius));
+        return JsonSerializer.Serialize(info);
+    }
+
+    [McpServerTool, Description("Apply a chamfer to the currently selected edges.")]
+    public async Task<string> Chamfer(
+        [Description("Chamfer distance in meters")] double distance)
+    {
+        var info = await sta.InvokeLoggedAsync(nameof(Chamfer), new { distance }, () => feature.Chamfer(distance));
+        return JsonSerializer.Serialize(info);
+    }
+
+    [McpServerTool, Description("Shell the active solid: hollow it out by removing selected faces and applying a wall thickness.")]
+    public async Task<string> Shell(
+        [Description("Shell wall thickness in meters")] double thickness)
+    {
+        var info = await sta.InvokeLoggedAsync(nameof(Shell), new { thickness }, () => feature.Shell(thickness));
+        return JsonSerializer.Serialize(info);
+    }
+}

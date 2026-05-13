@@ -1,4 +1,9 @@
 data/
 .tmp/
 upstream_solidworks_mcp/
+artifacts/
+data.zip
+vendor/solidworks-mcp/.vs/
+vendor/solidworks-mcp/**/bin/
+vendor/solidworks-mcp/**/obj/
 

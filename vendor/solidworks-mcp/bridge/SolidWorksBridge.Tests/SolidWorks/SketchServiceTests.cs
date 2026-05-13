@@ -1,0 +1,544 @@
+using Moq;
+using SolidWorks.Interop.sldworks;
+using SolidWorks.Interop.swconst;
+using SolidWorksBridge.SolidWorks;
+
+namespace SolidWorksBridge.Tests.SolidWorks;
+
+public class SketchServiceTests
+{
+
+    // ── Helpers ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Connected manager whose SwApp.SketchManager returns a mock ISketchManager.
+    /// </summary>
+    private static (Mock<ISwConnectionManager> manager,
+                    Mock<ISldWorksApp> swApp,
+                    Mock<ISketchManager> skm)
+        ConnectedWithSketchMgr()
+    {
+        var skm = new Mock<ISketchManager>();
+        var doc = new Mock<IModelDoc2>();
+        var selectionManager = new Mock<SelectionMgr>();
+        selectionManager.Setup(m => m.GetSelectedObjectCount2(-1)).Returns(1);
+        selectionManager.Setup(m => m.GetSelectedObjectType3(1, -1)).Returns((int)swSelectType_e.swSelDATUMPLANES);
+        doc.Setup(d => d.GetActiveSketch2()).Returns(new object());
+        doc.Setup(d => d.ISelectionManager).Returns(selectionManager.Object);
+        var swApp = new Mock<ISldWorksApp>();
+        swApp.Setup(s => s.SketchManager).Returns(skm.Object);
+        swApp.Setup(s => s.IActiveDoc2).Returns(doc.Object);
+
+        var manager = new Mock<ISwConnectionManager>();
+        manager.Setup(m => m.IsConnected).Returns(true);
+        manager.Setup(m => m.SwApp).Returns(swApp.Object);
+        manager.Setup(m => m.EnsureConnected());
+
+        return (manager, swApp, skm);
+    }
+
+    /// <summary>
+    /// Connected manager whose SwApp.SketchManager returns null (no open document).
+    /// </summary>
+    private static Mock<ISwConnectionManager> ConnectedNoDoc()
+    {
+        var swApp = new Mock<ISldWorksApp>();
+        swApp.Setup(s => s.SketchManager).Returns((ISketchManager?)null);
+
+        var manager = new Mock<ISwConnectionManager>();
+        manager.Setup(m => m.IsConnected).Returns(true);
+        manager.Setup(m => m.SwApp).Returns(swApp.Object);
+        manager.Setup(m => m.EnsureConnected());
+
+        return manager;
+    }
+
+    private static (Mock<ISwConnectionManager> manager,
+                    Mock<ISldWorksApp> swApp,
+                    Mock<ISketchManager> skm,
+                    Mock<IModelDoc2> doc)
+        ConnectedWithSketchMgrAndDoc()
+    {
+        var skm = new Mock<ISketchManager>();
+        var doc = new Mock<IModelDoc2>();
+        var swApp = new Mock<ISldWorksApp>();
+        swApp.Setup(s => s.SketchManager).Returns(skm.Object);
+        swApp.Setup(s => s.IActiveDoc2).Returns(doc.Object);
+
+        var manager = new Mock<ISwConnectionManager>();
+        manager.Setup(m => m.IsConnected).Returns(true);
+        manager.Setup(m => m.SwApp).Returns(swApp.Object);
+        manager.Setup(m => m.EnsureConnected());
+
+        return (manager, swApp, skm, doc);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Constructor
+    // ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Constructor_NullConnectionManager_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => new SketchService(null!));
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // InsertSketch / FinishSketch
+    // ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void InsertSketch_CallsInsertSketchTrue()
+    {
+        var (manager, _, skm) = ConnectedWithSketchMgr();
+        var svc = new SketchService(manager.Object);
+
+        svc.InsertSketch();
+
+        skm.Verify(s => s.InsertSketch(true), Times.Once);
+    }
+
+    [Fact]
+    public void FinishSketch_CallsInsertSketchFalse()
+    {
+        var (manager, _, skm, doc) = ConnectedWithSketchMgrAndDoc();
+        var svc = new SketchService(manager.Object);
+
+        svc.FinishSketch();
+
+        doc.Verify(d => d.ClearSelection2(true), Times.Once);
+        skm.Verify(s => s.InsertSketch(true), Times.Once);
+    }
+
+    [Fact]
+    public void SketchUseEdge3_CallsSketchUseEdge3WithRequestedFlags()
+    {
+        var (manager, _, skm) = ConnectedWithSketchMgr();
+        skm.Setup(s => s.SketchUseEdge3(false, true)).Returns(true);
+        var svc = new SketchService(manager.Object);
+
+        svc.SketchUseEdge3(chain: false, innerLoops: true);
+
+        skm.Verify(s => s.SketchUseEdge3(false, true), Times.Once);
+    }
+
+    [Fact]
+    public void SketchUseEdge3_WithoutActiveSketch_ThrowsDetailedError()
+    {
+        var skm = new Mock<ISketchManager>();
+        var doc = new Mock<IModelDoc2>();
+        doc.Setup(d => d.GetActiveSketch2()).Returns((object?)null);
+        var swApp = new Mock<ISldWorksApp>();
+        swApp.Setup(s => s.SketchManager).Returns(skm.Object);
+        swApp.Setup(s => s.IActiveDoc2).Returns(doc.Object);
+        var manager = new Mock<ISwConnectionManager>();
+        manager.Setup(m => m.IsConnected).Returns(true);
+        manager.Setup(m => m.SwApp).Returns(swApp.Object);
+        manager.Setup(m => m.EnsureConnected());
+
+        var error = Assert.Throws<SolidWorksApiException>(() =>
+            new SketchService(manager.Object).SketchUseEdge3());
+
+        Assert.Contains("active sketch", error.Message);
+        skm.Verify(s => s.SketchUseEdge3(It.IsAny<bool>(), It.IsAny<bool>()), Times.Never);
+    }
+
+    [Fact]
+    public void SketchUseEdge3_WithoutSelectedEdges_ThrowsDetailedError()
+    {
+        var skm = new Mock<ISketchManager>();
+        var doc = new Mock<IModelDoc2>();
+        var selectionManager = new Mock<SelectionMgr>();
+        selectionManager.Setup(m => m.GetSelectedObjectCount2(-1)).Returns(0);
+        doc.Setup(d => d.GetActiveSketch2()).Returns(new object());
+        doc.Setup(d => d.ISelectionManager).Returns(selectionManager.Object);
+
+        var swApp = new Mock<ISldWorksApp>();
+        swApp.Setup(s => s.SketchManager).Returns(skm.Object);
+        swApp.Setup(s => s.IActiveDoc2).Returns(doc.Object);
+
+        var manager = new Mock<ISwConnectionManager>();
+        manager.Setup(m => m.IsConnected).Returns(true);
+        manager.Setup(m => m.SwApp).Returns(swApp.Object);
+        manager.Setup(m => m.EnsureConnected());
+
+        var error = Assert.Throws<SolidWorksApiException>(() =>
+            new SketchService(manager.Object).SketchUseEdge3());
+
+        Assert.Contains("selected edges or loops", error.Message);
+        skm.Verify(s => s.SketchUseEdge3(It.IsAny<bool>(), It.IsAny<bool>()), Times.Never);
+    }
+
+    [Fact]
+    public void InsertSketch_NoActiveDocument_Throws()
+    {
+        var manager = ConnectedNoDoc();
+        var svc = new SketchService(manager.Object);
+
+        Assert.Throws<InvalidOperationException>(() => svc.InsertSketch());
+    }
+
+    [Fact]
+    public void InsertSketch_CallsEnsureConnected()
+    {
+        var (manager, _, _) = ConnectedWithSketchMgr();
+        new SketchService(manager.Object).InsertSketch();
+
+        manager.Verify(m => m.EnsureConnected(), Times.Once);
+    }
+
+    [Fact]
+    public void InsertSketch_WhenMultipleHostsSelected_ThrowsDetailedError()
+    {
+        var skm = new Mock<ISketchManager>();
+        var selectionManager = new Mock<SelectionMgr>();
+        selectionManager.Setup(m => m.GetSelectedObjectCount2(-1)).Returns(2);
+        var doc = new Mock<IModelDoc2>();
+        doc.Setup(d => d.ISelectionManager).Returns(selectionManager.Object);
+        var swApp = new Mock<ISldWorksApp>();
+        swApp.Setup(s => s.SketchManager).Returns(skm.Object);
+        swApp.Setup(s => s.IActiveDoc2).Returns(doc.Object);
+        var manager = new Mock<ISwConnectionManager>();
+        manager.Setup(m => m.IsConnected).Returns(true);
+        manager.Setup(m => m.SwApp).Returns(swApp.Object);
+        manager.Setup(m => m.EnsureConnected());
+
+        var error = Assert.Throws<SolidWorksApiException>(() => new SketchService(manager.Object).InsertSketch());
+
+        Assert.Contains("exactly one selected planar face or datum plane", error.Message);
+        skm.Verify(s => s.InsertSketch(true), Times.Never);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // AddPoint
+    // ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void AddPoint_ReturnsPointInfo_WithCorrectCoordinates()
+    {
+        var (manager, _, skm) = ConnectedWithSketchMgr();
+        var point = new Mock<SketchPoint>().Object;
+        skm.Setup(s => s.CreatePoint(0.01, 0.02, 0)).Returns(point);
+
+        var info = new SketchService(manager.Object).AddPoint(0.01, 0.02);
+
+        Assert.Equal("Point", info.Type);
+        Assert.Equal(0.01, info.X1);
+        Assert.Equal(0.02, info.Y1);
+        Assert.Equal(0.01, info.X2);
+        Assert.Equal(0.02, info.Y2);
+    }
+
+    [Fact]
+    public void AddPoint_NullReturnFromCom_Throws()
+    {
+        var (manager, _, skm) = ConnectedWithSketchMgr();
+        skm.Setup(s => s.CreatePoint(It.IsAny<double>(), It.IsAny<double>(), It.IsAny<double>()))
+            .Returns((SketchPoint?)null!);
+
+        Assert.Throws<SolidWorksApiException>(() => new SketchService(manager.Object).AddPoint(0, 0));
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // AddEllipse
+    // ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void AddEllipse_ReturnsEllipseInfo_WithCorrectCoordinates()
+    {
+        var (manager, _, skm) = ConnectedWithSketchMgr();
+        var seg = new Mock<SketchSegment>().Object;
+        skm.Setup(s => s.CreateEllipse(0, 0, 0, 0.03, 0, 0, 0, 0.01, 0)).Returns(seg);
+
+        var info = new SketchService(manager.Object).AddEllipse(0, 0, 0.03, 0, 0, 0.01);
+
+        Assert.Equal("Ellipse", info.Type);
+        Assert.Equal(0, info.X1);
+        Assert.Equal(0, info.Y1);
+        Assert.Equal(0.03, info.X2);
+        Assert.Equal(0, info.Y2);
+    }
+
+    [Fact]
+    public void AddEllipse_NullReturnFromCom_Throws()
+    {
+        var (manager, _, skm) = ConnectedWithSketchMgr();
+        skm.Setup(s => s.CreateEllipse(
+                It.IsAny<double>(), It.IsAny<double>(), It.IsAny<double>(),
+                It.IsAny<double>(), It.IsAny<double>(), It.IsAny<double>(),
+                It.IsAny<double>(), It.IsAny<double>(), It.IsAny<double>()))
+            .Returns((SketchSegment?)null!);
+
+        Assert.Throws<SolidWorksApiException>(() => new SketchService(manager.Object).AddEllipse(0, 0, 0.03, 0, 0, 0.01));
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // AddPolygon
+    // ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void AddPolygon_ReturnsPolygonInfo_WithCorrectCoordinates()
+    {
+        var (manager, _, skm) = ConnectedWithSketchMgr();
+        skm.Setup(s => s.CreatePolygon(0, 0, 0, 0.02, 0, 0, 6, true)).Returns(new object());
+
+        var info = new SketchService(manager.Object).AddPolygon(0, 0, 0.02, 0, 6, true);
+
+        Assert.Equal("Polygon", info.Type);
+        Assert.Equal(0, info.X1);
+        Assert.Equal(0, info.Y1);
+        Assert.Equal(0.02, info.X2);
+        Assert.Equal(0, info.Y2);
+    }
+
+    [Fact]
+    public void AddPolygon_NullReturnFromCom_Throws()
+    {
+        var (manager, _, skm) = ConnectedWithSketchMgr();
+        skm.Setup(s => s.CreatePolygon(
+                It.IsAny<double>(), It.IsAny<double>(), It.IsAny<double>(),
+                It.IsAny<double>(), It.IsAny<double>(), It.IsAny<double>(),
+                It.IsAny<int>(), It.IsAny<bool>()))
+            .Returns((object?)null!);
+
+        Assert.Throws<SolidWorksApiException>(() => new SketchService(manager.Object).AddPolygon(0, 0, 0.02, 0, 6, true));
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // AddText
+    // ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void AddText_ReturnsTextInfo_WithCorrectCoordinates()
+    {
+        var (manager, swApp, _) = ConnectedWithSketchMgr();
+        var doc = new Mock<IModelDoc2>();
+        swApp.Setup(s => s.IActiveDoc2).Returns(doc.Object);
+        doc.Setup(d => d.IInsertSketchText(0.01, 0.02, 0, "HELLO", 0, 0, 0, 100, 100))
+            .Returns(new Mock<SketchText>().Object);
+
+        var info = new SketchService(manager.Object).AddText(0.01, 0.02, "HELLO");
+
+        Assert.Equal("Text", info.Type);
+        Assert.Equal(0.01, info.X1);
+        Assert.Equal(0.02, info.Y1);
+        Assert.Equal(0.01, info.X2);
+        Assert.Equal(0.02, info.Y2);
+    }
+
+    [Fact]
+    public void AddText_EmptyText_Throws()
+    {
+        var (manager, _, _) = ConnectedWithSketchMgr();
+
+        Assert.Throws<ArgumentException>(() => new SketchService(manager.Object).AddText(0, 0, ""));
+    }
+
+    [Fact]
+    public void AddText_NullReturnFromCom_Throws()
+    {
+        var (manager, swApp, _) = ConnectedWithSketchMgr();
+        var doc = new Mock<IModelDoc2>();
+        swApp.Setup(s => s.IActiveDoc2).Returns(doc.Object);
+        doc.Setup(d => d.IInsertSketchText(
+                It.IsAny<double>(), It.IsAny<double>(), It.IsAny<double>(), It.IsAny<string>(),
+                It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>()))
+            .Returns((SketchText?)null!);
+
+        Assert.Throws<SolidWorksApiException>(() => new SketchService(manager.Object).AddText(0, 0, "HELLO"));
+    }
+
+    [Fact]
+    public void AddText_WithFormattingOptions_AppliesRequestedOverrides()
+    {
+        var (manager, swApp, _) = ConnectedWithSketchMgr();
+        var doc = new Mock<IModelDoc2>();
+        var sketchText = new Mock<SketchText>();
+        var textFormat = new Mock<TextFormat>();
+        textFormat.SetupAllProperties();
+
+        swApp.Setup(s => s.IActiveDoc2).Returns(doc.Object);
+        doc.Setup(d => d.IInsertSketchText(0.01, 0.02, 0, "HELLO", 1, 1, 1, 90, 110))
+            .Returns(sketchText.Object);
+        sketchText.Setup(t => t.IGetTextFormat()).Returns(textFormat.Object);
+        sketchText.Setup(t => t.ISetTextFormat(false, textFormat.Object)).Returns(true);
+
+        var info = new SketchService(manager.Object).AddText(
+            0.01,
+            0.02,
+            "HELLO",
+            new SketchTextOptions
+            {
+                Justification = SketchTextJustification.Center,
+                FlipDirection = true,
+                HorizontalMirror = true,
+                Height = 0.004,
+                FontName = "Century Gothic",
+                Bold = true,
+                Italic = true,
+                Underline = true,
+                WidthFactor = 0.9,
+                CharSpacingFactor = 1.1,
+                RotationDegrees = 15,
+            });
+
+        Assert.Equal("Text", info.Type);
+        Assert.Equal(0.004, textFormat.Object.CharHeight);
+        Assert.Equal("Century Gothic", textFormat.Object.TypeFaceName);
+        Assert.True(textFormat.Object.Bold);
+        Assert.True(textFormat.Object.Italic);
+        Assert.True(textFormat.Object.Underline);
+        Assert.Equal(0.9, textFormat.Object.WidthFactor);
+        Assert.Equal(1.1, textFormat.Object.CharSpacingFactor);
+        Assert.Equal(Math.PI / 12d, textFormat.Object.Escapement, precision: 10);
+        sketchText.Verify(t => t.ISetTextFormat(false, textFormat.Object), Times.Once);
+    }
+
+    [Fact]
+    public void AddText_WhenWritableFormatUnavailable_ThrowsDetailedError()
+    {
+        var (manager, swApp, _) = ConnectedWithSketchMgr();
+        var doc = new Mock<IModelDoc2>();
+        var sketchText = new Mock<SketchText>();
+        swApp.Setup(s => s.IActiveDoc2).Returns(doc.Object);
+        doc.Setup(d => d.IInsertSketchText(It.IsAny<double>(), It.IsAny<double>(), It.IsAny<double>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>()))
+            .Returns(sketchText.Object);
+        sketchText.Setup(t => t.IGetTextFormat()).Returns((TextFormat?)null!);
+
+        var error = Assert.Throws<SolidWorksApiException>(() =>
+            new SketchService(manager.Object).AddText(0, 0, "HELLO", new SketchTextOptions { Height = 0.003 }));
+
+        Assert.Contains("writable text format", error.Message);
+        Assert.Contains("height=0.003", error.Message);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // AddLine
+    // ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void AddLine_ReturnsLineInfo_WithCorrectCoordinates()
+    {
+        var (manager, _, skm) = ConnectedWithSketchMgr();
+        var seg = new Mock<SketchSegment>().Object;
+        skm.Setup(s => s.CreateLine(0.01, 0.02, 0, 0.05, 0.06, 0)).Returns(seg);
+
+        var svc = new SketchService(manager.Object);
+        var info = svc.AddLine(0.01, 0.02, 0.05, 0.06);
+
+        Assert.Equal("Line", info.Type);
+        Assert.Equal(0.01, info.X1);
+        Assert.Equal(0.02, info.Y1);
+        Assert.Equal(0.05, info.X2);
+        Assert.Equal(0.06, info.Y2);
+    }
+
+    [Fact]
+    public void AddLine_NullReturnFromCom_Throws()
+    {
+        var (manager, _, skm) = ConnectedWithSketchMgr();
+        skm.Setup(s => s.CreateLine(It.IsAny<double>(), It.IsAny<double>(), It.IsAny<double>(),
+                                    It.IsAny<double>(), It.IsAny<double>(), It.IsAny<double>()))
+           .Returns((SketchSegment?)null!);
+
+        var svc = new SketchService(manager.Object);
+        Assert.Throws<SolidWorksApiException>(() => svc.AddLine(0, 0, 0.01, 0.01));
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // AddCircle
+    // ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void AddCircle_ReturnsCircleInfo_WithCorrectCoordinates()
+    {
+        var (manager, _, skm) = ConnectedWithSketchMgr();
+        var seg = new Mock<SketchSegment>().Object;
+        skm.Setup(s => s.CreateCircleByRadius(0.01, 0.02, 0, 0.005)).Returns(seg);
+
+        var info = new SketchService(manager.Object).AddCircle(0.01, 0.02, 0.005);
+
+        Assert.Equal("Circle", info.Type);
+        Assert.Equal(0.01, info.X1);  // center x
+        Assert.Equal(0.02, info.Y1);  // center y
+        Assert.Equal(0.015, info.X2, precision: 10); // cx + radius
+        Assert.Equal(0.02, info.Y2);  // cy
+    }
+
+    [Fact]
+    public void AddCircle_NullReturnFromCom_Throws()
+    {
+        var (manager, _, skm) = ConnectedWithSketchMgr();
+        skm.Setup(s => s.CreateCircleByRadius(It.IsAny<double>(), It.IsAny<double>(),
+                                              It.IsAny<double>(), It.IsAny<double>()))
+           .Returns((SketchSegment?)null!);
+
+        Assert.Throws<SolidWorksApiException>(() => new SketchService(manager.Object).AddCircle(0, 0, 0.01));
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // AddRectangle
+    // ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void AddRectangle_ReturnsRectangleInfo_WithCorrectCoordinates()
+    {
+        var (manager, _, skm) = ConnectedWithSketchMgr();
+        skm.Setup(s => s.CreateCornerRectangle(
+                -0.05, -0.03, 0, 0.05, 0.03, 0))
+           .Returns(new object());
+
+        var info = new SketchService(manager.Object).AddRectangle(-0.05, -0.03, 0.05, 0.03);
+
+        Assert.Equal("Rectangle", info.Type);
+        Assert.Equal(-0.05, info.X1);
+        Assert.Equal(-0.03, info.Y1);
+        Assert.Equal(0.05, info.X2);
+        Assert.Equal(0.03, info.Y2);
+    }
+
+    [Fact]
+    public void AddRectangle_NullReturnFromCom_Throws()
+    {
+        var (manager, _, skm) = ConnectedWithSketchMgr();
+        skm.Setup(s => s.CreateCornerRectangle(It.IsAny<double>(), It.IsAny<double>(),
+                               It.IsAny<double>(), It.IsAny<double>(), It.IsAny<double>(), It.IsAny<double>()))
+           .Returns((object?)null!);
+
+        Assert.Throws<SolidWorksApiException>(() => new SketchService(manager.Object).AddRectangle(0, 0, 0.1, 0.1));
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // AddArc
+    // ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void AddArc_ReturnsArcInfo_WithCorrectCoordinates()
+    {
+        var (manager, _, skm) = ConnectedWithSketchMgr();
+        var seg = new Mock<SketchSegment>().Object;
+        skm.Setup(s => s.CreateArc(0, 0, 0, 0.01, 0, 0, 0, 0.01, 0, (short)1)).Returns(seg);
+
+        var info = new SketchService(manager.Object).AddArc(0, 0, 0.01, 0, 0, 0.01, 1);
+
+        Assert.Equal("Arc", info.Type);
+        Assert.Equal(0, info.X1);   // center x
+        Assert.Equal(0, info.Y1);   // center y
+        Assert.Equal(0, info.X2);   // end x
+        Assert.Equal(0.01, info.Y2); // end y
+    }
+
+    [Fact]
+    public void AddArc_NullReturnFromCom_Throws()
+    {
+        var (manager, _, skm) = ConnectedWithSketchMgr();
+        skm.Setup(s => s.CreateArc(It.IsAny<double>(), It.IsAny<double>(), It.IsAny<double>(),
+                                   It.IsAny<double>(), It.IsAny<double>(), It.IsAny<double>(),
+                                   It.IsAny<double>(), It.IsAny<double>(), It.IsAny<double>(),
+                                   It.IsAny<short>()))
+           .Returns((SketchSegment?)null!);
+
+        Assert.Throws<SolidWorksApiException>(() =>
+            new SketchService(manager.Object).AddArc(0, 0, 0.01, 0, 0, 0.01, 1));
+    }
+}

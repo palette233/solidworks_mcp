@@ -1,0 +1,32 @@
+# Build outputs
+dist/
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.vs/
+*.nupkg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
+
+# Package artifacts
+artifacts/
+
+# Local product discovery workspace
+product/
+
+# Local Copilot memory files
+.github/memory/

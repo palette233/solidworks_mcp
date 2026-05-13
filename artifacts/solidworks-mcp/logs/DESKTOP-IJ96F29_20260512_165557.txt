@@ -1,4 +1,0 @@
-[INFO] 2026-05-12 16:55:57 App: Session log file: C:\Users\uenx\Documents\New project 3\artifacts\solidworks-mcp\logs\DESKTOP-IJ96F29_20260512_165557.txt
-[INFO] 2026-05-12 16:55:57 Hub: Hub pipe server starting on 'SolidWorksMcpHub'.
-[INFO] 2026-05-12 16:55:57 App: 托盘服务已启动。
-[INFO] 2026-05-12 17:40:08 Hub: Hub pipe server stopped.
