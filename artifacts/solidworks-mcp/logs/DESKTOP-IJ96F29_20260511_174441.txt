@@ -1,0 +1,348 @@
+[INFO] 2026-05-11 17:44:41 App: Session log file: C:\Users\uenx\Documents\New project 3\artifacts\solidworks-mcp\logs\DESKTOP-IJ96F29_20260511_174441.txt
+[INFO] 2026-05-11 17:44:41 Hub: Hub pipe server starting on 'SolidWorksMcpHub'.
+[INFO] 2026-05-11 17:44:42 App: 托盘服务已启动。
+[INFO] 2026-05-11 17:58:41 Hub: Inbound hub pipe connection established.
+[INFO] 2026-05-11 17:58:41 Hub: 客户端已连接: VS Code (PID 19308)
+[INFO] 2026-05-11 17:58:41 Hub: Hub handshake received from VS Code (PID 19308, session faee6572).
+[INFO] 2026-05-11 17:58:41 Hub: Hub ready sent for session faee6572.
+[INFO] 2026-05-11 17:58:41 Hub: Starting MCP session faee6572 for VS Code.
+[INFORMATION] 2026-05-11 17:58:41 Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+[INFORMATION] 2026-05-11 17:58:41 Microsoft.Hosting.Lifetime: Hosting environment: Production
+[INFORMATION] 2026-05-11 17:58:41 Microsoft.Hosting.Lifetime: Content root path: C:\Users\uenx\Documents\New project 3
+[INFORMATION] 2026-05-11 17:58:41 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0) method 'initialize' request handler called.
+[INFORMATION] 2026-05-11 17:58:41 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'logging/setLevel' request handler called.
+[INFORMATION] 2026-05-11 17:58:41 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/list' request handler called.
+[INFORMATION] 2026-05-11 17:58:41 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'initialize' request handler completed in 16.901ms.
+[INFORMATION] 2026-05-11 17:58:41 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'logging/setLevel' request handler completed in 1.8084ms.
+[INFORMATION] 2026-05-11 17:58:41 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/list' request handler completed in 8.248ms.
+[INFORMATION] 2026-05-11 21:18:34 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:18:34 COM: NewDocument started | payload={"type":"Part","templatePath":null}.
+[INFO] 2026-05-11 21:18:34 COM: EnsureConnected established the SolidWorks session.
+[INFO] 2026-05-11 21:18:34 COM: SolidWorks connection after connect: {"CompatibilityState":"planned-next-version","Summary":"The running SolidWorks session is one major release newer than the validated baseline (2025), so it still needs certification.","InteropVersion":"32.1.0","InteropRevisionMajor":32,"InteropMarketingYear":2024,"RuntimeVersion":{"RevisionNumber":"33.0.0","RevisionMajor":33,"ServicePack":0,"Hotfix":0,"MarketingYear":2025,"BuildNumbers":{"BaseVersion":"sw2025_SP0","CurrentVersion":"d240917.001","HotFixes":""},"ExecutablePath":"D:\\Program Files\\SOLIDWORKS Corp\\SOLIDWORKS"},"License":{"Value":0,"Name":"swLicenseType_Full","Description":"Full SolidWorks license."},"Notices":["Bridge interop baseline is revision 32 (2024) via SolidWorks.Interop.* 32.1.0.","Runtime revision is one major release newer than the interop baseline (32 -\u003E 33).","This next major version is in the planned certification window, but it is not yet declared fully validated in this repository.","SolidWorks 2025 is inside the targeted certification window for this bridge build. Connection and active workflow validation are supported, but this version is not the certified baseline yet."],"RuntimeSupport":{"MarketingYear":2025,"ProductSupportLevel":"targeted","Summary":"SolidWorks 2025 is inside the targeted certification window for the current P0 workflow line.","CapabilitySupport":[{"CapabilityId":"connection-and-introspection","SupportLevel":"targeted","Summary":"In active certification scope for the current compatibility line."},{"CapabilityId":"read-only-workflows","SupportLevel":"targeted","Summary":"In active certification scope for the current compatibility line."},{"CapabilityId":"high-risk-mutation-workflows","SupportLevel":"targeted","Summary":"In active certification scope for the current compatibility line."},{"CapabilityId":"direct-mutation-tools","SupportLevel":"targeted","Summary":"In active certification scope for the current compatibility line."}],"Notes":["Regressions on this version should be treated as active compatibility bugs until certification is complete."]},"ConnectionVersionCheck":{"Status":"targeted-2025","Message":"SolidWorks 2025 is inside the targeted certification window for this bridge build. Connection and active workflow validation are supported, but this version is not the certified baseline yet.","IsSupportedBaseline":false}}
+[INFO] 2026-05-11 21:18:34 COM: SolidWorks connect path: {"ConnectionSource":"current-session","RunningProcessDetected":true,"ProgId":"SldWorks.Application.33","Summary":"Reused the existing in-process SolidWorks COM session."}
+[WARN] 2026-05-11 21:18:34 COM: SolidWorks connection version check: targeted-2025 | SolidWorks 2025 is inside the targeted certification window for this bridge build. Connection and active workflow validation are supported, but this version is not the certified baseline yet.
+[INFO] 2026-05-11 21:18:34 COM: SolidWorks context after connect: {"CurrentLanguage":"chinese-simplified","ReferencePlanes":[{"Index":0,"Name":"\u524D\u89C6\u57FA\u51C6\u9762","SelectionName":"\u524D\u89C6\u57FA\u51C6\u9762","SelectionType":"PLANE"},{"Index":1,"Name":"\u4E0A\u89C6\u57FA\u51C6\u9762","SelectionName":"\u4E0A\u89C6\u57FA\u51C6\u9762","SelectionType":"PLANE"},{"Index":2,"Name":"\u53F3\u89C6\u57FA\u51C6\u9762","SelectionName":"\u53F3\u89C6\u57FA\u51C6\u9762","SelectionType":"PLANE"}]}
+[INFO] 2026-05-11 21:18:35 COM: NewDocument completed | payload={"Path":"","Title":"\u96F6\u4EF62","Type":1}.
+[INFORMATION] 2026-05-11 21:18:35 ModelContextProtocol.Server.McpServer: "new_document" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:18:35 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 1299.1529ms.
+[INFORMATION] 2026-05-11 21:18:36 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:18:36 COM: InsertSketch started.
+[ERROR] 2026-05-11 21:18:36 COM: InsertSketch failed.
+  SolidWorksBridge.SolidWorks.SolidWorksApiException: SolidWorks API 'ISketchManager.InsertSketch' failed: InsertSketch requires exactly one selected planar face or datum plane. | Context: selectedCount=0
+     at SolidWorksBridge.SolidWorks.SketchService.ValidateSketchHostSelection(IModelDoc2 doc)
+     at SolidWorksBridge.SolidWorks.SketchService.InsertSketch()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass6_0.<InvokeLoggedAsync>b__0()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass3_0`1.<InvokeAsync>b__0()
+  --- End of stack trace from previous location ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+[ERROR] 2026-05-11 21:18:36 ModelContextProtocol.Server.McpServer: "insert_sketch" threw an unhandled exception.
+  ModelContextProtocol.McpException: SolidWorks API 'ISketchManager.InsertSketch' failed: InsertSketch requires exactly one selected planar face or datum plane. | Context: selectedCount=0
+   ---> SolidWorksBridge.SolidWorks.SolidWorksApiException: SolidWorks API 'ISketchManager.InsertSketch' failed: InsertSketch requires exactly one selected planar face or datum plane. | Context: selectedCount=0
+     at SolidWorksBridge.SolidWorks.SketchService.ValidateSketchHostSelection(IModelDoc2 doc)
+     at SolidWorksBridge.SolidWorks.SketchService.InsertSketch()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass6_0.<InvokeLoggedAsync>b__0()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass3_0`1.<InvokeAsync>b__0()
+  --- End of stack trace from previous location ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+     --- End of inner exception stack trace ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+     at SolidWorksMcpApp.Tools.SketchTools.InsertSketch()
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunctionDescriptor.<>c__DisplayClass35_1.<<GetReturnParameterMarshaller>b__10>d.MoveNext()
+  --- End of stack trace from previous location ---
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunction.InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunction.InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
+     at ModelContextProtocol.Server.AIFunctionMcpServerTool.InvokeAsync(RequestContext`1 request, CancellationToken cancellationToken)
+     at ModelContextProtocol.Server.McpServerImpl.<>c__DisplayClass51_1.<<ConfigureTools>b__4>d.MoveNext()
+  --- End of stack trace from previous location ---
+     at ModelContextProtocol.Server.McpServerImpl.<>c__DisplayClass51_2.<<ConfigureTools>b__5>d.MoveNext()
+[INFORMATION] 2026-05-11 21:18:36 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 26.9615ms.
+[INFORMATION] 2026-05-11 21:18:41 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:18:41 COM: AddRectangle started | payload={"x1":0,"y1":0,"x2":0.03,"y2":0.03}.
+[INFO] 2026-05-11 21:18:41 COM: AddRectangle completed | payload={"Type":"Rectangle","X1":0,"Y1":0,"X2":0.03,"Y2":0.03}.
+[INFORMATION] 2026-05-11 21:18:41 ModelContextProtocol.Server.McpServer: "add_rectangle" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:18:41 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 599.3493ms.
+[INFORMATION] 2026-05-11 21:18:45 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:18:45 COM: Extrude started | payload={"depth":0.01,"endCondition":0,"flipDirection":false}.
+[INFO] 2026-05-11 21:18:46 COM: Extrude completed | payload={"Name":"\u51F8\u53F0-\u62C9\u4F381","Type":"Extrude"}.
+[INFORMATION] 2026-05-11 21:18:46 ModelContextProtocol.Server.McpServer: "extrude" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:18:46 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 438.5454ms.
+[INFORMATION] 2026-05-11 21:22:17 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:22:17 COM: SolidWorksConnect started.
+[INFO] 2026-05-11 21:22:17 COM: Connect requested.
+[INFO] 2026-05-11 21:22:17 COM: Connect reused the existing SolidWorks session.
+[INFO] 2026-05-11 21:22:17 COM: SolidWorks connection after connect: {"CompatibilityState":"planned-next-version","Summary":"The running SolidWorks session is one major release newer than the validated baseline (2025), so it still needs certification.","InteropVersion":"32.1.0","InteropRevisionMajor":32,"InteropMarketingYear":2024,"RuntimeVersion":{"RevisionNumber":"33.0.0","RevisionMajor":33,"ServicePack":0,"Hotfix":0,"MarketingYear":2025,"BuildNumbers":{"BaseVersion":"sw2025_SP0","CurrentVersion":"d240917.001","HotFixes":""},"ExecutablePath":"D:\\Program Files\\SOLIDWORKS Corp\\SOLIDWORKS"},"License":{"Value":0,"Name":"swLicenseType_Full","Description":"Full SolidWorks license."},"Notices":["Bridge interop baseline is revision 32 (2024) via SolidWorks.Interop.* 32.1.0.","Runtime revision is one major release newer than the interop baseline (32 -\u003E 33).","This next major version is in the planned certification window, but it is not yet declared fully validated in this repository.","SolidWorks 2025 is inside the targeted certification window for this bridge build. Connection and active workflow validation are supported, but this version is not the certified baseline yet."],"RuntimeSupport":{"MarketingYear":2025,"ProductSupportLevel":"targeted","Summary":"SolidWorks 2025 is inside the targeted certification window for the current P0 workflow line.","CapabilitySupport":[{"CapabilityId":"connection-and-introspection","SupportLevel":"targeted","Summary":"In active certification scope for the current compatibility line."},{"CapabilityId":"read-only-workflows","SupportLevel":"targeted","Summary":"In active certification scope for the current compatibility line."},{"CapabilityId":"high-risk-mutation-workflows","SupportLevel":"targeted","Summary":"In active certification scope for the current compatibility line."},{"CapabilityId":"direct-mutation-tools","SupportLevel":"targeted","Summary":"In active certification scope for the current compatibility line."}],"Notes":["Regressions on this version should be treated as active compatibility bugs until certification is complete."]},"ConnectionVersionCheck":{"Status":"targeted-2025","Message":"SolidWorks 2025 is inside the targeted certification window for this bridge build. Connection and active workflow validation are supported, but this version is not the certified baseline yet.","IsSupportedBaseline":false}}
+[INFO] 2026-05-11 21:22:17 COM: SolidWorks connect path: {"ConnectionSource":"current-session","RunningProcessDetected":true,"ProgId":"SldWorks.Application.33","Summary":"Reused the existing in-process SolidWorks COM session."}
+[WARN] 2026-05-11 21:22:17 COM: SolidWorks connection version check: targeted-2025 | SolidWorks 2025 is inside the targeted certification window for this bridge build. Connection and active workflow validation are supported, but this version is not the certified baseline yet.
+[INFO] 2026-05-11 21:22:17 COM: SolidWorks context after connect: {"CurrentLanguage":"chinese-simplified","ReferencePlanes":[{"Index":0,"Name":"\u524D\u89C6\u57FA\u51C6\u9762","SelectionName":"\u524D\u89C6\u57FA\u51C6\u9762","SelectionType":"PLANE"},{"Index":1,"Name":"\u4E0A\u89C6\u57FA\u51C6\u9762","SelectionName":"\u4E0A\u89C6\u57FA\u51C6\u9762","SelectionType":"PLANE"},{"Index":2,"Name":"\u53F3\u89C6\u57FA\u51C6\u9762","SelectionName":"\u53F3\u89C6\u57FA\u51C6\u9762","SelectionType":"PLANE"}]}
+[INFO] 2026-05-11 21:22:17 COM: SolidWorksConnect completed | payload={"connected":true,"connectionAttempt":{"ConnectionSource":"current-session","RunningProcessDetected":true,"ProgId":"SldWorks.Application.33","Summary":"Reused the existing in-process SolidWorks COM session."},"compatibility":{"CompatibilityState":"planned-next-version","Summary":"The running SolidWorks session is one major release newer than the validated baseline (2025), so it still needs certification.","InteropVersion":"32.1.0","InteropRevisionMajor":32,"InteropMarketingYear":2024,"RuntimeVersion":{"RevisionNumber":"33.0.0","RevisionMajor":33,"ServicePack":0,"Hotfix":0,"MarketingYear":2025,"BuildNumbers":{"BaseVersion":"sw2025_SP0","CurrentVersion":"d240917.001","HotFixes":""},"ExecutablePath":"D:\\Program Files\\SOLIDWORKS Corp\\SOLIDWORKS"},"License":{"Value":0,"Name":"swLicenseType_Full","Description":"Full SolidWorks license."},"Notices":["Bridge interop baseline is revision 32 (2024) via SolidWorks.Interop.* 32.1.0.","Runtime revision is one major release newer than the interop baseline (32 -\u003E 33).","This next major version is in the planned certification window, but it is not yet declared fully validated in this repository.","SolidWorks 2025 is inside the targeted cer...(truncated).
+[INFORMATION] 2026-05-11 21:22:17 ModelContextProtocol.Server.McpServer: "solid_works_connect" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:22:17 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 217.1183ms.
+[INFORMATION] 2026-05-11 21:22:20 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:22:20 COM: GetActiveDocument started.
+[INFO] 2026-05-11 21:22:20 COM: GetActiveDocument completed | payload={"Path":"","Title":"\u96F6\u4EF62","Type":1}.
+[INFORMATION] 2026-05-11 21:22:20 ModelContextProtocol.Server.McpServer: "get_active_document" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:22:20 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 14.1829ms.
+[INFORMATION] 2026-05-11 21:22:22 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:22:22 COM: ListFeatureTree started.
+[INFO] 2026-05-11 21:22:23 COM: ListFeatureTree completed | payload=[{"Index":0,"Name":"\u6536\u85CF","TypeName":"FavoriteFolder","IsSketch":false,"HasChildren":false},{"Index":1,"Name":"\u5386\u53F2\u8BB0\u5F55","TypeName":"HistoryFolder","IsSketch":false,"HasChildren":false},{"Index":2,"Name":"\u9009\u62E9\u96C6","TypeName":"SelectionSetFolder","IsSketch":false,"HasChildren":false},{"Index":3,"Name":"\u4F20\u611F\u5668","TypeName":"SensorFolder","IsSketch":false,"HasChildren":false},{"Index":4,"Name":"\u8BBE\u8BA1\u6D3B\u9875\u5939","TypeName":"DocsFolder","IsSketch":false,"HasChildren":false},{"Index":5,"Name":"\u6CE8\u89E3","TypeName":"DetailCabinet","IsSketch":false,"HasChildren":false},{"Index":6,"Name":"\u6807\u6CE8","TypeName":"InkMarkupFolder","IsSketch":false,"HasChildren":false},{"Index":7,"Name":"\u5149\u6E90\u4E0E\u76F8\u673A","TypeName":"EnvFolder","IsSketch":false,"HasChildren":false},{"Index":8,"Name":"\u5B9E\u4F53","TypeName":"SolidBodyFolder","IsSketch":false,"HasChildren":false},{"Index":9,"Name":"\u66F2\u9762\u5B9E\u4F53","TypeName":"SurfaceBodyFolder","IsSketch":false,"HasChildren":false},{"Index":10,"Name":"\u5907\u6CE8","TypeName":"CommentsFolder","IsSketch":false,"HasChildren":false},{"Index":11,"Name":"\u65B9\u7A0B\u5F0F","...(truncated).
+[INFORMATION] 2026-05-11 21:22:23 ModelContextProtocol.Server.McpServer: "list_feature_tree" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:22:23 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 228.471ms.
+[INFORMATION] 2026-05-11 21:22:38 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:22:38 COM: DeleteFeatureByName started | payload={"featureName":"\u51F8\u53F0-\u62C9\u4F381"}.
+[INFO] 2026-05-11 21:22:38 COM: DeleteFeatureByName completed | payload={"Success":true,"Message":"Deleted feature \u0027\u51F8\u53F0-\u62C9\u4F381\u0027.","EntityType":null,"EntityIndex":null,"ComponentName":null,"Box":null}.
+[INFORMATION] 2026-05-11 21:22:38 ModelContextProtocol.Server.McpServer: "delete_feature_by_name" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:22:38 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 335.7887ms.
+[INFORMATION] 2026-05-11 21:22:46 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:22:46 COM: DeleteFeatureByName started | payload={"featureName":"\u8349\u56FE1"}.
+[INFO] 2026-05-11 21:22:46 COM: DeleteFeatureByName completed | payload={"Success":true,"Message":"Deleted feature \u0027\u8349\u56FE1\u0027.","EntityType":null,"EntityIndex":null,"ComponentName":null,"Box":null}.
+[INFORMATION] 2026-05-11 21:22:46 ModelContextProtocol.Server.McpServer: "delete_feature_by_name" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:22:46 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 322.3388ms.
+[INFORMATION] 2026-05-11 21:22:51 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:22:51 COM: SelectByName started | payload={"name":"\u524D\u89C6\u57FA\u51C6\u9762","selType":"swSelDATUMPLANES"}.
+[INFO] 2026-05-11 21:22:51 COM: SelectByName completed | payload={"Success":true,"Message":"Selected \u0027\u524D\u89C6\u57FA\u51C6\u9762\u0027 using selection type \u0027PLANE\u0027 (requested \u0027swSelDATUMPLANES\u0027)","EntityType":null,"EntityIndex":null,"ComponentName":null,"Box":null}.
+[INFORMATION] 2026-05-11 21:22:51 ModelContextProtocol.Server.McpServer: "select_by_name" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:22:51 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 65.4307ms.
+[INFORMATION] 2026-05-11 21:22:52 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:22:52 COM: InsertSketch started.
+[INFO] 2026-05-11 21:22:53 COM: InsertSketch completed.
+[INFORMATION] 2026-05-11 21:22:53 ModelContextProtocol.Server.McpServer: "insert_sketch" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:22:53 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 557.7067ms.
+[INFORMATION] 2026-05-11 21:23:17 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:23:17 COM: AddRectangle started | payload={"x1":0,"y1":0,"x2":0.04,"y2":0.04}.
+[INFO] 2026-05-11 21:23:17 COM: AddRectangle completed | payload={"Type":"Rectangle","X1":0,"Y1":0,"X2":0.04,"Y2":0.04}.
+[INFORMATION] 2026-05-11 21:23:17 ModelContextProtocol.Server.McpServer: "add_rectangle" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:23:17 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 334.4545ms.
+[INFORMATION] 2026-05-11 21:23:22 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:23:22 COM: FinishSketch started.
+[INFO] 2026-05-11 21:23:22 COM: FinishSketch completed.
+[INFORMATION] 2026-05-11 21:23:22 ModelContextProtocol.Server.McpServer: "finish_sketch" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:23:22 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 214.3482ms.
+[INFORMATION] 2026-05-11 21:23:26 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:23:26 COM: Extrude started | payload={"depth":0.01,"endCondition":0,"flipDirection":false}.
+[INFO] 2026-05-11 21:23:26 COM: Extrude completed | payload={"Name":"\u51F8\u53F0-\u62C9\u4F382","Type":"Extrude"}.
+[INFORMATION] 2026-05-11 21:23:26 ModelContextProtocol.Server.McpServer: "extrude" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:23:26 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 193.6283ms.
+[INFORMATION] 2026-05-11 21:23:40 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:23:40 COM: DiagnoseActiveDocumentHealth started | payload={"forceRebuild":true,"topOnly":false,"saveDocument":false}.
+[INFO] 2026-05-11 21:23:40 Workflow: DiagnoseActiveDocumentHealth | stage=preconditions.active_document | boundary=started
+[INFO] 2026-05-11 21:23:40 Workflow: DiagnoseActiveDocumentHealth | stage=preconditions.active_document | boundary=completed | path=
+[INFO] 2026-05-11 21:23:40 Workflow: DiagnoseActiveDocumentHealth | stage=preconditions.edit_state | boundary=started
+[INFO] 2026-05-11 21:23:40 Workflow: DiagnoseActiveDocumentHealth | stage=preconditions.edit_state | boundary=completed | mode=none
+[INFO] 2026-05-11 21:23:40 Workflow: DiagnoseActiveDocumentHealth | stage=verification.feature_diagnostics_before_rebuild | boundary=started
+[INFO] 2026-05-11 21:23:40 Workflow: DiagnoseActiveDocumentHealth | stage=verification.feature_diagnostics_before_rebuild | boundary=completed | errors=0 | warnings=0 | correlatedIssues=0
+[INFO] 2026-05-11 21:23:40 Workflow: DiagnoseActiveDocumentHealth | stage=mutation.rebuild | boundary=started
+[INFO] 2026-05-11 21:23:40 Workflow: DiagnoseActiveDocumentHealth | stage=mutation.rebuild | boundary=completed | attempted=true | needsRebuildAfter=false
+[INFO] 2026-05-11 21:23:40 Workflow: DiagnoseActiveDocumentHealth | stage=verification.feature_diagnostics_after_rebuild | boundary=started
+[INFO] 2026-05-11 21:23:41 Workflow: DiagnoseActiveDocumentHealth | stage=verification.feature_diagnostics_after_rebuild | boundary=completed | errors=0 | warnings=0 | correlatedIssues=0
+[INFO] 2026-05-11 21:23:41 Workflow: DiagnoseActiveDocumentHealth | stage=verification.sensor_health_checks | boundary=started
+[INFO] 2026-05-11 21:23:41 Workflow: DiagnoseActiveDocumentHealth | stage=verification.sensor_health_checks | boundary=completed | sensors=0 | enabled=0 | alerting=0 | status=completed
+[INFO] 2026-05-11 21:23:41 Workflow: DiagnoseActiveDocumentHealth | stage=verification.save_document | boundary=skipped | saveDocument=false
+[INFO] 2026-05-11 21:23:41 Workflow: DiagnoseActiveDocumentHealth | stage=final | boundary=completed | status=completed | actionableIssues=0 | resolvedByRebuild=0 | sensorAlerts=0 | sensorsStatus=completed
+[INFO] 2026-05-11 21:23:41 COM: DiagnoseActiveDocumentHealth completed | payload={"ActiveDocument":{"Path":"","Title":"\u96F6\u4EF62","Type":1},"EditState":{"IsEditing":false,"EditMode":"none","CanReadFeatureTree":true,"CanDeleteFeatures":true},"FeatureDiagnosticsBeforeRebuild":{"FeatureDiagnostics":[{"Index":0,"Name":"\u6536\u85CF","TypeName":"FavoriteFolder","IsSketch":false,"HasChildren":false,"HasIssue":false,"ErrorCode":0,"IsWarning":false,"ErrorName":"swFeatureErrorNone","ErrorDescription":"No feature error.","AppearsInWhatsWrong":false,"TargetContext":null},{"Index":1,"Name":"\u5386\u53F2\u8BB0\u5F55","TypeName":"HistoryFolder","IsSketch":false,"HasChildren":false,"HasIssue":false,"ErrorCode":0,"IsWarning":false,"ErrorName":"swFeatureErrorNone","ErrorDescription":"No feature error.","AppearsInWhatsWrong":false,"TargetContext":null},{"Index":2,"Name":"\u9009\u62E9\u96C6","TypeName":"SelectionSetFolder","IsSketch":false,"HasChildren":false,"HasIssue":false,"ErrorCode":0,"IsWarning":false,"ErrorName":"swFeatureErrorNone","ErrorDescription":"No feature error.","AppearsInWhatsWrong":false,"TargetContext":null},{"Index":3,"Name":"\u4F20\u611F\u5668","TypeName":"SensorFolder","IsSketch":false,"HasChildren":false,"HasIssue":false,"ErrorCode":0,"IsWarning":false,...(truncated).
+[INFORMATION] 2026-05-11 21:23:41 ModelContextProtocol.Server.McpServer: "diagnose_active_document_health" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:23:41 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 1252.5613ms.
+[INFORMATION] 2026-05-11 21:49:42 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFORMATION] 2026-05-11 21:49:42 ModelContextProtocol.Server.McpServer: "ping" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:49:42 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 1.0044ms.
+[INFORMATION] 2026-05-11 21:50:02 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:50:02 COM: SolidWorksConnect started.
+[INFO] 2026-05-11 21:50:02 COM: Connect requested.
+[INFO] 2026-05-11 21:50:02 COM: Connect refreshed the SolidWorks session.
+[INFO] 2026-05-11 21:50:02 COM: SolidWorks connection after connect: {"CompatibilityState":"planned-next-version","Summary":"The running SolidWorks session is one major release newer than the validated baseline (2025), so it still needs certification.","InteropVersion":"32.1.0","InteropRevisionMajor":32,"InteropMarketingYear":2024,"RuntimeVersion":{"RevisionNumber":"33.0.0","RevisionMajor":33,"ServicePack":0,"Hotfix":0,"MarketingYear":2025,"BuildNumbers":{"BaseVersion":"sw2025_SP0","CurrentVersion":"d240917.001","HotFixes":""},"ExecutablePath":"D:\\Program Files\\SOLIDWORKS Corp\\SOLIDWORKS"},"License":{"Value":0,"Name":"swLicenseType_Full","Description":"Full SolidWorks license."},"Notices":["Bridge interop baseline is revision 32 (2024) via SolidWorks.Interop.* 32.1.0.","Runtime revision is one major release newer than the interop baseline (32 -\u003E 33).","This next major version is in the planned certification window, but it is not yet declared fully validated in this repository.","SolidWorks 2025 is inside the targeted certification window for this bridge build. Connection and active workflow validation are supported, but this version is not the certified baseline yet."],"RuntimeSupport":{"MarketingYear":2025,"ProductSupportLevel":"targeted","Summary":"SolidWorks 2025 is inside the targeted certification window for the current P0 workflow line.","CapabilitySupport":[{"CapabilityId":"connection-and-introspection","SupportLevel":"targeted","Summary":"In active certification scope for the current compatibility line."},{"CapabilityId":"read-only-workflows","SupportLevel":"targeted","Summary":"In active certification scope for the current compatibility line."},{"CapabilityId":"high-risk-mutation-workflows","SupportLevel":"targeted","Summary":"In active certification scope for the current compatibility line."},{"CapabilityId":"direct-mutation-tools","SupportLevel":"targeted","Summary":"In active certification scope for the current compatibility line."}],"Notes":["Regressions on this version should be treated as active compatibility bugs until certification is complete."]},"ConnectionVersionCheck":{"Status":"targeted-2025","Message":"SolidWorks 2025 is inside the targeted certification window for this bridge build. Connection and active workflow validation are supported, but this version is not the certified baseline yet.","IsSupportedBaseline":false}}
+[INFO] 2026-05-11 21:50:02 COM: SolidWorks connect path: {"ConnectionSource":"current-session","RunningProcessDetected":true,"ProgId":"SldWorks.Application.33","Summary":"Reused the existing in-process SolidWorks COM session."}
+[WARN] 2026-05-11 21:50:02 COM: SolidWorks connection version check: targeted-2025 | SolidWorks 2025 is inside the targeted certification window for this bridge build. Connection and active workflow validation are supported, but this version is not the certified baseline yet.
+[INFO] 2026-05-11 21:50:02 COM: SolidWorks context after connect: {"CurrentLanguage":"chinese-simplified","ReferencePlanes":[]}
+[INFO] 2026-05-11 21:50:02 COM: SolidWorksConnect completed | payload={"connected":true,"connectionAttempt":{"ConnectionSource":"current-session","RunningProcessDetected":true,"ProgId":"SldWorks.Application.33","Summary":"Reused the existing in-process SolidWorks COM session."},"compatibility":{"CompatibilityState":"planned-next-version","Summary":"The running SolidWorks session is one major release newer than the validated baseline (2025), so it still needs certification.","InteropVersion":"32.1.0","InteropRevisionMajor":32,"InteropMarketingYear":2024,"RuntimeVersion":{"RevisionNumber":"33.0.0","RevisionMajor":33,"ServicePack":0,"Hotfix":0,"MarketingYear":2025,"BuildNumbers":{"BaseVersion":"sw2025_SP0","CurrentVersion":"d240917.001","HotFixes":""},"ExecutablePath":"D:\\Program Files\\SOLIDWORKS Corp\\SOLIDWORKS"},"License":{"Value":0,"Name":"swLicenseType_Full","Description":"Full SolidWorks license."},"Notices":["Bridge interop baseline is revision 32 (2024) via SolidWorks.Interop.* 32.1.0.","Runtime revision is one major release newer than the interop baseline (32 -\u003E 33).","This next major version is in the planned certification window, but it is not yet declared fully validated in this repository.","SolidWorks 2025 is inside the targeted cer...(truncated).
+[INFORMATION] 2026-05-11 21:50:02 ModelContextProtocol.Server.McpServer: "solid_works_connect" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:50:02 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 66.5404ms.
+[INFORMATION] 2026-05-11 21:50:50 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:50:50 COM: GetActiveDocument started.
+[INFO] 2026-05-11 21:50:51 COM: GetActiveDocument completed.
+[INFORMATION] 2026-05-11 21:50:51 ModelContextProtocol.Server.McpServer: "get_active_document" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:50:51 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 9.3088ms.
+[INFORMATION] 2026-05-11 21:52:13 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:52:13 COM: NewDocument started | payload={"type":"Part","templatePath":null}.
+[INFO] 2026-05-11 21:52:18 COM: NewDocument completed | payload={"Path":"","Title":"\u96F6\u4EF61","Type":1}.
+[INFORMATION] 2026-05-11 21:52:18 ModelContextProtocol.Server.McpServer: "new_document" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:52:18 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 5039.5718ms.
+[INFORMATION] 2026-05-11 21:53:10 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:53:10 COM: SelectByName started | payload={"name":"Front Plane","selType":"PLANE"}.
+[INFO] 2026-05-11 21:53:11 COM: SelectByName completed | payload={"Success":true,"Message":"Selected \u0027\u524D\u89C6\u57FA\u51C6\u9762\u0027 via localized fallback for \u0027Front Plane\u0027 (type \u0027PLANE\u0027)","EntityType":null,"EntityIndex":null,"ComponentName":null,"Box":null}.
+[INFORMATION] 2026-05-11 21:53:11 ModelContextProtocol.Server.McpServer: "select_by_name" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:53:11 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 208.6928ms.
+[INFORMATION] 2026-05-11 21:53:41 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:53:41 COM: InsertSketch started.
+[INFO] 2026-05-11 21:53:41 COM: InsertSketch completed.
+[INFORMATION] 2026-05-11 21:53:41 ModelContextProtocol.Server.McpServer: "insert_sketch" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:53:41 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 568.1468ms.
+[INFORMATION] 2026-05-11 21:54:35 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:54:35 COM: AddPolygon started | payload={"cx":0,"cy":0,"x":0.012,"y":0,"sides":6,"inscribed":true}.
+[INFO] 2026-05-11 21:54:35 COM: AddPolygon completed | payload={"Type":"Polygon","X1":0,"Y1":0,"X2":0.012,"Y2":0}.
+[INFORMATION] 2026-05-11 21:54:35 ModelContextProtocol.Server.McpServer: "add_polygon" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:54:35 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 250.7038ms.
+[INFORMATION] 2026-05-11 21:55:08 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:55:08 COM: FinishSketch started.
+[INFO] 2026-05-11 21:55:08 COM: FinishSketch completed.
+[INFORMATION] 2026-05-11 21:55:08 ModelContextProtocol.Server.McpServer: "finish_sketch" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:55:08 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 113.9737ms.
+[INFORMATION] 2026-05-11 21:55:29 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:55:29 COM: Extrude started | payload={"depth":0.008,"endCondition":0,"flipDirection":false}.
+[INFO] 2026-05-11 21:55:30 COM: Extrude completed | payload={"Name":"\u51F8\u53F0-\u62C9\u4F381","Type":"Extrude"}.
+[INFORMATION] 2026-05-11 21:55:30 ModelContextProtocol.Server.McpServer: "extrude" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:55:30 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 837.3306ms.
+[INFORMATION] 2026-05-11 21:56:21 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:56:21 COM: ListEntities started | payload={"entityType":"Face","componentName":null}.
+[INFO] 2026-05-11 21:56:21 COM: ListEntities completed | payload=[{"Index":0,"EntityType":0,"ComponentName":null,"Box":[0.00600000000000012,-0.010392304845413192,-0.008,0.012,0,0]},{"Index":1,"EntityType":0,"ComponentName":null,"Box":[-0.005999999999999903,-0.010392304845413317,-0.008,0.00600000000000012,-0.010392304845413192,0]},{"Index":2,"EntityType":0,"ComponentName":null,"Box":[-0.011999999999999999,-0.010392304845413317,-0.008,-0.005999999999999903,-8.37955521322352E-17,0]},{"Index":3,"EntityType":0,"ComponentName":null,"Box":[-0.011999999999999999,-8.37955521322352E-17,-0.008,-0.006000000000000047,0.010392304845413237,0]},{"Index":4,"EntityType":0,"ComponentName":null,"Box":[-0.006000000000000047,0.010392304845413237,-0.008,0.005999999999999976,0.010392304845413277,0]},{"Index":5,"EntityType":0,"ComponentName":null,"Box":[0.005999999999999976,0,-0.008,0.012,0.010392304845413277,0]},{"Index":6,"EntityType":0,"ComponentName":null,"Box":[-0.011999999999999999,-0.010392304845413317,-0.008,0.012,0.010392304845413277,-0.008]},{"Index":7,"EntityType":0,"ComponentName":null,"Box":[-0.011999999999999999,-0.010392304845413317,0,0.012,0.010392304845413277,0]}].
+[INFORMATION] 2026-05-11 21:56:21 ModelContextProtocol.Server.McpServer: "list_entities" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:56:21 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 353.2098ms.
+[INFORMATION] 2026-05-11 21:57:13 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:57:13 COM: SelectEntity started | payload={"entityType":"Face","index":7,"append":false,"mark":0,"componentName":null}.
+[INFO] 2026-05-11 21:57:13 COM: SelectEntity completed | payload={"Success":true,"Message":"Selected Face at index 7","EntityType":0,"EntityIndex":7,"ComponentName":null,"Box":[-0.011999999999999999,-0.010392304845413317,0,0.012,0.010392304845413277,0]}.
+[INFORMATION] 2026-05-11 21:57:13 ModelContextProtocol.Server.McpServer: "select_entity" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:57:13 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 515.0324ms.
+[INFORMATION] 2026-05-11 21:57:37 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:57:37 COM: InsertSketch started.
+[INFO] 2026-05-11 21:57:38 COM: InsertSketch completed.
+[INFORMATION] 2026-05-11 21:57:38 ModelContextProtocol.Server.McpServer: "insert_sketch" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:57:38 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 576.0874ms.
+[INFORMATION] 2026-05-11 21:58:41 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:58:41 COM: AddCircle started | payload={"cx":0,"cy":0,"radius":0.005}.
+[INFO] 2026-05-11 21:58:41 COM: AddCircle completed | payload={"Type":"Circle","X1":0,"Y1":0,"X2":0.005,"Y2":0}.
+[INFORMATION] 2026-05-11 21:58:41 ModelContextProtocol.Server.McpServer: "add_circle" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:58:41 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 86.6373ms.
+[INFORMATION] 2026-05-11 21:59:09 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:59:09 COM: FinishSketch started.
+[INFO] 2026-05-11 21:59:10 COM: FinishSketch completed.
+[INFORMATION] 2026-05-11 21:59:10 ModelContextProtocol.Server.McpServer: "finish_sketch" completed. IsError = False.
+[INFORMATION] 2026-05-11 21:59:10 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 145.5956ms.
+[INFORMATION] 2026-05-11 21:59:57 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:59:57 COM: Extrude started | payload={"depth":0.01,"endCondition":1,"flipDirection":false}.
+[INFORMATION] 2026-05-11 21:59:57 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 21:59:57 COM: Extrude started | payload={"depth":0.008,"endCondition":1,"flipDirection":false}.
+[ERROR] 2026-05-11 21:59:57 COM: Extrude failed | payload={"depth":0.01,"endCondition":1,"flipDirection":false}.
+  SolidWorksBridge.SolidWorks.SolidWorksApiException: SolidWorks API 'IFeatureManager.FeatureExtrusion3' failed: SolidWorks did not change the solid body during extrude. | Context: beforeBody=bodies=1; faces=8, edges=18, vertices=12, box=[-0.012, -0.010392305, -0.008] -> [0.012, 0.010392305, 0], afterBody=bodies=1; faces=8, edges=18, vertices=12, box=[-0.012, -0.010392305, -0.008] -> [0.012, 0.010392305, 0], feature=凸台-拉伸2 (ICE)
+     at SolidWorksBridge.SolidWorks.FeatureService.Extrude(Double depth, EndCondition endCondition, Boolean flipDirection)
+     at SolidWorksMcpApp.Tools.FeatureTools.<>c__DisplayClass3_0.<Extrude>b__0()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass3_0`1.<InvokeAsync>b__0()
+  --- End of stack trace from previous location ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+[ERROR] 2026-05-11 21:59:57 ModelContextProtocol.Server.McpServer: "extrude" threw an unhandled exception.
+  ModelContextProtocol.McpException: SolidWorks API 'IFeatureManager.FeatureExtrusion3' failed: SolidWorks did not change the solid body during extrude. | Context: beforeBody=bodies=1; faces=8, edges=18, vertices=12, box=[-0.012, -0.010392305, -0.008] -> [0.012, 0.010392305, 0], afterBody=bodies=1; faces=8, edges=18, vertices=12, box=[-0.012, -0.010392305, -0.008] -> [0.012, 0.010392305, 0], feature=凸台-拉伸2 (ICE)
+   ---> SolidWorksBridge.SolidWorks.SolidWorksApiException: SolidWorks API 'IFeatureManager.FeatureExtrusion3' failed: SolidWorks did not change the solid body during extrude. | Context: beforeBody=bodies=1; faces=8, edges=18, vertices=12, box=[-0.012, -0.010392305, -0.008] -> [0.012, 0.010392305, 0], afterBody=bodies=1; faces=8, edges=18, vertices=12, box=[-0.012, -0.010392305, -0.008] -> [0.012, 0.010392305, 0], feature=凸台-拉伸2 (ICE)
+     at SolidWorksBridge.SolidWorks.FeatureService.Extrude(Double depth, EndCondition endCondition, Boolean flipDirection)
+     at SolidWorksMcpApp.Tools.FeatureTools.<>c__DisplayClass3_0.<Extrude>b__0()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass3_0`1.<InvokeAsync>b__0()
+  --- End of stack trace from previous location ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+     --- End of inner exception stack trace ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+     at SolidWorksMcpApp.Tools.FeatureTools.Extrude(Double depth, Int32 endCondition, Boolean flipDirection)
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunctionDescriptor.<>c__DisplayClass35_1.<<GetReturnParameterMarshaller>b__10>d.MoveNext()
+  --- End of stack trace from previous location ---
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunction.InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunction.InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
+     at ModelContextProtocol.Server.AIFunctionMcpServerTool.InvokeAsync(RequestContext`1 request, CancellationToken cancellationToken)
+     at ModelContextProtocol.Server.McpServerImpl.<>c__DisplayClass51_1.<<ConfigureTools>b__4>d.MoveNext()
+  --- End of stack trace from previous location ---
+     at ModelContextProtocol.Server.McpServerImpl.<>c__DisplayClass51_2.<<ConfigureTools>b__5>d.MoveNext()
+[INFORMATION] 2026-05-11 21:59:57 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 181.6095ms.
+[ERROR] 2026-05-11 21:59:57 COM: Extrude failed | payload={"depth":0.008,"endCondition":1,"flipDirection":false}.
+  SolidWorksBridge.SolidWorks.SolidWorksApiException: SolidWorks API 'IFeatureManager.FeatureExtrusion3' failed: SolidWorks did not create a new extrude feature. | Context: beforeFeature=凸台-拉伸2 (ICE), afterFeature=凸台-拉伸2 (ICE), depth=0.008
+     at SolidWorksBridge.SolidWorks.FeatureService.Extrude(Double depth, EndCondition endCondition, Boolean flipDirection)
+     at SolidWorksMcpApp.Tools.FeatureTools.<>c__DisplayClass3_0.<Extrude>b__0()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass3_0`1.<InvokeAsync>b__0()
+  --- End of stack trace from previous location ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+[ERROR] 2026-05-11 21:59:57 ModelContextProtocol.Server.McpServer: "extrude" threw an unhandled exception.
+  ModelContextProtocol.McpException: SolidWorks API 'IFeatureManager.FeatureExtrusion3' failed: SolidWorks did not create a new extrude feature. | Context: beforeFeature=凸台-拉伸2 (ICE), afterFeature=凸台-拉伸2 (ICE), depth=0.008
+   ---> SolidWorksBridge.SolidWorks.SolidWorksApiException: SolidWorks API 'IFeatureManager.FeatureExtrusion3' failed: SolidWorks did not create a new extrude feature. | Context: beforeFeature=凸台-拉伸2 (ICE), afterFeature=凸台-拉伸2 (ICE), depth=0.008
+     at SolidWorksBridge.SolidWorks.FeatureService.Extrude(Double depth, EndCondition endCondition, Boolean flipDirection)
+     at SolidWorksMcpApp.Tools.FeatureTools.<>c__DisplayClass3_0.<Extrude>b__0()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass3_0`1.<InvokeAsync>b__0()
+  --- End of stack trace from previous location ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+     --- End of inner exception stack trace ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+     at SolidWorksMcpApp.Tools.FeatureTools.Extrude(Double depth, Int32 endCondition, Boolean flipDirection)
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunctionDescriptor.<>c__DisplayClass35_1.<<GetReturnParameterMarshaller>b__10>d.MoveNext()
+  --- End of stack trace from previous location ---
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunction.InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunction.InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
+     at ModelContextProtocol.Server.AIFunctionMcpServerTool.InvokeAsync(RequestContext`1 request, CancellationToken cancellationToken)
+     at ModelContextProtocol.Server.McpServerImpl.<>c__DisplayClass51_1.<<ConfigureTools>b__4>d.MoveNext()
+  --- End of stack trace from previous location ---
+     at ModelContextProtocol.Server.McpServerImpl.<>c__DisplayClass51_2.<<ConfigureTools>b__5>d.MoveNext()
+[INFORMATION] 2026-05-11 21:59:57 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 361.752ms.
+[INFORMATION] 2026-05-11 22:00:35 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 22:00:35 COM: Extrude started | payload={"depth":0.01,"endCondition":1,"flipDirection":true}.
+[ERROR] 2026-05-11 22:00:35 COM: Extrude failed | payload={"depth":0.01,"endCondition":1,"flipDirection":true}.
+  SolidWorksBridge.SolidWorks.SolidWorksApiException: SolidWorks API 'IFeatureManager.FeatureExtrusion3' failed: SolidWorks did not create a new extrude feature. | Context: beforeFeature=凸台-拉伸2 (ICE), afterFeature=凸台-拉伸2 (ICE), depth=0.01
+     at SolidWorksBridge.SolidWorks.FeatureService.Extrude(Double depth, EndCondition endCondition, Boolean flipDirection)
+     at SolidWorksMcpApp.Tools.FeatureTools.<>c__DisplayClass3_0.<Extrude>b__0()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass3_0`1.<InvokeAsync>b__0()
+  --- End of stack trace from previous location ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+[ERROR] 2026-05-11 22:00:35 ModelContextProtocol.Server.McpServer: "extrude" threw an unhandled exception.
+  ModelContextProtocol.McpException: SolidWorks API 'IFeatureManager.FeatureExtrusion3' failed: SolidWorks did not create a new extrude feature. | Context: beforeFeature=凸台-拉伸2 (ICE), afterFeature=凸台-拉伸2 (ICE), depth=0.01
+   ---> SolidWorksBridge.SolidWorks.SolidWorksApiException: SolidWorks API 'IFeatureManager.FeatureExtrusion3' failed: SolidWorks did not create a new extrude feature. | Context: beforeFeature=凸台-拉伸2 (ICE), afterFeature=凸台-拉伸2 (ICE), depth=0.01
+     at SolidWorksBridge.SolidWorks.FeatureService.Extrude(Double depth, EndCondition endCondition, Boolean flipDirection)
+     at SolidWorksMcpApp.Tools.FeatureTools.<>c__DisplayClass3_0.<Extrude>b__0()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass3_0`1.<InvokeAsync>b__0()
+  --- End of stack trace from previous location ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+     --- End of inner exception stack trace ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+     at SolidWorksMcpApp.Tools.FeatureTools.Extrude(Double depth, Int32 endCondition, Boolean flipDirection)
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunctionDescriptor.<>c__DisplayClass35_1.<<GetReturnParameterMarshaller>b__10>d.MoveNext()
+  --- End of stack trace from previous location ---
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunction.InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunction.InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
+     at ModelContextProtocol.Server.AIFunctionMcpServerTool.InvokeAsync(RequestContext`1 request, CancellationToken cancellationToken)
+     at ModelContextProtocol.Server.McpServerImpl.<>c__DisplayClass51_1.<<ConfigureTools>b__4>d.MoveNext()
+  --- End of stack trace from previous location ---
+     at ModelContextProtocol.Server.McpServerImpl.<>c__DisplayClass51_2.<<ConfigureTools>b__5>d.MoveNext()
+[INFORMATION] 2026-05-11 22:00:35 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 61.6951ms.
+[INFORMATION] 2026-05-11 22:01:25 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 22:01:25 COM: NewDocument started | payload={"type":"Part","templatePath":null}.
+[INFO] 2026-05-11 22:01:26 COM: NewDocument completed | payload={"Path":"","Title":"\u96F6\u4EF62","Type":1}.
+[INFORMATION] 2026-05-11 22:01:26 ModelContextProtocol.Server.McpServer: "new_document" completed. IsError = False.
+[INFORMATION] 2026-05-11 22:01:26 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 886.112ms.
+[INFORMATION] 2026-05-11 22:02:01 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 22:02:01 COM: SelectByName started | payload={"name":"Front Plane","selType":"PLANE"}.
+[INFO] 2026-05-11 22:02:01 COM: SelectByName completed | payload={"Success":true,"Message":"Selected \u0027\u524D\u89C6\u57FA\u51C6\u9762\u0027 via localized fallback for \u0027Front Plane\u0027 (type \u0027PLANE\u0027)","EntityType":null,"EntityIndex":null,"ComponentName":null,"Box":null}.
+[INFORMATION] 2026-05-11 22:02:01 ModelContextProtocol.Server.McpServer: "select_by_name" completed. IsError = False.
+[INFORMATION] 2026-05-11 22:02:01 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 178.5363ms.
+[INFORMATION] 2026-05-11 22:02:25 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 22:02:25 COM: InsertSketch started.
+[INFO] 2026-05-11 22:02:26 COM: InsertSketch completed.
+[INFORMATION] 2026-05-11 22:02:26 ModelContextProtocol.Server.McpServer: "insert_sketch" completed. IsError = False.
+[INFORMATION] 2026-05-11 22:02:26 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 554.8393ms.
+[INFORMATION] 2026-05-11 22:03:24 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 22:03:24 COM: AddPolygon started | payload={"cx":0,"cy":0,"x":0.012,"y":0,"sides":6,"inscribed":true}.
+[INFO] 2026-05-11 22:03:24 COM: AddPolygon completed | payload={"Type":"Polygon","X1":0,"Y1":0,"X2":0.012,"Y2":0}.
+[INFORMATION] 2026-05-11 22:03:24 ModelContextProtocol.Server.McpServer: "add_polygon" completed. IsError = False.
+[INFORMATION] 2026-05-11 22:03:24 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 214.2382ms.
+[INFORMATION] 2026-05-11 22:03:56 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 22:03:56 COM: AddCircle started | payload={"cx":0,"cy":0,"radius":0.005}.
+[INFO] 2026-05-11 22:03:56 COM: AddCircle completed | payload={"Type":"Circle","X1":0,"Y1":0,"X2":0.005,"Y2":0}.
+[INFORMATION] 2026-05-11 22:03:56 ModelContextProtocol.Server.McpServer: "add_circle" completed. IsError = False.
+[INFORMATION] 2026-05-11 22:03:56 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 126.9133ms.
+[INFORMATION] 2026-05-11 22:04:22 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 22:04:22 COM: FinishSketch started.
+[INFO] 2026-05-11 22:04:22 COM: FinishSketch completed.
+[INFORMATION] 2026-05-11 22:04:22 ModelContextProtocol.Server.McpServer: "finish_sketch" completed. IsError = False.
+[INFORMATION] 2026-05-11 22:04:22 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 109.6823ms.
+[INFORMATION] 2026-05-11 22:04:45 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 22:04:45 COM: Extrude started | payload={"depth":0.008,"endCondition":0,"flipDirection":false}.
+[INFO] 2026-05-11 22:04:45 COM: Extrude completed | payload={"Name":"\u51F8\u53F0-\u62C9\u4F381","Type":"Extrude"}.
+[INFORMATION] 2026-05-11 22:04:45 ModelContextProtocol.Server.McpServer: "extrude" completed. IsError = False.
+[INFORMATION] 2026-05-11 22:04:45 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 232.0115ms.
+[INFORMATION] 2026-05-11 22:05:16 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler called.
+[INFO] 2026-05-11 22:05:16 COM: ShowStandardView started | payload={"view":"isometric"}.
+[INFO] 2026-05-11 22:05:17 COM: ShowStandardView completed | payload=6.
+[INFORMATION] 2026-05-11 22:05:17 ModelContextProtocol.Server.McpServer: "show_standard_view" completed. IsError = False.
+[INFORMATION] 2026-05-11 22:05:17 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/call' request handler completed in 538.9604ms.
+[INFORMATION] 2026-05-11 22:15:58 Microsoft.Hosting.Lifetime: Application is shutting down...
+[INFO] 2026-05-11 22:15:58 Hub: MCP session faee6572 ended.
+[INFO] 2026-05-11 22:15:58 Hub: 客户端已断开: VS Code (PID 19308)
+[INFO] 2026-05-11 22:16:25 Hub: Hub pipe server stopped.

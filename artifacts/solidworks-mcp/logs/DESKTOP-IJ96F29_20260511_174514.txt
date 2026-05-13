@@ -1,0 +1,2 @@
+[INFO] 2026-05-11 17:45:14 App: Session log file: C:\Users\uenx\Documents\New project 3\artifacts\solidworks-mcp\logs\DESKTOP-IJ96F29_20260511_174514.txt
+[WARN] 2026-05-11 17:45:14 App: Tray startup skipped because another hub instance is already running.

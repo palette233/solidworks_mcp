@@ -1,0 +1,391 @@
+[INFO] 2026-05-13 14:43:23 App: Session log file: C:\Users\uenx\Documents\New project 3\artifacts\solidworks-mcp\logs\DESKTOP-IJ96F29_20260513_144323.txt
+[INFO] 2026-05-13 14:43:23 Hub: Hub pipe server starting on 'SolidWorksMcpHub'.
+[INFO] 2026-05-13 14:43:23 App: 托盘服务已启动。
+[INFO] 2026-05-13 14:43:51 Hub: Inbound hub pipe connection established.
+[INFO] 2026-05-13 14:43:51 Hub: 客户端已连接: VS Code (PID 29208)
+[INFO] 2026-05-13 14:43:51 Hub: Hub handshake received from VS Code (PID 29208, session 121af839).
+[INFO] 2026-05-13 14:43:51 Hub: Hub ready sent for session 121af839.
+[INFO] 2026-05-13 14:43:51 Hub: Starting MCP session 121af839 for VS Code.
+[INFORMATION] 2026-05-13 14:43:51 Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+[INFORMATION] 2026-05-13 14:43:51 Microsoft.Hosting.Lifetime: Hosting environment: Production
+[INFORMATION] 2026-05-13 14:43:51 Microsoft.Hosting.Lifetime: Content root path: C:\Users\uenx\Documents\New project 3
+[INFORMATION] 2026-05-13 14:43:51 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0) method 'initialize' request handler called.
+[INFORMATION] 2026-05-13 14:43:51 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'logging/setLevel' request handler called.
+[INFORMATION] 2026-05-13 14:43:51 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/list' request handler called.
+[INFORMATION] 2026-05-13 14:43:51 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'initialize' request handler completed in 19.714ms.
+[INFORMATION] 2026-05-13 14:43:51 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'logging/setLevel' request handler completed in 1.4362ms.
+[INFORMATION] 2026-05-13 14:43:51 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/list' request handler completed in 8.1617ms.
+[INFORMATION] 2026-05-13 14:46:15 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 14:46:15 COM: AddCircle started | payload={"cx":0,"cy":0,"radius":0.005}.
+[INFO] 2026-05-13 14:46:15 COM: EnsureConnected established the SolidWorks session.
+[INFO] 2026-05-13 14:46:15 COM: SolidWorks connection after connect: {"CompatibilityState":"planned-next-version","Summary":"The running SolidWorks session is one major release newer than the validated baseline (2025), so it still needs certification.","InteropVersion":"32.1.0","InteropRevisionMajor":32,"InteropMarketingYear":2024,"RuntimeVersion":{"RevisionNumber":"33.0.0","RevisionMajor":33,"ServicePack":0,"Hotfix":0,"MarketingYear":2025,"BuildNumbers":{"BaseVersion":"sw2025_SP0","CurrentVersion":"d240917.001","HotFixes":""},"ExecutablePath":"D:\\Program Files\\SOLIDWORKS Corp\\SOLIDWORKS"},"License":{"Value":0,"Name":"swLicenseType_Full","Description":"Full SolidWorks license."},"Notices":["Bridge interop baseline is revision 32 (2024) via SolidWorks.Interop.* 32.1.0.","Runtime revision is one major release newer than the interop baseline (32 -\u003E 33).","This next major version is in the planned certification window, but it is not yet declared fully validated in this repository.","SolidWorks 2025 is inside the targeted certification window for this bridge build. Connection and active workflow validation are supported, but this version is not the certified baseline yet."],"RuntimeSupport":{"MarketingYear":2025,"ProductSupportLevel":"targeted","Summary":"SolidWorks 2025 is inside the targeted certification window for the current P0 workflow line.","CapabilitySupport":[{"CapabilityId":"connection-and-introspection","SupportLevel":"targeted","Summary":"In active certification scope for the current compatibility line."},{"CapabilityId":"read-only-workflows","SupportLevel":"targeted","Summary":"In active certification scope for the current compatibility line."},{"CapabilityId":"high-risk-mutation-workflows","SupportLevel":"targeted","Summary":"In active certification scope for the current compatibility line."},{"CapabilityId":"direct-mutation-tools","SupportLevel":"targeted","Summary":"In active certification scope for the current compatibility line."}],"Notes":["Regressions on this version should be treated as active compatibility bugs until certification is complete."]},"ConnectionVersionCheck":{"Status":"targeted-2025","Message":"SolidWorks 2025 is inside the targeted certification window for this bridge build. Connection and active workflow validation are supported, but this version is not the certified baseline yet.","IsSupportedBaseline":false}}
+[INFO] 2026-05-13 14:46:15 COM: SolidWorks connect path: {"ConnectionSource":"current-session","RunningProcessDetected":true,"ProgId":"SldWorks.Application.33","Summary":"Reused the existing in-process SolidWorks COM session."}
+[WARN] 2026-05-13 14:46:15 COM: SolidWorks connection version check: targeted-2025 | SolidWorks 2025 is inside the targeted certification window for this bridge build. Connection and active workflow validation are supported, but this version is not the certified baseline yet.
+[INFO] 2026-05-13 14:46:15 COM: SolidWorks context after connect: {"CurrentLanguage":"chinese-simplified","ReferencePlanes":[]}
+[ERROR] 2026-05-13 14:46:15 COM: AddCircle failed | payload={"cx":0,"cy":0,"radius":0.005}.
+  System.InvalidOperationException: No active document. Open a document and select a face/plane first.
+     at SolidWorksBridge.SolidWorks.SketchService.GetSketchManager()
+     at SolidWorksBridge.SolidWorks.SketchService.AddCircle(Double cx, Double cy, Double radius)
+     at SolidWorksMcpApp.Tools.SketchTools.<>c__DisplayClass8_0.<AddCircle>b__0()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass3_0`1.<InvokeAsync>b__0()
+  --- End of stack trace from previous location ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+[ERROR] 2026-05-13 14:46:15 ModelContextProtocol.Server.McpServer: "add_circle" threw an unhandled exception.
+  ModelContextProtocol.McpException: No active document. Open a document and select a face/plane first.
+   ---> System.InvalidOperationException: No active document. Open a document and select a face/plane first.
+     at SolidWorksBridge.SolidWorks.SketchService.GetSketchManager()
+     at SolidWorksBridge.SolidWorks.SketchService.AddCircle(Double cx, Double cy, Double radius)
+     at SolidWorksMcpApp.Tools.SketchTools.<>c__DisplayClass8_0.<AddCircle>b__0()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass3_0`1.<InvokeAsync>b__0()
+  --- End of stack trace from previous location ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+     --- End of inner exception stack trace ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+     at SolidWorksMcpApp.Tools.SketchTools.AddCircle(Double cx, Double cy, Double radius)
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunctionDescriptor.<>c__DisplayClass35_1.<<GetReturnParameterMarshaller>b__10>d.MoveNext()
+  --- End of stack trace from previous location ---
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunction.InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunction.InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
+     at ModelContextProtocol.Server.AIFunctionMcpServerTool.InvokeAsync(RequestContext`1 request, CancellationToken cancellationToken)
+     at ModelContextProtocol.Server.McpServerImpl.<>c__DisplayClass51_1.<<ConfigureTools>b__4>d.MoveNext()
+  --- End of stack trace from previous location ---
+     at ModelContextProtocol.Server.McpServerImpl.<>c__DisplayClass51_2.<<ConfigureTools>b__5>d.MoveNext()
+[INFORMATION] 2026-05-13 14:46:15 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 125.2348ms.
+[INFORMATION] 2026-05-13 14:47:32 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 14:47:32 COM: NewDocument started | payload={"type":"Part","templatePath":null}.
+[INFO] 2026-05-13 14:47:32 COM: NewDocument completed | payload={"Path":"","Title":"\u96F6\u4EF62","Type":1}.
+[INFORMATION] 2026-05-13 14:47:32 ModelContextProtocol.Server.McpServer: "new_document" completed. IsError = False.
+[INFORMATION] 2026-05-13 14:47:32 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 843.1768ms.
+[INFORMATION] 2026-05-13 14:48:26 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 14:48:26 COM: SelectByName started | payload={"name":"Front Plane","selType":"PLANE"}.
+[INFO] 2026-05-13 14:48:26 COM: SelectByName completed | payload={"Success":true,"Message":"Selected \u0027\u524D\u89C6\u57FA\u51C6\u9762\u0027 via localized fallback for \u0027Front Plane\u0027 (type \u0027PLANE\u0027)","EntityType":null,"EntityIndex":null,"ComponentName":null,"Box":null}.
+[INFORMATION] 2026-05-13 14:48:26 ModelContextProtocol.Server.McpServer: "select_by_name" completed. IsError = False.
+[INFORMATION] 2026-05-13 14:48:26 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 226.1777ms.
+[INFORMATION] 2026-05-13 14:49:10 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 14:49:10 COM: InsertSketch started.
+[INFO] 2026-05-13 14:49:11 COM: InsertSketch completed.
+[INFORMATION] 2026-05-13 14:49:11 ModelContextProtocol.Server.McpServer: "insert_sketch" completed. IsError = False.
+[INFORMATION] 2026-05-13 14:49:11 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 577.5404ms.
+[INFORMATION] 2026-05-13 14:49:37 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 14:49:37 COM: AddCircle started | payload={"cx":0,"cy":0,"radius":0.005}.
+[INFO] 2026-05-13 14:49:37 COM: AddCircle completed | payload={"Type":"Circle","X1":0,"Y1":0,"X2":0.005,"Y2":0}.
+[INFORMATION] 2026-05-13 14:49:37 ModelContextProtocol.Server.McpServer: "add_circle" completed. IsError = False.
+[INFORMATION] 2026-05-13 14:49:37 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 103.8567ms.
+[INFORMATION] 2026-05-13 14:50:01 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 14:50:01 COM: Extrude started | payload={"depth":0.01,"endCondition":0,"flipDirection":false}.
+[INFO] 2026-05-13 14:50:02 COM: Extrude completed | payload={"Name":"\u51F8\u53F0-\u62C9\u4F381","Type":"Extrude"}.
+[INFORMATION] 2026-05-13 14:50:02 ModelContextProtocol.Server.McpServer: "extrude" completed. IsError = False.
+[INFORMATION] 2026-05-13 14:50:02 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 253.7164ms.
+[INFORMATION] 2026-05-13 14:56:21 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 14:56:21 COM: ListFeatureTree started.
+[INFO] 2026-05-13 14:56:21 COM: ListFeatureTree completed | payload=[{"Index":0,"Name":"\u6536\u85CF","TypeName":"FavoriteFolder","IsSketch":false,"HasChildren":false},{"Index":1,"Name":"\u5386\u53F2\u8BB0\u5F55","TypeName":"HistoryFolder","IsSketch":false,"HasChildren":false},{"Index":2,"Name":"\u9009\u62E9\u96C6","TypeName":"SelectionSetFolder","IsSketch":false,"HasChildren":false},{"Index":3,"Name":"\u4F20\u611F\u5668","TypeName":"SensorFolder","IsSketch":false,"HasChildren":false},{"Index":4,"Name":"\u8BBE\u8BA1\u6D3B\u9875\u5939","TypeName":"DocsFolder","IsSketch":false,"HasChildren":false},{"Index":5,"Name":"\u6CE8\u89E3","TypeName":"DetailCabinet","IsSketch":false,"HasChildren":false},{"Index":6,"Name":"\u6807\u6CE8","TypeName":"InkMarkupFolder","IsSketch":false,"HasChildren":false},{"Index":7,"Name":"\u5149\u6E90\u4E0E\u76F8\u673A","TypeName":"EnvFolder","IsSketch":false,"HasChildren":false},{"Index":8,"Name":"\u5B9E\u4F53","TypeName":"SolidBodyFolder","IsSketch":false,"HasChildren":false},{"Index":9,"Name":"\u66F2\u9762\u5B9E\u4F53","TypeName":"SurfaceBodyFolder","IsSketch":false,"HasChildren":false},{"Index":10,"Name":"\u5907\u6CE8","TypeName":"CommentsFolder","IsSketch":false,"HasChildren":false},{"Index":11,"Name":"\u65B9\u7A0B\u5F0F","...(truncated).
+[INFORMATION] 2026-05-13 14:56:21 ModelContextProtocol.Server.McpServer: "list_feature_tree" completed. IsError = False.
+[INFORMATION] 2026-05-13 14:56:21 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 267.9981ms.
+[INFORMATION] 2026-05-13 14:56:43 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 14:56:43 COM: UpsertGlobalVariableAndBindFeatureDimensionByDescription started | payload={"featureName":"\u8349\u56FE1","variableName":"R","expression":"100mm","dimensionDescription":"radius","solve":true}.
+[ERROR] 2026-05-13 14:56:43 COM: UpsertGlobalVariableAndBindFeatureDimensionByDescription failed | payload={"featureName":"\u8349\u56FE1","variableName":"R","expression":"100mm","dimensionDescription":"radius","solve":true}.
+  System.InvalidOperationException: Feature '草图1' does not expose any bindable dimensions.
+     at SolidWorksBridge.SolidWorks.FeatureDimensionService.UpsertGlobalVariableAndBindFeatureDimensionByDescription(String featureName, String variableName, String expression, String dimensionDescription, Boolean solve)
+     at SolidWorksMcpApp.Tools.FeatureDimensionTools.<>c__DisplayClass4_0.<UpsertGlobalVariableAndBindFeatureDimensionByDescription>b__0()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass3_0`1.<InvokeAsync>b__0()
+  --- End of stack trace from previous location ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+[ERROR] 2026-05-13 14:56:43 ModelContextProtocol.Server.McpServer: "upsert_global_variable_and_bind_feature_dimension_by_description" threw an unhandled exception.
+  ModelContextProtocol.McpException: Feature '草图1' does not expose any bindable dimensions.
+   ---> System.InvalidOperationException: Feature '草图1' does not expose any bindable dimensions.
+     at SolidWorksBridge.SolidWorks.FeatureDimensionService.UpsertGlobalVariableAndBindFeatureDimensionByDescription(String featureName, String variableName, String expression, String dimensionDescription, Boolean solve)
+     at SolidWorksMcpApp.Tools.FeatureDimensionTools.<>c__DisplayClass4_0.<UpsertGlobalVariableAndBindFeatureDimensionByDescription>b__0()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass3_0`1.<InvokeAsync>b__0()
+  --- End of stack trace from previous location ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+     --- End of inner exception stack trace ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+     at SolidWorksMcpApp.Tools.FeatureDimensionTools.UpsertGlobalVariableAndBindFeatureDimensionByDescription(String featureName, String variableName, String expression, String dimensionDescription, Boolean solve)
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunctionDescriptor.<>c__DisplayClass35_1.<<GetReturnParameterMarshaller>b__10>d.MoveNext()
+  --- End of stack trace from previous location ---
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunction.InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunction.InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
+     at ModelContextProtocol.Server.AIFunctionMcpServerTool.InvokeAsync(RequestContext`1 request, CancellationToken cancellationToken)
+     at ModelContextProtocol.Server.McpServerImpl.<>c__DisplayClass51_1.<<ConfigureTools>b__4>d.MoveNext()
+  --- End of stack trace from previous location ---
+     at ModelContextProtocol.Server.McpServerImpl.<>c__DisplayClass51_2.<<ConfigureTools>b__5>d.MoveNext()
+[INFORMATION] 2026-05-13 14:56:43 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 144.5362ms.
+[INFORMATION] 2026-05-13 14:57:03 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 14:57:03 COM: ListFeatureDimensions started | payload={"featureName":"\u8349\u56FE1"}.
+[INFO] 2026-05-13 14:57:04 COM: ListFeatureDimensions completed.
+[INFORMATION] 2026-05-13 14:57:04 ModelContextProtocol.Server.McpServer: "list_feature_dimensions" completed. IsError = False.
+[INFORMATION] 2026-05-13 14:57:04 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 153.3637ms.
+[INFORMATION] 2026-05-13 14:57:19 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 14:57:19 COM: ListFeatureDimensions started | payload={"featureName":"\u51F8\u53F0-\u62C9\u4F381"}.
+[INFO] 2026-05-13 14:57:20 COM: ListFeatureDimensions completed | payload=[{"Index":0,"FeatureName":"\u51F8\u53F0-\u62C9\u4F381","FeatureType":"Extrusion","DimensionToken":"D1@\u51F8\u53F0-\u62C9\u4F381@\u96F6\u4EF62.Part","DisplayDimensionSelectionName":"D1@\u51F8\u53F0-\u62C9\u4F381","Value":0.01,"FullName":"D1@\u51F8\u53F0-\u62C9\u4F381@\u96F6\u4EF62.Part","HeuristicLabel":"dimension"}].
+[INFORMATION] 2026-05-13 14:57:20 ModelContextProtocol.Server.McpServer: "list_feature_dimensions" completed. IsError = False.
+[INFORMATION] 2026-05-13 14:57:20 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 157.8053ms.
+[INFORMATION] 2026-05-13 14:57:36 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 14:57:36 COM: UpsertGlobalVariable started | payload={"name":"R","expression":"100mm","solve":true}.
+[INFO] 2026-05-13 14:57:36 COM: UpsertGlobalVariable completed | payload={"Name":"R","Equation":"\u0022R\u0022 = 100mm","EquationIndex":0,"Value":100,"WasCreated":true,"WasUpdated":false}.
+[INFORMATION] 2026-05-13 14:57:36 ModelContextProtocol.Server.McpServer: "upsert_global_variable" completed. IsError = False.
+[INFORMATION] 2026-05-13 14:57:36 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 140.1602ms.
+[INFORMATION] 2026-05-13 14:57:53 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 14:57:53 COM: SelectByName started | payload={"name":"D1@\u8349\u56FE1","selType":"DIMENSION"}.
+[INFO] 2026-05-13 14:57:53 COM: SelectByName completed | payload={"Success":false,"Message":"Could not select \u0027D1@\u8349\u56FE1\u0027 (type: DIMENSION)","EntityType":null,"EntityIndex":null,"ComponentName":null,"Box":null}.
+[INFORMATION] 2026-05-13 14:57:53 ModelContextProtocol.Server.McpServer: "select_by_name" completed. IsError = False.
+[INFORMATION] 2026-05-13 14:57:53 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 11.0614ms.
+[INFORMATION] 2026-05-13 14:58:05 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 14:58:05 COM: SelectByName started | payload={"name":"D1@Sketch1","selType":"swSelDIMENSIONS"}.
+[INFO] 2026-05-13 14:58:05 COM: SelectByName completed | payload={"Success":false,"Message":"Could not select \u0027D1@Sketch1\u0027 (type: swSelDIMENSIONS)","EntityType":null,"EntityIndex":null,"ComponentName":null,"Box":null}.
+[INFORMATION] 2026-05-13 14:58:05 ModelContextProtocol.Server.McpServer: "select_by_name" completed. IsError = False.
+[INFORMATION] 2026-05-13 14:58:05 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 88.8139ms.
+[INFORMATION] 2026-05-13 14:58:24 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFORMATION] 2026-05-13 14:58:29 ModelContextProtocol.Server.McpServer: "search_solid_works_api_knowledge" completed. IsError = False.
+[INFORMATION] 2026-05-13 14:58:29 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 5428.6905ms.
+[INFORMATION] 2026-05-13 14:58:41 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 14:58:41 COM: ListFeatureDimensions started | payload={"featureName":"Sketch1"}.
+[ERROR] 2026-05-13 14:58:42 COM: ListFeatureDimensions failed | payload={"featureName":"Sketch1"}.
+  System.InvalidOperationException: Feature 'Sketch1' was not found in the active document.
+     at SolidWorksBridge.SolidWorks.FeatureDimensionService.FindFeature(String featureName)
+     at SolidWorksBridge.SolidWorks.FeatureDimensionService.ListFeatureDimensions(String featureName)
+     at SolidWorksMcpApp.Tools.FeatureDimensionTools.<>c__DisplayClass3_0.<ListFeatureDimensions>b__0()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass3_0`1.<InvokeAsync>b__0()
+  --- End of stack trace from previous location ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+[ERROR] 2026-05-13 14:58:42 ModelContextProtocol.Server.McpServer: "list_feature_dimensions" threw an unhandled exception.
+  ModelContextProtocol.McpException: Feature 'Sketch1' was not found in the active document.
+   ---> System.InvalidOperationException: Feature 'Sketch1' was not found in the active document.
+     at SolidWorksBridge.SolidWorks.FeatureDimensionService.FindFeature(String featureName)
+     at SolidWorksBridge.SolidWorks.FeatureDimensionService.ListFeatureDimensions(String featureName)
+     at SolidWorksMcpApp.Tools.FeatureDimensionTools.<>c__DisplayClass3_0.<ListFeatureDimensions>b__0()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass3_0`1.<InvokeAsync>b__0()
+  --- End of stack trace from previous location ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+     --- End of inner exception stack trace ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+     at SolidWorksMcpApp.Tools.FeatureDimensionTools.ListFeatureDimensions(String featureName)
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunctionDescriptor.<>c__DisplayClass35_1.<<GetReturnParameterMarshaller>b__10>d.MoveNext()
+  --- End of stack trace from previous location ---
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunction.InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunction.InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
+     at ModelContextProtocol.Server.AIFunctionMcpServerTool.InvokeAsync(RequestContext`1 request, CancellationToken cancellationToken)
+     at ModelContextProtocol.Server.McpServerImpl.<>c__DisplayClass51_1.<<ConfigureTools>b__4>d.MoveNext()
+  --- End of stack trace from previous location ---
+     at ModelContextProtocol.Server.McpServerImpl.<>c__DisplayClass51_2.<<ConfigureTools>b__5>d.MoveNext()
+[INFORMATION] 2026-05-13 14:58:42 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 136.9028ms.
+[INFORMATION] 2026-05-13 14:59:09 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 14:59:09 COM: GetActiveDocument started.
+[INFO] 2026-05-13 14:59:09 COM: GetActiveDocument completed | payload={"Path":"","Title":"\u96F6\u4EF62","Type":1}.
+[INFORMATION] 2026-05-13 14:59:09 ModelContextProtocol.Server.McpServer: "get_active_document" completed. IsError = False.
+[INFORMATION] 2026-05-13 14:59:09 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 13.0905ms.
+[INFORMATION] 2026-05-13 14:59:23 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 14:59:23 COM: SelectByName started | payload={"name":"D1@\u8349\u56FE1@\u96F6\u4EF62.Part","selType":"swSelDIMENSIONS"}.
+[INFO] 2026-05-13 14:59:23 COM: SelectByName completed | payload={"Success":false,"Message":"Could not select \u0027D1@\u8349\u56FE1@\u96F6\u4EF62.Part\u0027 (type: swSelDIMENSIONS)","EntityType":null,"EntityIndex":null,"ComponentName":null,"Box":null}.
+[INFORMATION] 2026-05-13 14:59:23 ModelContextProtocol.Server.McpServer: "select_by_name" completed. IsError = False.
+[INFORMATION] 2026-05-13 14:59:23 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 46.5846ms.
+[INFORMATION] 2026-05-13 14:59:35 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 14:59:35 COM: SelectByName started | payload={"name":"D1@\u8349\u56FE1@\u96F6\u4EF62.Part","selType":"DIMENSION"}.
+[INFO] 2026-05-13 14:59:35 COM: SelectByName completed | payload={"Success":false,"Message":"Could not select \u0027D1@\u8349\u56FE1@\u96F6\u4EF62.Part\u0027 (type: DIMENSION)","EntityType":null,"EntityIndex":null,"ComponentName":null,"Box":null}.
+[INFORMATION] 2026-05-13 14:59:35 ModelContextProtocol.Server.McpServer: "select_by_name" completed. IsError = False.
+[INFORMATION] 2026-05-13 14:59:35 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 11.1665ms.
+[INFORMATION] 2026-05-13 14:59:51 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 14:59:51 COM: SelectByName started | payload={"name":"D1@Sketch1@Part","selType":"swSelDIMENSIONS"}.
+[INFO] 2026-05-13 14:59:51 COM: SelectByName completed | payload={"Success":false,"Message":"Could not select \u0027D1@Sketch1@Part\u0027 (type: swSelDIMENSIONS)","EntityType":null,"EntityIndex":null,"ComponentName":null,"Box":null}.
+[INFORMATION] 2026-05-13 14:59:51 ModelContextProtocol.Server.McpServer: "select_by_name" completed. IsError = False.
+[INFORMATION] 2026-05-13 14:59:51 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 32.0983ms.
+[INFORMATION] 2026-05-13 15:00:07 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFORMATION] 2026-05-13 15:00:13 ModelContextProtocol.Server.McpServer: "search_solid_works_api_knowledge" completed. IsError = False.
+[INFORMATION] 2026-05-13 15:00:13 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 5378.2076ms.
+[INFORMATION] 2026-05-13 15:00:24 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 15:00:24 COM: SelectByName started | payload={"name":"D1@\u8349\u56FE1@\u96F6\u4EF62","selType":"DIMENSION"}.
+[INFO] 2026-05-13 15:00:24 COM: SelectByName completed | payload={"Success":false,"Message":"Could not select \u0027D1@\u8349\u56FE1@\u96F6\u4EF62\u0027 (type: DIMENSION)","EntityType":null,"EntityIndex":null,"ComponentName":null,"Box":null}.
+[INFORMATION] 2026-05-13 15:00:24 ModelContextProtocol.Server.McpServer: "select_by_name" completed. IsError = False.
+[INFORMATION] 2026-05-13 15:00:24 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 11.1543ms.
+[INFORMATION] 2026-05-13 15:00:38 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 15:00:38 COM: SelectByName started | payload={"name":"D2@\u8349\u56FE1@\u96F6\u4EF62","selType":"DIMENSION"}.
+[INFO] 2026-05-13 15:00:38 COM: SelectByName completed | payload={"Success":false,"Message":"Could not select \u0027D2@\u8349\u56FE1@\u96F6\u4EF62\u0027 (type: DIMENSION)","EntityType":null,"EntityIndex":null,"ComponentName":null,"Box":null}.
+[INFORMATION] 2026-05-13 15:00:38 ModelContextProtocol.Server.McpServer: "select_by_name" completed. IsError = False.
+[INFORMATION] 2026-05-13 15:00:38 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 8.749ms.
+[INFORMATION] 2026-05-13 15:02:38 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 15:02:38 COM: UpsertGlobalVariableAndBindFeatureDimensionByDescription started | payload={"featureName":"\u51F8\u53F0-\u62C9\u4F381","variableName":"H","expression":"50mm","dimensionDescription":"height","solve":true}.
+[ERROR] 2026-05-13 15:02:38 COM: UpsertGlobalVariableAndBindFeatureDimensionByDescription failed | payload={"featureName":"\u51F8\u53F0-\u62C9\u4F381","variableName":"H","expression":"50mm","dimensionDescription":"height","solve":true}.
+  System.InvalidOperationException: Could not match description 'height' to any feature dimension. Call ListFeatureDimensions first.
+     at SolidWorksBridge.SolidWorks.FeatureDimensionService.ChooseBestCandidate(IReadOnlyList`1 candidates, String dimensionDescription)
+     at SolidWorksBridge.SolidWorks.FeatureDimensionService.UpsertGlobalVariableAndBindFeatureDimensionByDescription(String featureName, String variableName, String expression, String dimensionDescription, Boolean solve)
+     at SolidWorksMcpApp.Tools.FeatureDimensionTools.<>c__DisplayClass4_0.<UpsertGlobalVariableAndBindFeatureDimensionByDescription>b__0()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass3_0`1.<InvokeAsync>b__0()
+  --- End of stack trace from previous location ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+[ERROR] 2026-05-13 15:02:38 ModelContextProtocol.Server.McpServer: "upsert_global_variable_and_bind_feature_dimension_by_description" threw an unhandled exception.
+  ModelContextProtocol.McpException: Could not match description 'height' to any feature dimension. Call ListFeatureDimensions first.
+   ---> System.InvalidOperationException: Could not match description 'height' to any feature dimension. Call ListFeatureDimensions first.
+     at SolidWorksBridge.SolidWorks.FeatureDimensionService.ChooseBestCandidate(IReadOnlyList`1 candidates, String dimensionDescription)
+     at SolidWorksBridge.SolidWorks.FeatureDimensionService.UpsertGlobalVariableAndBindFeatureDimensionByDescription(String featureName, String variableName, String expression, String dimensionDescription, Boolean solve)
+     at SolidWorksMcpApp.Tools.FeatureDimensionTools.<>c__DisplayClass4_0.<UpsertGlobalVariableAndBindFeatureDimensionByDescription>b__0()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass3_0`1.<InvokeAsync>b__0()
+  --- End of stack trace from previous location ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+     --- End of inner exception stack trace ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+     at SolidWorksMcpApp.Tools.FeatureDimensionTools.UpsertGlobalVariableAndBindFeatureDimensionByDescription(String featureName, String variableName, String expression, String dimensionDescription, Boolean solve)
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunctionDescriptor.<>c__DisplayClass35_1.<<GetReturnParameterMarshaller>b__10>d.MoveNext()
+  --- End of stack trace from previous location ---
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunction.InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunction.InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
+     at ModelContextProtocol.Server.AIFunctionMcpServerTool.InvokeAsync(RequestContext`1 request, CancellationToken cancellationToken)
+     at ModelContextProtocol.Server.McpServerImpl.<>c__DisplayClass51_1.<<ConfigureTools>b__4>d.MoveNext()
+  --- End of stack trace from previous location ---
+     at ModelContextProtocol.Server.McpServerImpl.<>c__DisplayClass51_2.<<ConfigureTools>b__5>d.MoveNext()
+[INFORMATION] 2026-05-13 15:02:38 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 147.4389ms.
+[INFORMATION] 2026-05-13 15:02:58 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 15:02:58 COM: UpsertGlobalVariableAndBindFeatureDimensionByDescription started | payload={"featureName":"\u51F8\u53F0-\u62C9\u4F381","variableName":"H","expression":"50mm","dimensionDescription":"depth","solve":true}.
+[ERROR] 2026-05-13 15:02:58 COM: UpsertGlobalVariableAndBindFeatureDimensionByDescription failed | payload={"featureName":"\u51F8\u53F0-\u62C9\u4F381","variableName":"H","expression":"50mm","dimensionDescription":"depth","solve":true}.
+  System.InvalidOperationException: Could not match description 'depth' to any feature dimension. Call ListFeatureDimensions first.
+     at SolidWorksBridge.SolidWorks.FeatureDimensionService.ChooseBestCandidate(IReadOnlyList`1 candidates, String dimensionDescription)
+     at SolidWorksBridge.SolidWorks.FeatureDimensionService.UpsertGlobalVariableAndBindFeatureDimensionByDescription(String featureName, String variableName, String expression, String dimensionDescription, Boolean solve)
+     at SolidWorksMcpApp.Tools.FeatureDimensionTools.<>c__DisplayClass4_0.<UpsertGlobalVariableAndBindFeatureDimensionByDescription>b__0()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass3_0`1.<InvokeAsync>b__0()
+  --- End of stack trace from previous location ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+[ERROR] 2026-05-13 15:02:58 ModelContextProtocol.Server.McpServer: "upsert_global_variable_and_bind_feature_dimension_by_description" threw an unhandled exception.
+  ModelContextProtocol.McpException: Could not match description 'depth' to any feature dimension. Call ListFeatureDimensions first.
+   ---> System.InvalidOperationException: Could not match description 'depth' to any feature dimension. Call ListFeatureDimensions first.
+     at SolidWorksBridge.SolidWorks.FeatureDimensionService.ChooseBestCandidate(IReadOnlyList`1 candidates, String dimensionDescription)
+     at SolidWorksBridge.SolidWorks.FeatureDimensionService.UpsertGlobalVariableAndBindFeatureDimensionByDescription(String featureName, String variableName, String expression, String dimensionDescription, Boolean solve)
+     at SolidWorksMcpApp.Tools.FeatureDimensionTools.<>c__DisplayClass4_0.<UpsertGlobalVariableAndBindFeatureDimensionByDescription>b__0()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass3_0`1.<InvokeAsync>b__0()
+  --- End of stack trace from previous location ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+     --- End of inner exception stack trace ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+     at SolidWorksMcpApp.Tools.FeatureDimensionTools.UpsertGlobalVariableAndBindFeatureDimensionByDescription(String featureName, String variableName, String expression, String dimensionDescription, Boolean solve)
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunctionDescriptor.<>c__DisplayClass35_1.<<GetReturnParameterMarshaller>b__10>d.MoveNext()
+  --- End of stack trace from previous location ---
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunction.InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunction.InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
+     at ModelContextProtocol.Server.AIFunctionMcpServerTool.InvokeAsync(RequestContext`1 request, CancellationToken cancellationToken)
+     at ModelContextProtocol.Server.McpServerImpl.<>c__DisplayClass51_1.<<ConfigureTools>b__4>d.MoveNext()
+  --- End of stack trace from previous location ---
+     at ModelContextProtocol.Server.McpServerImpl.<>c__DisplayClass51_2.<<ConfigureTools>b__5>d.MoveNext()
+[INFORMATION] 2026-05-13 15:02:58 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 150.5423ms.
+[INFORMATION] 2026-05-13 15:03:11 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 15:03:11 COM: UpsertGlobalVariableAndBindFeatureDimensionByDescription started | payload={"featureName":"\u51F8\u53F0-\u62C9\u4F381","variableName":"H","expression":"50mm","dimensionDescription":"length","solve":true}.
+[ERROR] 2026-05-13 15:03:11 COM: UpsertGlobalVariableAndBindFeatureDimensionByDescription failed | payload={"featureName":"\u51F8\u53F0-\u62C9\u4F381","variableName":"H","expression":"50mm","dimensionDescription":"length","solve":true}.
+  System.InvalidOperationException: Could not match description 'length' to any feature dimension. Call ListFeatureDimensions first.
+     at SolidWorksBridge.SolidWorks.FeatureDimensionService.ChooseBestCandidate(IReadOnlyList`1 candidates, String dimensionDescription)
+     at SolidWorksBridge.SolidWorks.FeatureDimensionService.UpsertGlobalVariableAndBindFeatureDimensionByDescription(String featureName, String variableName, String expression, String dimensionDescription, Boolean solve)
+     at SolidWorksMcpApp.Tools.FeatureDimensionTools.<>c__DisplayClass4_0.<UpsertGlobalVariableAndBindFeatureDimensionByDescription>b__0()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass3_0`1.<InvokeAsync>b__0()
+  --- End of stack trace from previous location ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+[ERROR] 2026-05-13 15:03:11 ModelContextProtocol.Server.McpServer: "upsert_global_variable_and_bind_feature_dimension_by_description" threw an unhandled exception.
+  ModelContextProtocol.McpException: Could not match description 'length' to any feature dimension. Call ListFeatureDimensions first.
+   ---> System.InvalidOperationException: Could not match description 'length' to any feature dimension. Call ListFeatureDimensions first.
+     at SolidWorksBridge.SolidWorks.FeatureDimensionService.ChooseBestCandidate(IReadOnlyList`1 candidates, String dimensionDescription)
+     at SolidWorksBridge.SolidWorks.FeatureDimensionService.UpsertGlobalVariableAndBindFeatureDimensionByDescription(String featureName, String variableName, String expression, String dimensionDescription, Boolean solve)
+     at SolidWorksMcpApp.Tools.FeatureDimensionTools.<>c__DisplayClass4_0.<UpsertGlobalVariableAndBindFeatureDimensionByDescription>b__0()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass3_0`1.<InvokeAsync>b__0()
+  --- End of stack trace from previous location ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+     --- End of inner exception stack trace ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+     at SolidWorksMcpApp.Tools.FeatureDimensionTools.UpsertGlobalVariableAndBindFeatureDimensionByDescription(String featureName, String variableName, String expression, String dimensionDescription, Boolean solve)
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunctionDescriptor.<>c__DisplayClass35_1.<<GetReturnParameterMarshaller>b__10>d.MoveNext()
+  --- End of stack trace from previous location ---
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunction.InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunction.InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
+     at ModelContextProtocol.Server.AIFunctionMcpServerTool.InvokeAsync(RequestContext`1 request, CancellationToken cancellationToken)
+     at ModelContextProtocol.Server.McpServerImpl.<>c__DisplayClass51_1.<<ConfigureTools>b__4>d.MoveNext()
+  --- End of stack trace from previous location ---
+     at ModelContextProtocol.Server.McpServerImpl.<>c__DisplayClass51_2.<<ConfigureTools>b__5>d.MoveNext()
+[INFORMATION] 2026-05-13 15:03:11 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 146.6486ms.
+[INFORMATION] 2026-05-13 15:03:21 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 15:03:21 COM: SelectByName started | payload={"name":"D1@\u51F8\u53F0-\u62C9\u4F381@\u96F6\u4EF62.Part","selType":"DIMENSION"}.
+[INFO] 2026-05-13 15:03:21 COM: SelectByName completed | payload={"Success":true,"Message":"Selected \u0027D1@\u51F8\u53F0-\u62C9\u4F381@\u96F6\u4EF62.Part\u0027","EntityType":null,"EntityIndex":null,"ComponentName":null,"Box":null}.
+[INFORMATION] 2026-05-13 15:03:21 ModelContextProtocol.Server.McpServer: "select_by_name" completed. IsError = False.
+[INFORMATION] 2026-05-13 15:03:21 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 38.0502ms.
+[INFORMATION] 2026-05-13 15:03:31 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 15:03:31 COM: UpsertGlobalVariableAndBindSelectedDimension started | payload={"name":"H","expression":"50mm","solve":true}.
+[ERROR] 2026-05-13 15:03:32 COM: UpsertGlobalVariableAndBindSelectedDimension failed | payload={"name":"H","expression":"50mm","solve":true}.
+  System.InvalidOperationException: Exactly one dimension must be selected. Current selection count: 0.
+     at SolidWorksBridge.SolidWorks.EquationService.ResolveSelectedDimensionSelection(ISelectionMgr selectionManager)
+     at SolidWorksBridge.SolidWorks.EquationService.ResolveSelectedDimensionToken(ISelectionMgr selectionManager)
+     at SolidWorksBridge.SolidWorks.EquationService.BindSelectedDimensionToGlobalVariable(String globalVariableName, Boolean solve)
+     at SolidWorksBridge.SolidWorks.EquationService.UpsertGlobalVariableAndBindSelectedDimension(String name, String expression, Boolean solve)
+     at SolidWorksMcpApp.Tools.EquationTools.<>c__DisplayClass3_0.<UpsertGlobalVariableAndBindSelectedDimension>b__0()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass3_0`1.<InvokeAsync>b__0()
+  --- End of stack trace from previous location ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+[ERROR] 2026-05-13 15:03:32 ModelContextProtocol.Server.McpServer: "upsert_global_variable_and_bind_selected_dimension" threw an unhandled exception.
+  ModelContextProtocol.McpException: Exactly one dimension must be selected. Current selection count: 0.
+   ---> System.InvalidOperationException: Exactly one dimension must be selected. Current selection count: 0.
+     at SolidWorksBridge.SolidWorks.EquationService.ResolveSelectedDimensionSelection(ISelectionMgr selectionManager)
+     at SolidWorksBridge.SolidWorks.EquationService.ResolveSelectedDimensionToken(ISelectionMgr selectionManager)
+     at SolidWorksBridge.SolidWorks.EquationService.BindSelectedDimensionToGlobalVariable(String globalVariableName, Boolean solve)
+     at SolidWorksBridge.SolidWorks.EquationService.UpsertGlobalVariableAndBindSelectedDimension(String name, String expression, Boolean solve)
+     at SolidWorksMcpApp.Tools.EquationTools.<>c__DisplayClass3_0.<UpsertGlobalVariableAndBindSelectedDimension>b__0()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass3_0`1.<InvokeAsync>b__0()
+  --- End of stack trace from previous location ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+     --- End of inner exception stack trace ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+     at SolidWorksMcpApp.Tools.EquationTools.UpsertGlobalVariableAndBindSelectedDimension(String name, String expression, Boolean solve)
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunctionDescriptor.<>c__DisplayClass35_1.<<GetReturnParameterMarshaller>b__10>d.MoveNext()
+  --- End of stack trace from previous location ---
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunction.InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunction.InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
+     at ModelContextProtocol.Server.AIFunctionMcpServerTool.InvokeAsync(RequestContext`1 request, CancellationToken cancellationToken)
+     at ModelContextProtocol.Server.McpServerImpl.<>c__DisplayClass51_1.<<ConfigureTools>b__4>d.MoveNext()
+  --- End of stack trace from previous location ---
+     at ModelContextProtocol.Server.McpServerImpl.<>c__DisplayClass51_2.<<ConfigureTools>b__5>d.MoveNext()
+[INFORMATION] 2026-05-13 15:03:32 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 422.0491ms.
+[INFORMATION] 2026-05-13 15:03:43 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 15:03:43 COM: SelectByName started | payload={"name":"D1@\u51F8\u53F0-\u62C9\u4F381@\u96F6\u4EF62.Part","selType":"DIMENSION"}.
+[INFO] 2026-05-13 15:03:43 COM: SelectByName completed | payload={"Success":true,"Message":"Selected \u0027D1@\u51F8\u53F0-\u62C9\u4F381@\u96F6\u4EF62.Part\u0027","EntityType":null,"EntityIndex":null,"ComponentName":null,"Box":null}.
+[INFORMATION] 2026-05-13 15:03:43 ModelContextProtocol.Server.McpServer: "select_by_name" completed. IsError = False.
+[INFORMATION] 2026-05-13 15:03:43 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 15.7017ms.
+[INFORMATION] 2026-05-13 15:04:00 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 15:04:00 COM: GetSelectedDimensionInfo started.
+[INFO] 2026-05-13 15:04:00 COM: GetSelectedDimensionInfo completed | payload={"DimensionToken":"D1@\u51F8\u53F0-\u62C9\u4F381@\u96F6\u4EF62.Part","DisplayDimensionSelectionName":"D1@\u51F8\u53F0-\u62C9\u4F381","Value":0.01,"FullName":"D1@\u51F8\u53F0-\u62C9\u4F381@\u96F6\u4EF62.Part"}.
+[INFORMATION] 2026-05-13 15:04:00 ModelContextProtocol.Server.McpServer: "get_selected_dimension_info" completed. IsError = False.
+[INFORMATION] 2026-05-13 15:04:00 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 31.3841ms.
+[INFORMATION] 2026-05-13 15:04:13 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 15:04:13 COM: UpsertGlobalVariableAndBindSelectedDimension started | payload={"name":"H","expression":"50mm","solve":true}.
+[ERROR] 2026-05-13 15:04:13 COM: UpsertGlobalVariableAndBindSelectedDimension failed | payload={"name":"H","expression":"50mm","solve":true}.
+  System.InvalidOperationException: Exactly one dimension must be selected. Current selection count: 0.
+     at SolidWorksBridge.SolidWorks.EquationService.ResolveSelectedDimensionSelection(ISelectionMgr selectionManager)
+     at SolidWorksBridge.SolidWorks.EquationService.ResolveSelectedDimensionToken(ISelectionMgr selectionManager)
+     at SolidWorksBridge.SolidWorks.EquationService.BindSelectedDimensionToGlobalVariable(String globalVariableName, Boolean solve)
+     at SolidWorksBridge.SolidWorks.EquationService.UpsertGlobalVariableAndBindSelectedDimension(String name, String expression, Boolean solve)
+     at SolidWorksMcpApp.Tools.EquationTools.<>c__DisplayClass3_0.<UpsertGlobalVariableAndBindSelectedDimension>b__0()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass3_0`1.<InvokeAsync>b__0()
+  --- End of stack trace from previous location ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+[ERROR] 2026-05-13 15:04:13 ModelContextProtocol.Server.McpServer: "upsert_global_variable_and_bind_selected_dimension" threw an unhandled exception.
+  ModelContextProtocol.McpException: Exactly one dimension must be selected. Current selection count: 0.
+   ---> System.InvalidOperationException: Exactly one dimension must be selected. Current selection count: 0.
+     at SolidWorksBridge.SolidWorks.EquationService.ResolveSelectedDimensionSelection(ISelectionMgr selectionManager)
+     at SolidWorksBridge.SolidWorks.EquationService.ResolveSelectedDimensionToken(ISelectionMgr selectionManager)
+     at SolidWorksBridge.SolidWorks.EquationService.BindSelectedDimensionToGlobalVariable(String globalVariableName, Boolean solve)
+     at SolidWorksBridge.SolidWorks.EquationService.UpsertGlobalVariableAndBindSelectedDimension(String name, String expression, Boolean solve)
+     at SolidWorksMcpApp.Tools.EquationTools.<>c__DisplayClass3_0.<UpsertGlobalVariableAndBindSelectedDimension>b__0()
+     at SolidWorksMcpApp.StaDispatcher.<>c__DisplayClass3_0`1.<InvokeAsync>b__0()
+  --- End of stack trace from previous location ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+     --- End of inner exception stack trace ---
+     at SolidWorksMcpApp.StaDispatcher.InvokeLoggedAsync[T](String operationName, Object arguments, Func`1 func)
+     at SolidWorksMcpApp.Tools.EquationTools.UpsertGlobalVariableAndBindSelectedDimension(String name, String expression, Boolean solve)
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunctionDescriptor.<>c__DisplayClass35_1.<<GetReturnParameterMarshaller>b__10>d.MoveNext()
+  --- End of stack trace from previous location ---
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunction.InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
+     at Microsoft.Extensions.AI.AIFunctionFactory.ReflectionAIFunction.InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
+     at ModelContextProtocol.Server.AIFunctionMcpServerTool.InvokeAsync(RequestContext`1 request, CancellationToken cancellationToken)
+     at ModelContextProtocol.Server.McpServerImpl.<>c__DisplayClass51_1.<<ConfigureTools>b__4>d.MoveNext()
+  --- End of stack trace from previous location ---
+     at ModelContextProtocol.Server.McpServerImpl.<>c__DisplayClass51_2.<<ConfigureTools>b__5>d.MoveNext()
+[INFORMATION] 2026-05-13 15:04:13 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 358.6098ms.
+[INFORMATION] 2026-05-13 15:04:31 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler called.
+[INFO] 2026-05-13 15:04:31 COM: UpsertGlobalVariableAndBindFeatureDimensionByDescription started | payload={"featureName":"\u51F8\u53F0-\u62C9\u4F381","variableName":"H","expression":"50mm","dimensionDescription":"D1","solve":true}.
+[INFO] 2026-05-13 15:04:31 COM: UpsertGlobalVariableAndBindFeatureDimensionByDescription completed | payload={"SelectedDimension":{"Index":0,"FeatureName":"\u51F8\u53F0-\u62C9\u4F381","FeatureType":"Extrusion","DimensionToken":"D1@\u51F8\u53F0-\u62C9\u4F381@\u96F6\u4EF62.Part","DisplayDimensionSelectionName":"D1@\u51F8\u53F0-\u62C9\u4F381","Value":0.01,"FullName":"D1@\u51F8\u53F0-\u62C9\u4F381@\u96F6\u4EF62.Part","HeuristicLabel":"dimension"},"GlobalVariable":{"Name":"H","Equation":"\u0022H\u0022 = 50mm","EquationIndex":1,"Value":50,"WasCreated":false,"WasUpdated":true},"Binding":{"GlobalVariableName":"H","DimensionToken":"D1@\u51F8\u53F0-\u62C9\u4F381@\u96F6\u4EF62.Part","Equation":"\u0022D1@\u51F8\u53F0-\u62C9\u4F381@\u96F6\u4EF62.Part\u0022 = \u0022H\u0022","EquationIndex":2,"WasCreated":true,"WasUpdated":false},"MatchReason":"Matched description \u0027D1\u0027 to \u0027dimension\u0027."}.
+[INFORMATION] 2026-05-13 15:04:31 ModelContextProtocol.Server.McpServer: "upsert_global_variable_and_bind_feature_dimension_by_description" completed. IsError = False.
+[INFORMATION] 2026-05-13 15:04:31 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.1) method 'tools/call' request handler completed in 715.2768ms.
+[INFORMATION] 2026-05-13 16:08:56 Microsoft.Hosting.Lifetime: Application is shutting down...
+[INFO] 2026-05-13 16:08:56 Hub: MCP session 121af839 ended.
+[INFO] 2026-05-13 16:08:56 Hub: 客户端已断开: VS Code (PID 29208)
+[INFO] 2026-05-13 16:09:21 Hub: Hub pipe server stopped.

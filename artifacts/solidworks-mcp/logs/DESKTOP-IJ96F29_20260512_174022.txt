@@ -1,0 +1,21 @@
+[INFO] 2026-05-12 17:40:22 App: Session log file: C:\Users\uenx\Documents\New project 3\artifacts\solidworks-mcp\logs\DESKTOP-IJ96F29_20260512_174022.txt
+[INFO] 2026-05-12 17:40:22 Hub: Hub pipe server starting on 'SolidWorksMcpHub'.
+[INFO] 2026-05-12 17:40:22 App: 托盘服务已启动。
+[INFO] 2026-05-12 17:42:50 Hub: Inbound hub pipe connection established.
+[INFO] 2026-05-12 17:42:51 Hub: 客户端已连接: VS Code (PID 21488)
+[INFO] 2026-05-12 17:42:51 Hub: Hub handshake received from VS Code (PID 21488, session f07bae62).
+[INFO] 2026-05-12 17:42:51 Hub: Hub ready sent for session f07bae62.
+[INFO] 2026-05-12 17:42:51 Hub: Starting MCP session f07bae62 for VS Code.
+[INFORMATION] 2026-05-12 17:42:51 Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+[INFORMATION] 2026-05-12 17:42:51 Microsoft.Hosting.Lifetime: Hosting environment: Production
+[INFORMATION] 2026-05-12 17:42:51 Microsoft.Hosting.Lifetime: Content root path: C:\Users\uenx\Documents\New project 3
+[INFORMATION] 2026-05-12 17:42:51 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0) method 'initialize' request handler called.
+[INFORMATION] 2026-05-12 17:42:51 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'logging/setLevel' request handler called.
+[INFORMATION] 2026-05-12 17:42:51 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/list' request handler called.
+[INFORMATION] 2026-05-12 17:42:51 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'initialize' request handler completed in 16.821ms.
+[INFORMATION] 2026-05-12 17:42:51 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'logging/setLevel' request handler completed in 1.6886ms.
+[INFORMATION] 2026-05-12 17:42:51 ModelContextProtocol.Server.McpServer: Server (SolidWorksMcpApp 1.0.0.0), Client (Visual Studio Code 1.119.0) method 'tools/list' request handler completed in 7.5206ms.
+[INFORMATION] 2026-05-12 21:57:26 Microsoft.Hosting.Lifetime: Application is shutting down...
+[INFO] 2026-05-12 21:57:26 Hub: MCP session f07bae62 ended.
+[INFO] 2026-05-12 21:57:26 Hub: 客户端已断开: VS Code (PID 21488)
+[INFO] 2026-05-13 00:58:02 Hub: Hub pipe server stopped.
