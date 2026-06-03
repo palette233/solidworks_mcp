@@ -109,6 +109,25 @@ public class AssemblyTools(StaDispatcher sta, IAssemblyService assembly)
         var list = await sta.InvokeLoggedAsync(nameof(ListComponentsRecursive), null, assembly.ListComponentsRecursive);
         return JsonSerializer.Serialize(list);
     }
+    
+
+
+
+    [McpServerTool, Description("Move a component by the specified delta in meters. Use this to move parts or subassemblies in an assembly without needing to know their current position.")]
+public async Task<string> MoveComponent(
+    [Description("Component instance name, e.g. 'Part1-1'")] string componentName,
+    [Description("X displacement in meters (e.g., 0.02 for 20mm)")] double deltaX,
+    [Description("Y displacement in meters")] double deltaY,
+    [Description("Z displacement in meters")] double deltaZ)
+{
+    var result = await sta.InvokeLoggedAsync(
+        nameof(MoveComponent),
+        new { componentName, deltaX, deltaY, deltaZ },
+        () => assembly.MoveComponent(componentName, deltaX, deltaY, deltaZ));
+    return JsonSerializer.Serialize(result);
+}
+
+
 
     [McpServerTool, Description("Resolve one exact component instance in the active SolidWorks assembly by name, hierarchy path, path, or any combination. Returns a resolved target or explicit ambiguity details for downstream workflows.")]
     public async Task<string> ResolveComponentTarget(

@@ -53,6 +53,13 @@ public record AssemblyComponentReplacementResult(
     bool ReattachMates,
     bool Success);
 
+
+public record ComponentTransformResult(
+    bool Success,
+    string Message,
+    string? ComponentName,
+    string? HierarchyPath);
+
 public record MateOperationResult(string MateType, int ErrorStatus, string ErrorName, string ErrorDescription);
 
 /// <summary>
@@ -85,6 +92,15 @@ public enum MateAlign
 /// </summary>
 public interface IAssemblyService
 {
+    /// <summary>
+    /// Move a component by the specified delta in meters.
+    /// </summary>
+    ComponentTransformResult MoveComponent(
+    string componentName, 
+    double deltaX, 
+    double deltaY, 
+    double deltaZ);
+
     /// <summary>
     /// Insert a component at the given position (meters). Returns component info.
     /// </summary>
@@ -193,6 +209,65 @@ public class AssemblyService : IAssemblyService
 
         return new ComponentInfo(comp.Name2, comp.GetPathName());
     }
+
+
+    public ComponentTransformResult MoveComponent(
+    string componentName,
+    double deltaX,
+    double deltaY,
+    double deltaZ)
+{
+    _cm.EnsureConnected();
+    var assy = GetAssemblyDoc();
+    
+    var components = (object[]?)assy.GetComponents(false) ?? Array.Empty<object>();
+    IComponent2? targetComponent = null;
+    
+    foreach (var comp in components.OfType<IComponent2>())
+    {
+        if (string.Equals(comp.Name2, componentName, StringComparison.OrdinalIgnoreCase))
+        {
+            targetComponent = comp;
+            break;
+        }
+    }
+    
+    if (targetComponent == null)
+    {
+        return new ComponentTransformResult(
+            false,
+            $"Component '{componentName}' not found",
+            componentName,
+            null);
+    }
+    
+    var swApp = _cm.SwApp ?? throw new InvalidOperationException("SolidWorks not connected");
+    var mathUtil = (IMathUtility)swApp.GetMathUtility();
+    
+    // 正确的 4x4 变换矩阵（16 个元素）
+    double[] translationData = new double[]
+    {
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        deltaX, deltaY, deltaZ, 1
+    };
+    
+    var translationTransform = (IMathTransform)mathUtil.CreateTransform((object)translationData);
+    var currentTransform = (IMathTransform)targetComponent.Transform2;
+    var newTransform = (IMathTransform)currentTransform.IMultiply(translationTransform);
+    
+    targetComponent.Transform2 = newTransform;
+    
+    var doc = (IModelDoc2)assy;
+    doc.EditRebuild3();
+    
+    return new ComponentTransformResult(
+        true,
+        $"Moved component '{componentName}' by ({deltaX}, {deltaY}, {deltaZ}) meters",
+        componentName,
+        targetComponent.Name2);
+}
 
     public MateOperationResult AddMateCoincident(MateAlign align = MateAlign.Closest)
         => AddMate(MateType.Coincident, align);
