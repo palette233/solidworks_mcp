@@ -127,6 +127,11 @@ public interface ISldWorksApp
     /// Used by FeatureService for a cleanly mockable access path.
     /// </summary>
     IFeatureManager? FeatureManager { get; }
+
+    /// <summary>
+    /// Return the SolidWorks math utility used for transform operations.
+    /// </summary>
+    IMathUtility GetMathUtility();
 }
 
 /// <summary>
@@ -373,6 +378,8 @@ public class SldWorksAppWrapper : ISldWorksApp
     }
 
     public string GetExecutablePath() => _swApp.GetExecutablePath();
+
+    public IMathUtility GetMathUtility() => (IMathUtility)_swApp.GetMathUtility();
 
     public int GetCurrentLicenseType() => _swApp.GetCurrentLicenseType();
 
