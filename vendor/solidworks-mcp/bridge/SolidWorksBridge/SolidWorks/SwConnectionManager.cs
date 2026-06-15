@@ -116,6 +116,9 @@ public interface ISldWorksApp
     /// </summary>
     IModelDoc2? IActiveDoc2 { get; }
 
+    /// <summary>Return the SolidWorks math utility object for transform operations.</summary>
+    IMathUtility GetMathUtility();
+
     /// <summary>
     /// Return the ISketchManager of the active document, or null if no document is open.
     /// Used by SketchService for a cleanly mockable access path.
@@ -625,6 +628,9 @@ public class SldWorksAppWrapper : ISldWorksApp
     }
 
     public IModelDoc2? IActiveDoc2 => _swApp.IActiveDoc2;
+
+    public IMathUtility GetMathUtility() =>
+        (IMathUtility)(_swApp.GetMathUtility() ?? throw new InvalidOperationException("SolidWorks did not return a math utility object."));
 
     public ISketchManager? SketchManager =>
         _swApp.IActiveDoc2?.SketchManager as ISketchManager;

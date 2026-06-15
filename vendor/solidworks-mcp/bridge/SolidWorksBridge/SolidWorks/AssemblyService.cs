@@ -89,60 +89,82 @@ public enum MateAlign
 
 /// <summary>
 /// Operations on SolidWorks assembly documents.
+/// SolidWorks 装配体文档相关操作的服务接口，供 MCP 工具层包装后暴露给大模型调用。
 /// </summary>
 public interface IAssemblyService
 {
     /// <summary>
     /// Move a component by the specified delta in meters.
+    /// 按世界坐标系中的增量移动指定组件实例，单位为米；适合“沿 X/Y/Z 方向移动指定距离”的场景。
     /// </summary>
     ComponentTransformResult MoveComponent(
-    string componentName, 
-    double deltaX, 
-    double deltaY, 
-    double deltaZ);
+        string componentName,
+        double deltaX,
+        double deltaY,
+        double deltaZ);
+
+    /// <summary>
+    /// Rotate a component around the specified world-space axis by the given angle in degrees.
+    /// 围绕世界坐标系中的指定轴旋转组件实例，角度单位为度。
+    /// </summary>
+    ComponentTransformResult RotateComponent(
+        string componentName,
+        double axisX,
+        double axisY,
+        double axisZ,
+        double angleDegrees);
 
     /// <summary>
     /// Insert a component at the given position (meters). Returns component info.
+    /// 向当前活动装配体导入一个零件或子装配体，并指定初始插入位置，坐标单位为米。
     /// </summary>
     ComponentInfo InsertComponent(string filePath, double x = 0, double y = 0, double z = 0);
 
     /// <summary>
     /// Add a Coincident mate between the two currently-selected entities.
+    /// 对当前已经选中的两个实体添加重合配合；常用于两个平面/面共面，或让底面贴合基准面。
     /// </summary>
     MateOperationResult AddMateCoincident(MateAlign align = MateAlign.Closest);
 
     /// <summary>
     /// Add a Concentric mate between the two currently-selected entities.
+    /// 对当前已经选中的两个圆柱面或圆边添加同心配合。
     /// </summary>
     MateOperationResult AddMateConcentric(MateAlign align = MateAlign.Closest);
 
     /// <summary>
     /// Add a Parallel mate between the two currently-selected entities.
+    /// 对当前已经选中的两个平面、面或边添加平行配合。
     /// </summary>
     MateOperationResult AddMateParallel(MateAlign align = MateAlign.Closest);
 
     /// <summary>
     /// Add a Distance mate between the two currently-selected entities.
+    /// 对当前已经选中的两个实体添加距离配合，距离单位为米。
     /// </summary>
     MateOperationResult AddMateDistance(double distance, MateAlign align = MateAlign.Closest);
 
     /// <summary>
     /// Add an Angle mate between the two currently-selected entities.
+    /// 对当前已经选中的两个平面实体添加角度配合，传入角度单位为度。
     /// </summary>
     MateOperationResult AddMateAngle(double angleDegrees, MateAlign align = MateAlign.Closest);
 
     /// <summary>
     /// List all top-level components in the active assembly.
+    /// 列出当前活动装配体的顶层组件实例，不递归进入子装配体。
     /// </summary>
     IReadOnlyList<ComponentInfo> ListComponents();
 
     /// <summary>
     /// List all component instances in the active assembly by recursively traversing subassemblies.
+    /// 递归列出当前活动装配体中的所有组件实例，并返回层级路径，适合处理嵌套子装配体。
     /// </summary>
     IReadOnlyList<ComponentInstanceInfo> ListComponentsRecursive();
 
     /// <summary>
     /// Resolve one exact component instance in the active assembly using name, hierarchy path, path, or any combination.
+    /// 根据组件名、层级路径或源文件路径解析唯一组件实例；用于在操作前消除同名/复用组件歧义。
     /// </summary>
     AssemblyTargetResolutionResult ResolveComponentTarget(
         string? componentName = null,
@@ -151,6 +173,7 @@ public interface IAssemblyService
 
     /// <summary>
     /// Analyze how many placements would change if the resolved component's source file were edited directly.
+    /// 分析直接编辑目标组件源文件会影响多少个实例；用于判断共享零件/子装配体是否需要先替换单实例再编辑。
     /// </summary>
     SharedPartEditImpactResult AnalyzeSharedPartEditImpact(
         string? componentName = null,
@@ -160,6 +183,7 @@ public interface IAssemblyService
     /// <summary>
     /// Run a static interference check for the active assembly or a subset of component instances.
     /// This follows the official ToolsCheckInterference2 workflow and temporarily changes the SolidWorks selection set.
+    /// 对整个活动装配体或指定组件集合执行静态干涉检查；调用期间会临时改变 SolidWorks 当前选择集。
     /// </summary>
     AssemblyInterferenceCheckResult CheckInterference(
         IReadOnlyList<string>? hierarchyPaths = null,
@@ -167,6 +191,7 @@ public interface IAssemblyService
 
     /// <summary>
     /// Replace a top-level component instance in the active assembly with another model file.
+    /// 将活动装配体中的顶层组件实例替换为另一个零件或装配体文件；嵌套组件需先打开其所属子装配体再替换。
     /// </summary>
     AssemblyComponentReplacementResult ReplaceComponent(
         string hierarchyPath,
@@ -212,62 +237,128 @@ public class AssemblyService : IAssemblyService
 
 
     public ComponentTransformResult MoveComponent(
-    string componentName,
-    double deltaX,
-    double deltaY,
-    double deltaZ)
-{
-    _cm.EnsureConnected();
-    var assy = GetAssemblyDoc();
-    
-    var components = (object[]?)assy.GetComponents(false) ?? Array.Empty<object>();
-    IComponent2? targetComponent = null;
-    
-    foreach (var comp in components.OfType<IComponent2>())
+        string componentName,
+        double deltaX,
+        double deltaY,
+        double deltaZ)
     {
-        if (string.Equals(comp.Name2, componentName, StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(componentName))
+            throw new ArgumentException("componentName must not be empty", nameof(componentName));
+
+        _cm.EnsureConnected();
+        var assy = GetAssemblyDoc();
+
+        // Search all instances (including subassemblies) to match behaviour of other target-resolution methods.
+        var instances = EnumerateComponentInstances(assy);
+        var target = instances.FirstOrDefault(i =>
+            string.Equals(i.Info.Name, componentName, StringComparison.OrdinalIgnoreCase));
+
+        if (target == null)
         {
-            targetComponent = comp;
-            break;
+            return new ComponentTransformResult(
+                false,
+                $"Component '{componentName}' not found",
+                componentName,
+                null);
         }
-    }
-    
-    if (targetComponent == null)
-    {
+
+        var swApp = _cm.SwApp ?? throw new InvalidOperationException("SolidWorks not connected");
+        var mathUtil = swApp.GetMathUtility();
+
+        // SolidWorks CreateTransform array layout (16 elements):
+        // [R11,R12,R13, R21,R22,R23, R31,R32,R33, Tx,Ty,Tz, Scale, 0,0,0]
+        double[] translationData =
+        [
+            1, 0, 0,
+            0, 1, 0,
+            0, 0, 1,
+            deltaX, deltaY, deltaZ,
+            1,
+            0, 0, 0,
+        ];
+
+        var translationTransform = (IMathTransform)mathUtil.CreateTransform((object)translationData);
+
+        // currentTransform × translationTransform: offset in world space then restore orientation.
+        var current = target.Component.Transform2;
+        target.Component.Transform2 = (current != null
+            ? current.Multiply(translationTransform)
+            : translationTransform) as MathTransform;
+
+        var doc = (IModelDoc2)assy;
+        doc.EditRebuild3();
+
         return new ComponentTransformResult(
-            false,
-            $"Component '{componentName}' not found",
-            componentName,
-            null);
+            true,
+            $"Moved component '{componentName}' by ({deltaX}, {deltaY}, {deltaZ}) meters",
+            target.Info.Name,
+            target.Info.HierarchyPath);
     }
-    
-    var swApp = _cm.SwApp ?? throw new InvalidOperationException("SolidWorks not connected");
-    var mathUtil = (IMathUtility)swApp.GetMathUtility();
-    
-    // 正确的 4x4 变换矩阵（16 个元素）
-    double[] translationData = new double[]
+
+    public ComponentTransformResult RotateComponent(
+        string componentName,
+        double axisX,
+        double axisY,
+        double axisZ,
+        double angleDegrees)
     {
-        1, 0, 0, 0,
-        0, 1, 0, 0,
-        0, 0, 1, 0,
-        deltaX, deltaY, deltaZ, 1
-    };
-    
-    var translationTransform = (IMathTransform)mathUtil.CreateTransform((object)translationData);
-    var currentTransform = (IMathTransform)targetComponent.Transform2;
-    var newTransform = (IMathTransform)currentTransform.IMultiply(translationTransform);
-    
-    targetComponent.Transform2 = newTransform;
-    
-    var doc = (IModelDoc2)assy;
-    doc.EditRebuild3();
-    
-    return new ComponentTransformResult(
-        true,
-        $"Moved component '{componentName}' by ({deltaX}, {deltaY}, {deltaZ}) meters",
-        componentName,
-        targetComponent.Name2);
-}
+        if (string.IsNullOrWhiteSpace(componentName))
+            throw new ArgumentException("componentName must not be empty", nameof(componentName));
+
+        _cm.EnsureConnected();
+        var assy = GetAssemblyDoc();
+
+        var instances = EnumerateComponentInstances(assy);
+        var target = instances.FirstOrDefault(i =>
+            string.Equals(i.Info.Name, componentName, StringComparison.OrdinalIgnoreCase));
+
+        if (target == null)
+        {
+            return new ComponentTransformResult(
+                false,
+                $"Component '{componentName}' not found",
+                componentName,
+                null);
+        }
+
+        var swApp = _cm.SwApp ?? throw new InvalidOperationException("SolidWorks not connected");
+        var mathUtil = swApp.GetMathUtility();
+
+        double angleRad = angleDegrees * Math.PI / 180.0;
+        double c = Math.Cos(angleRad), s = Math.Sin(angleRad);
+
+        // Normalize axis
+        double len = Math.Sqrt(axisX * axisX + axisY * axisY + axisZ * axisZ);
+        if (len < 1e-10)
+            throw new ArgumentException("Rotation axis vector must not be zero.");
+        double ux = axisX / len, uy = axisY / len, uz = axisZ / len;
+
+        // Rodrigues rotation matrix
+        double[] rotData =
+        [
+            c + ux*ux*(1-c),    ux*uy*(1-c) - uz*s, ux*uz*(1-c) + uy*s,
+            uy*ux*(1-c) + uz*s, c + uy*uy*(1-c),    uy*uz*(1-c) - ux*s,
+            uz*ux*(1-c) - uy*s, uz*uy*(1-c) + ux*s, c + uz*uz*(1-c),
+            0, 0, 0,  // no translation
+            1,        // scale
+            0, 0, 0,
+        ];
+
+        var rotTransform = (IMathTransform)mathUtil.CreateTransform((object)rotData);
+        var currentRot = target.Component.Transform2;
+        target.Component.Transform2 = (currentRot != null
+            ? currentRot.Multiply(rotTransform)
+            : rotTransform) as MathTransform;
+
+        var doc = (IModelDoc2)assy;
+        doc.EditRebuild3();
+
+        return new ComponentTransformResult(
+            true,
+            $"Rotated component '{componentName}' around ({axisX},{axisY},{axisZ}) by {angleDegrees}°",
+            target.Info.Name,
+            target.Info.HierarchyPath);
+    }
 
     public MateOperationResult AddMateCoincident(MateAlign align = MateAlign.Closest)
         => AddMate(MateType.Coincident, align);

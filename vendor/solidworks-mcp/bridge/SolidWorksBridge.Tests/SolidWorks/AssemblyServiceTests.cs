@@ -851,4 +851,159 @@ public class AssemblyServiceTests
             new AssemblyService(manager.Object).ReplaceComponent("Pulley-1", @"C:\NewPulley.sldprt"));
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // MoveComponent
+    // ─────────────────────────────────────────────────────────────
+
+    private static (Mock<ISwConnectionManager> manager, Mock<IAssemblyDoc> assy,
+                    Mock<IMathUtility> mathUtil)
+        ConnectedWithMathMocks()
+    {
+        var (manager, assy) = ConnectedWithAssy();
+
+        var newTransform = new Mock<IMathTransform>();
+        var translationTransform = new Mock<IMathTransform>();
+        translationTransform.Setup(t => t.Multiply(It.IsAny<object>()))
+                            .Returns(newTransform.Object);
+
+        var mathUtil = new Mock<IMathUtility>();
+        mathUtil.Setup(m => m.CreateTransform(It.IsAny<object>()))
+                .Returns(translationTransform.Object);
+
+        manager.Setup(m => m.SwApp!.GetMathUtility()).Returns(mathUtil.Object);
+
+        return (manager, assy, mathUtil);
+    }
+
+    [Fact]
+    public void MoveComponent_EmptyName_Throws()
+    {
+        var (manager, _) = ConnectedWithAssy();
+        Assert.Throws<ArgumentException>(() =>
+            new AssemblyService(manager.Object).MoveComponent("", 0, 0, 0));
+    }
+
+    [Fact]
+    public void MoveComponent_ComponentNotFound_ReturnsFailure()
+    {
+        var (manager, assy, _) = ConnectedWithMathMocks();
+        assy.Setup(a => a.GetComponents(true)).Returns(new object[] { });
+
+        var result = new AssemblyService(manager.Object).MoveComponent("Missing-1", 0.01, 0, 0);
+
+        Assert.False(result.Success);
+        Assert.Equal("Missing-1", result.ComponentName);
+        Assert.Null(result.HierarchyPath);
+    }
+
+    [Fact]
+    public void MoveComponent_TopLevelComponent_ReturnsSuccessWithHierarchyPath()
+    {
+        var (manager, assy, mathUtil) = ConnectedWithMathMocks();
+        var doc = assy.As<IModelDoc2>();
+
+        var comp = new Mock<Component2>();
+        comp.Setup(c => c.Name2).Returns("Part1-1");
+        comp.Setup(c => c.GetPathName()).Returns(@"C:\Part1.sldprt");
+        comp.Setup(c => c.GetChildren()).Returns(Array.Empty<object>());
+        comp.SetupProperty(c => c.Transform2, (MathTransform)null!);
+
+        assy.Setup(a => a.GetComponents(true)).Returns(new object[] { comp.Object });
+
+        var result = new AssemblyService(manager.Object).MoveComponent("Part1-1", 0.01, 0.02, 0.03);
+
+        Assert.True(result.Success);
+        Assert.Equal("Part1-1", result.ComponentName);
+        Assert.Equal("Part1-1", result.HierarchyPath);
+        mathUtil.Verify(m => m.CreateTransform(It.IsAny<object>()), Times.Once);
+        doc.Verify(d => d.EditRebuild3(), Times.Once);
+    }
+
+    [Fact]
+    public void MoveComponent_NestedComponent_FoundAndReturnsFullHierarchyPath()
+    {
+        var (manager, assy, _) = ConnectedWithMathMocks();
+        var doc = assy.As<IModelDoc2>();
+
+        var child = new Mock<Component2>();
+        child.Setup(c => c.Name2).Returns("NestedPart-1");
+        child.Setup(c => c.GetPathName()).Returns(@"C:\Part.sldprt");
+        child.Setup(c => c.GetChildren()).Returns(Array.Empty<object>());
+        child.SetupProperty(c => c.Transform2, (MathTransform)null!);
+
+        var subAsm = new Mock<Component2>();
+        subAsm.Setup(c => c.Name2).Returns("SubAsm-1");
+        subAsm.Setup(c => c.GetPathName()).Returns(@"C:\SubAsm.sldasm");
+        subAsm.Setup(c => c.GetChildren()).Returns(new object[] { child.Object });
+
+        assy.Setup(a => a.GetComponents(true)).Returns(new object[] { subAsm.Object });
+
+        var result = new AssemblyService(manager.Object).MoveComponent("NestedPart-1", 0, 0.05, 0);
+
+        Assert.True(result.Success);
+        Assert.Equal("SubAsm-1/NestedPart-1", result.HierarchyPath);
+        doc.Verify(d => d.EditRebuild3(), Times.Once);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // RotateComponent
+    // ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void RotateComponent_EmptyName_Throws()
+    {
+        var (manager, _) = ConnectedWithAssy();
+        Assert.Throws<ArgumentException>(() =>
+            new AssemblyService(manager.Object).RotateComponent("", 0, 0, 1, 90));
+    }
+
+    [Fact]
+    public void RotateComponent_ZeroAxis_Throws()
+    {
+        var (manager, assy, _) = ConnectedWithMathMocks();
+        var comp = new Mock<Component2>();
+        comp.Setup(c => c.Name2).Returns("Part1-1");
+        comp.Setup(c => c.GetPathName()).Returns(@"C:\Part1.sldprt");
+        comp.Setup(c => c.GetChildren()).Returns(Array.Empty<object>());
+        comp.SetupProperty(c => c.Transform2, (MathTransform)null!);
+        assy.Setup(a => a.GetComponents(true)).Returns(new object[] { comp.Object });
+
+        Assert.Throws<ArgumentException>(() =>
+            new AssemblyService(manager.Object).RotateComponent("Part1-1", 0, 0, 0, 45));
+    }
+
+    [Fact]
+    public void RotateComponent_ComponentNotFound_ReturnsFailure()
+    {
+        var (manager, assy, _) = ConnectedWithMathMocks();
+        assy.Setup(a => a.GetComponents(true)).Returns(new object[] { });
+
+        var result = new AssemblyService(manager.Object).RotateComponent("Missing-1", 0, 0, 1, 90);
+
+        Assert.False(result.Success);
+        Assert.Equal("Missing-1", result.ComponentName);
+        Assert.Null(result.HierarchyPath);
+    }
+
+    [Fact]
+    public void RotateComponent_ValidAxis_CallsCreateTransformAndRebuild()
+    {
+        var (manager, assy, mathUtil) = ConnectedWithMathMocks();
+        var doc = assy.As<IModelDoc2>();
+
+        var comp = new Mock<Component2>();
+        comp.Setup(c => c.Name2).Returns("Part1-1");
+        comp.Setup(c => c.GetPathName()).Returns(@"C:\Part1.sldprt");
+        comp.Setup(c => c.GetChildren()).Returns(Array.Empty<object>());
+        comp.SetupProperty(c => c.Transform2, (MathTransform)null!);
+        assy.Setup(a => a.GetComponents(true)).Returns(new object[] { comp.Object });
+
+        var result = new AssemblyService(manager.Object).RotateComponent("Part1-1", 0, 0, 1, 90);
+
+        Assert.True(result.Success);
+        Assert.Equal("Part1-1", result.ComponentName);
+        mathUtil.Verify(m => m.CreateTransform(It.IsAny<object>()), Times.Once);
+        doc.Verify(d => d.EditRebuild3(), Times.Once);
+    }
+
 }

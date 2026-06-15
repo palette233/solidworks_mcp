@@ -205,6 +205,7 @@ internal static class Program
         builder.Services.AddTransient<SolidWorksMcpApp.Tools.SketchTools>();
         builder.Services.AddTransient<SolidWorksMcpApp.Tools.FeatureTools>();
         builder.Services.AddTransient<SolidWorksMcpApp.Tools.AssemblyTools>();
+        builder.Services.AddTransient<SolidWorksMcpApp.Tools.DemoTools>();
         builder.Services.AddTransient<SolidWorksMcpApp.Tools.EquationTools>();
         builder.Services.AddTransient<SolidWorksMcpApp.Tools.FeatureDimensionTools>();
         builder.Services.AddTransient<SolidWorksMcpApp.Tools.KnowledgeTools>();

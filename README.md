@@ -4,6 +4,20 @@ This workspace starts with a crawler for SOLIDWORKS 2025 API Web Help pages.
 
 It now also contains a SolidWorks MCP server base from [just1step/solidworks-mcp](https://github.com/just1step/solidworks-mcp), with a local RAG-backed knowledge tool added on top.
 
+## Install
+
+```powershell
+pip install requests beautifulsoup4 numpy scipy scikit-learn
+```
+
+Or install as an editable package:
+
+```powershell
+pip install -e .
+```
+
+This ensures `solidworks_rag` is discoverable on `sys.path`.
+
 ## Crawl
 
 ```powershell

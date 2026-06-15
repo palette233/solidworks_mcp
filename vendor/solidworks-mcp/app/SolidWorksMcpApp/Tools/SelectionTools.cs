@@ -96,6 +96,28 @@ public class SelectionTools(StaDispatcher sta, ISelectionService selection)
         return JsonSerializer.Serialize(result);
     }
 
+    [McpServerTool, Description("Record the currently-selected face in SolidWorks into the persistent face mapping file under a human-readable name. The face position is stored in component-local coordinates, so the entry remains valid after move/rotate/mate operations.")]
+    public async Task<string> RecordFaceMapping(
+        [Description("Human-readable name for this face, e.g. '底面' or 'top_face'")] string faceName,
+        [Description("Component instance name the face belongs to, e.g. 'Part1-1'")] string componentName)
+    {
+        var result = await sta.InvokeLoggedAsync(nameof(RecordFaceMapping), new { faceName, componentName },
+            () => selection.RecordFaceMapping(faceName, componentName));
+        return JsonSerializer.Serialize(result);
+    }
+
+    [McpServerTool, Description("Select a face that was previously recorded with record_face_mapping, by its human-readable name. Matching uses component-local coordinates and is stable across move/rotate/mate operations.")]
+    public async Task<string> SelectFaceByName(
+        [Description("Human-readable name of the face, e.g. '底面'")] string faceName,
+        [Description("Component instance name, e.g. 'Part1-1'")] string componentName,
+        [Description("Append to current selection instead of replacing it")] bool append = false,
+        [Description("Selection mark value (default 0)")] int mark = 0)
+    {
+        var result = await sta.InvokeLoggedAsync(nameof(SelectFaceByName), new { faceName, componentName, append, mark },
+            () => selection.SelectFaceByName(faceName, componentName, append, mark));
+        return JsonSerializer.Serialize(result);
+    }
+
     [McpServerTool, Description("Measure two topology entities using SolidWorks' official IMeasure API. Provide indexes from ListEntities; the tool will select both entities internally, call IModelDocExtension.CreateMeasure().Calculate(null), and return distance-related values.")]
     public async Task<string> MeasureEntities(
         [Description("First entity type: Face, Edge, or Vertex")] string firstEntityType,
