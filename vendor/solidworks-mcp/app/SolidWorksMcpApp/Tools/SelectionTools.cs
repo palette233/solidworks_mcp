@@ -39,9 +39,12 @@ public class SelectionTools(StaDispatcher sta, ISelectionService selection)
     [McpServerTool, Description("Select an entity in SolidWorks by name and selection type string. For datum planes, prefer 'PLANE'; common SolidWorks enum names like 'swSelDATUMPLANES' are also accepted and retried with compatible aliases.")]
     public async Task<string> SelectByName(
         [Description("Name of the entity to select")] string name,
-        [Description("SolidWorks selection type string, e.g. 'swSelDATUMPLANES', 'swSelFACES'")] string selType)
+        [Description("SolidWorks selection type string, e.g. 'swSelDATUMPLANES', 'swSelFACES'")] string selType,
+        [Description("Append to current selection instead of replacing it.")] bool append = false,
+        [Description("SolidWorks selection mark.")] int mark = 0)
     {
-        var result = await sta.InvokeLoggedAsync(nameof(SelectByName), new { name, selType }, () => selection.SelectByName(name, selType));
+        var result = await sta.InvokeLoggedAsync(nameof(SelectByName), new { name, selType, append, mark },
+            () => selection.SelectByName(name, selType, append, mark));
         return JsonSerializer.Serialize(result);
     }
 

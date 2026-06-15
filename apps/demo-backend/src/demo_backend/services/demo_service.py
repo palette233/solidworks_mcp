@@ -6,7 +6,11 @@ from pathlib import Path
 from ..adapters.llm_client import LlmClient
 from ..adapters.mcp_client import McpClient
 from ..face_mappings import FaceMappingStore
-from ..mcp_tools import ARRANGE_COMPONENTS_ON_COMMON_BASE_TOOL
+from ..mcp_tools import (
+    ARRANGE_COMPONENTS_ON_COMMON_BASE_TOOL,
+    INITIALIZE_COMMON_BASE_ASSEMBLY_TOOL,
+    MOVE_COMPONENTS_ON_COMMON_BASE_TOOL,
+)
 from ..models import ApplyLayoutRequest, Coordinate, DemoState, OperationResult, ToolCallPlan
 from ..state_store import DemoStateStore
 
@@ -53,6 +57,14 @@ class DemoService:
 
     async def align_bottom(self) -> OperationResult:
         state = self.store.load()
+        self._normalize_state(state)
+        if state.assembly_path:
+            return OperationResult(
+                status="ok",
+                message="Common-base assembly is already initialized. Arrange will move existing components only.",
+                state=state,
+            )
+
         missing = self.face_mappings.missing_bottom_mappings(state.components)
         if missing:
             return OperationResult(
@@ -62,27 +74,9 @@ class DemoService:
                 state=state,
             )
 
-        plan = [
-            *[
-                ToolCallPlan(
-                    tool="SelectFaceByName",
-                    arguments={
-                        "faceName": component.bottom_face_name,
-                        "componentName": component.component_name,
-                        "append": index > 0,
-                    },
-                )
-                for index, component in enumerate(state.components)
-            ],
-            ToolCallPlan(
-                tool=ARRANGE_COMPONENTS_ON_COMMON_BASE_TOOL,
-                arguments={
-                    "components": [component.component_name for component in state.components],
-                    "baseZ": 0,
-                },
-            )
-        ]
+        plan = self._initialize_plan(state, align_bottom=True)
         result = await self.mcp.run_plan(plan)
+        self._apply_arrange_outcome(result, state)
         result.state = state
         return result
 
@@ -168,10 +162,17 @@ class DemoService:
 
     @staticmethod
     def _arrange_plan(state: DemoState, align_bottom: bool) -> list[ToolCallPlan]:
+        if state.assembly_path:
+            return DemoService._move_existing_plan(state)
+        return DemoService._initialize_plan(state, align_bottom)
+
+    @staticmethod
+    def _initialize_plan(state: DemoState, align_bottom: bool) -> list[ToolCallPlan]:
         workspace = Path(__file__).resolve().parents[5]
         arguments = {
-            "alignBottom": align_bottom,
-            "baseZ": 0,
+            "outputAssemblyPath": str(workspace / "demo" / "ABC_arrange_demo.SLDASM"),
+            "basePlaneName": "Front Plane",
+            "basePlaneSelectionType": "PLANE",
             "screenshotPath": str(workspace / "demo" / "arrange_result_frontend.png"),
             "screenshotWidth": 1600,
             "screenshotHeight": 900,
@@ -191,12 +192,42 @@ class DemoService:
                 for component in state.components
             ],
         }
-        if state.assembly_path:
-            arguments["assemblyPath"] = state.assembly_path
 
         return [
             ToolCallPlan(
-                tool=ARRANGE_COMPONENTS_ON_COMMON_BASE_TOOL,
+                tool=INITIALIZE_COMMON_BASE_ASSEMBLY_TOOL,
+                arguments=arguments,
+            )
+        ]
+
+    @staticmethod
+    def _move_existing_plan(state: DemoState) -> list[ToolCallPlan]:
+        workspace = Path(__file__).resolve().parents[5]
+        arguments = {
+            "assemblyPath": state.assembly_path,
+            "basePlaneName": "Front Plane",
+            "screenshotPath": str(workspace / "demo" / "arrange_result_frontend.png"),
+            "screenshotWidth": 1600,
+            "screenshotHeight": 900,
+            "includeScreenshotBase64Data": False,
+            "components": [
+                {
+                    "componentName": component.component_name,
+                    "x": component.target.x,
+                    "y": component.target.y,
+                    "z": component.target.z,
+                    "bottomFaceName": component.bottom_face_name,
+                    "currentX": component.current.x,
+                    "currentY": component.current.y,
+                    "currentZ": component.current.z,
+                }
+                for component in state.components
+            ],
+        }
+
+        return [
+            ToolCallPlan(
+                tool=MOVE_COMPONENTS_ON_COMMON_BASE_TOOL,
                 arguments=arguments,
             )
         ]
@@ -243,6 +274,10 @@ class DemoService:
             self.store.save(state)
             return
 
+        assembly_path = payload.get("assemblyPath")
+        if isinstance(assembly_path, str) and assembly_path.strip():
+            state.assembly_path = assembly_path
+
         self._promote_targets_to_current(state)
         state.last_run = self._last_run_from_payload(result, payload)
         self.store.save(state)
@@ -255,6 +290,7 @@ class DemoService:
             "message": result.message,
             "toolSuccess": bool(payload.get("success")),
             "toolMessage": payload.get("message"),
+            "assemblyPath": payload.get("assemblyPath"),
             "screenshotPath": screenshot.get("outputPath") if screenshot else None,
             "components": payload.get("components", []),
         }

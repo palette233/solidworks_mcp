@@ -1,1 +1,3 @@
 ARRANGE_COMPONENTS_ON_COMMON_BASE_TOOL = "arrange_components_on_common_base"
+INITIALIZE_COMMON_BASE_ASSEMBLY_TOOL = "initialize_common_base_assembly"
+MOVE_COMPONENTS_ON_COMMON_BASE_TOOL = "move_components_on_common_base"

@@ -232,7 +232,7 @@ public interface ISelectionService
     /// Select an entity by its name and type string (e.g. "Front Plane", "swSelDATUMPLANES").
     /// Coordinates default to 0,0,0 which is sufficient for named entities.
     /// </summary>
-    SelectionResult SelectByName(string name, string selType);
+    SelectionResult SelectByName(string name, string selType, bool append = false, int mark = 0);
 
     /// <summary>
     /// List selectable topology entities on the active part or assembly.
@@ -389,16 +389,19 @@ public class SelectionService : ISelectionService
         _cm = cm ?? throw new ArgumentNullException(nameof(cm));
     }
 
-    public SelectionResult SelectByName(string name, string selType)
+    public SelectionResult SelectByName(string name, string selType, bool append = false, int mark = 0)
     {
         _cm.EnsureConnected();
         var doc = GetActiveModelDoc();
-        doc.ClearSelection2(true);
+        if (!append)
+        {
+            doc.ClearSelection2(true);
+        }
 
         foreach (var candidateType in ExpandSelectionTypes(selType))
         {
             // SelectByID(name, type, x, y, z) — x/y/z are 0,0,0 for named geometry
-            bool ok = doc.SelectByID(name, candidateType, 0, 0, 0);
+            bool ok = doc.Extension.SelectByID2(name, candidateType, 0, 0, 0, append, mark, null, 0);
             if (ok)
             {
                 string message = string.Equals(candidateType, selType, StringComparison.OrdinalIgnoreCase)
@@ -413,7 +416,7 @@ public class SelectionService : ISelectionService
         // against discovered reference planes from the active feature tree.
         if (IsPlaneSelection(selType))
         {
-            var fallback = TrySelectLocalizedStandardPlane(doc, name, selType);
+            var fallback = TrySelectLocalizedStandardPlane(doc, name, selType, append, mark);
             if (fallback != null)
             {
                 return fallback;
@@ -1433,7 +1436,7 @@ public class SelectionService : ISelectionService
             .Any(type => string.Equals(type, "PLANE", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(type, "swSelDATUMPLANES", StringComparison.OrdinalIgnoreCase));
 
-    private static SelectionResult? TrySelectLocalizedStandardPlane(IModelDoc2 doc, string requestedName, string requestedType)
+    private static SelectionResult? TrySelectLocalizedStandardPlane(IModelDoc2 doc, string requestedName, string requestedType, bool append, int mark)
     {
         var requestedKind = GetStandardPlaneKind(requestedName);
         if (requestedKind == StandardPlaneKind.Unknown)
@@ -1464,7 +1467,7 @@ public class SelectionService : ISelectionService
 
         foreach (var candidateType in candidateTypes)
         {
-            bool ok = doc.SelectByID(plane.SelectionName, candidateType, 0, 0, 0);
+            bool ok = doc.Extension.SelectByID2(plane.SelectionName, candidateType, 0, 0, 0, append, mark, null, 0);
             if (ok)
             {
                 return new SelectionResult(

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { CheckCircle2, Loader2, Play, RefreshCw, RotateCcw, Save, XCircle } from "lucide-react";
 import {
@@ -13,7 +13,43 @@ import {
 } from "./api";
 import "./styles.css";
 
-function cloneWithTarget(state: DemoState, id: string, axis: "x" | "y" | "z", value: number): DemoState {
+type Axis = "x" | "y" | "z";
+
+type WorldBounds = {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+};
+
+type BlockSpec = {
+  width: number;
+  height: number;
+  color: string;
+};
+
+const WORLD_BOUNDS: WorldBounds = {
+  minX: -0.1,
+  maxX: 0.8,
+  minY: -0.3,
+  maxY: 0.3
+};
+
+const BLOCK_SPECS: Record<string, BlockSpec> = {
+  a: { width: 0.14, height: 0.1, color: "#2f80ed" },
+  b: { width: 0.16, height: 0.12, color: "#10a37f" },
+  c: { width: 0.13, height: 0.11, color: "#d97706" }
+};
+
+function blockSpec(component: DemoComponent): BlockSpec {
+  return BLOCK_SPECS[component.id] ?? { width: 0.14, height: 0.1, color: "#66727f" };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function cloneWithTarget(state: DemoState, id: string, axis: Axis, value: number): DemoState {
   return {
     ...state,
     components: state.components.map((component) =>
@@ -30,8 +66,30 @@ function cloneWithTarget(state: DemoState, id: string, axis: "x" | "y" | "z", va
   };
 }
 
+function cloneWithXYTarget(state: DemoState, id: string, x: number, y: number): DemoState {
+  return {
+    ...state,
+    components: state.components.map((component) =>
+      component.id === id
+        ? {
+            ...component,
+            target: {
+              ...component.target,
+              x,
+              y
+            }
+          }
+        : component
+    )
+  };
+}
+
 function numberValue(value: number): string {
   return Number.isFinite(value) ? String(value) : "0";
+}
+
+function roundMeters(value: number): number {
+  return Math.round(value * 1000) / 1000;
 }
 
 function StatusIcon({ ok }: { ok?: boolean }) {
@@ -47,7 +105,7 @@ function CoordinateInput({
   onChange
 }: {
   component: DemoComponent;
-  axis: "x" | "y" | "z";
+  axis: Axis;
   onChange: (value: number) => void;
 }) {
   return (
@@ -63,6 +121,116 @@ function CoordinateInput({
   );
 }
 
+function LayoutCanvas({
+  state,
+  disabled,
+  onMove
+}: {
+  state: DemoState;
+  disabled: boolean;
+  onMove: (id: string, x: number, y: number) => void;
+}) {
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const worldWidth = WORLD_BOUNDS.maxX - WORLD_BOUNDS.minX;
+  const worldHeight = WORLD_BOUNDS.maxY - WORLD_BOUNDS.minY;
+
+  function toScreenX(worldX: number): number {
+    return ((worldX - WORLD_BOUNDS.minX) / worldWidth) * 100;
+  }
+
+  function toScreenY(worldY: number): number {
+    return ((WORLD_BOUNDS.maxY - worldY) / worldHeight) * 100;
+  }
+
+  function pointerToWorld(event: PointerEvent<HTMLDivElement>) {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) {
+      return null;
+    }
+
+    const localX = clamp(event.clientX - rect.left, 0, rect.width);
+    const localY = clamp(event.clientY - rect.top, 0, rect.height);
+    const worldX = WORLD_BOUNDS.minX + (localX / rect.width) * worldWidth;
+    const worldY = WORLD_BOUNDS.maxY - (localY / rect.height) * worldHeight;
+    return {
+      x: roundMeters(worldX),
+      y: roundMeters(worldY)
+    };
+  }
+
+  function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
+    if (!draggingId || disabled) {
+      return;
+    }
+    const point = pointerToWorld(event);
+    if (!point) {
+      return;
+    }
+    onMove(draggingId, point.x, point.y);
+  }
+
+  function handlePointerUp(event: PointerEvent<HTMLDivElement>) {
+    if (draggingId) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    setDraggingId(null);
+  }
+
+  return (
+    <div className="panel canvas-panel">
+      <div className="panel-heading">
+        <h2>2D layout</h2>
+        <span>
+          X {WORLD_BOUNDS.minX}..{WORLD_BOUNDS.maxX} m, Y {WORLD_BOUNDS.minY}..{WORLD_BOUNDS.maxY} m
+        </span>
+      </div>
+      <div
+        ref={canvasRef}
+        className="layout-canvas"
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+      >
+        <div className="axis x-axis" />
+        <div className="axis y-axis" />
+        {state.components.map((component) => {
+          const spec = blockSpec(component);
+          const widthPercent = (spec.width / worldWidth) * 100;
+          const heightPercent = (spec.height / worldHeight) * 100;
+          return (
+            <button
+              key={component.id}
+              className={`layout-block ${draggingId === component.id ? "dragging" : ""}`}
+              type="button"
+              disabled={disabled}
+              style={{
+                left: `${toScreenX(component.target.x)}%`,
+                top: `${toScreenY(component.target.y)}%`,
+                width: `${widthPercent}%`,
+                height: `${heightPercent}%`,
+                backgroundColor: spec.color
+              }}
+              onPointerDown={(event) => {
+                if (disabled) {
+                  return;
+                }
+                event.currentTarget.setPointerCapture(event.pointerId);
+                setDraggingId(component.id);
+              }}
+            >
+              <strong>{component.componentName}</strong>
+              <span>
+                {component.target.x.toFixed(3)}, {component.target.y.toFixed(3)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [state, setState] = useState<DemoState | null>(null);
   const [result, setResult] = useState<OperationResult | null>(null);
@@ -70,7 +238,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const arrangePayload = useMemo(() => parseArrangePayload(result), [result]);
   const effectiveComponents = arrangePayload?.components ?? state?.lastRun?.components ?? [];
-  const effectiveMessage = arrangePayload?.message ?? state?.lastRun?.toolMessage ?? result?.message ?? "等待执行";
+  const effectiveMessage = arrangePayload?.message ?? state?.lastRun?.toolMessage ?? result?.message ?? "Waiting";
   const effectiveStatus = result?.status ?? state?.lastRun?.status ?? "idle";
   const hasScreenshot = Boolean(arrangePayload?.screenshot?.outputPath || state?.lastRun?.screenshotPath);
   const screenshotUrl = hasScreenshot
@@ -141,21 +309,21 @@ function App() {
       <header className="topbar">
         <div>
           <h1>SolidWorks Assembly Demo</h1>
-          <p>A/B/C 子装配体底面中心坐标排布控制台</p>
+          <p>Drag 2D blocks to set bottom-center coordinates for A/B/C.</p>
         </div>
         <div className="toolbar" aria-label="Actions">
-          <button className="icon-button" type="button" onClick={load} disabled={busy} title="刷新状态">
+          <button className="icon-button" type="button" onClick={load} disabled={busy} title="Refresh">
             <RefreshCw aria-hidden="true" />
           </button>
-          <button className="icon-button" type="button" onClick={handleSave} disabled={busy || !state} title="保存坐标">
+          <button className="icon-button" type="button" onClick={handleSave} disabled={busy || !state} title="Save">
             <Save aria-hidden="true" />
           </button>
-          <button className="icon-button" type="button" onClick={handleReset} disabled={busy} title="重置状态">
+          <button className="icon-button" type="button" onClick={handleReset} disabled={busy} title="Reset">
             <RotateCcw aria-hidden="true" />
           </button>
           <button className="primary-button" type="button" onClick={handleArrange} disabled={busy || !state}>
             {busy ? <Loader2 className="spin" aria-hidden="true" /> : <Play aria-hidden="true" />}
-            执行排布
+            Arrange
           </button>
         </div>
       </header>
@@ -163,68 +331,78 @@ function App() {
       {error ? <div className="banner error">{error}</div> : null}
 
       <section className="layout-grid">
-        <div className="panel table-panel">
-          <div className="panel-heading">
-            <h2>坐标</h2>
-            <span>{state?.updatedAt ? new Date(state.updatedAt).toLocaleString() : "未加载"}</span>
-          </div>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>组件</th>
-                  <th>当前 X</th>
-                  <th>当前 Y</th>
-                  <th>当前 Z</th>
-                  <th>底面中心 X</th>
-                  <th>底面中心 Y</th>
-                  <th>底面中心 Z</th>
-                  <th>底面</th>
-                </tr>
-              </thead>
-              <tbody>
-                {state?.components.map((component) => (
-                  <tr key={component.id}>
-                    <td>
-                      <strong>{component.componentName}</strong>
-                      <span>{component.displayName}</span>
-                    </td>
-                    <td>{component.current.x.toFixed(3)}</td>
-                    <td>{component.current.y.toFixed(3)}</td>
-                    <td>{component.current.z.toFixed(3)}</td>
-                    <td>
-                      <CoordinateInput
-                        component={component}
-                        axis="x"
-                        onChange={(value) => setState((current) => current && cloneWithTarget(current, component.id, "x", value))}
-                      />
-                    </td>
-                    <td>
-                      <CoordinateInput
-                        component={component}
-                        axis="y"
-                        onChange={(value) => setState((current) => current && cloneWithTarget(current, component.id, "y", value))}
-                      />
-                    </td>
-                    <td>
-                      <CoordinateInput
-                        component={component}
-                        axis="z"
-                        onChange={(value) => setState((current) => current && cloneWithTarget(current, component.id, "z", value))}
-                      />
-                    </td>
-                    <td>{component.bottomFaceName}</td>
+        <div className="main-column">
+          {state ? (
+            <LayoutCanvas
+              state={state}
+              disabled={busy}
+              onMove={(id, x, y) => setState((current) => current && cloneWithXYTarget(current, id, x, y))}
+            />
+          ) : null}
+
+          <div className="panel table-panel">
+            <div className="panel-heading">
+              <h2>Coordinates</h2>
+              <span>{state?.updatedAt ? new Date(state.updatedAt).toLocaleString() : "Not loaded"}</span>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Component</th>
+                    <th>Current X</th>
+                    <th>Current Y</th>
+                    <th>Current Z</th>
+                    <th>Bottom X</th>
+                    <th>Bottom Y</th>
+                    <th>Bottom Z</th>
+                    <th>Face</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {state?.components.map((component) => (
+                    <tr key={component.id}>
+                      <td>
+                        <strong>{component.componentName}</strong>
+                        <span>{component.displayName}</span>
+                      </td>
+                      <td>{component.current.x.toFixed(3)}</td>
+                      <td>{component.current.y.toFixed(3)}</td>
+                      <td>{component.current.z.toFixed(3)}</td>
+                      <td>
+                        <CoordinateInput
+                          component={component}
+                          axis="x"
+                          onChange={(value) => setState((current) => current && cloneWithTarget(current, component.id, "x", value))}
+                        />
+                      </td>
+                      <td>
+                        <CoordinateInput
+                          component={component}
+                          axis="y"
+                          onChange={(value) => setState((current) => current && cloneWithTarget(current, component.id, "y", value))}
+                        />
+                      </td>
+                      <td>
+                        <CoordinateInput
+                          component={component}
+                          axis="z"
+                          onChange={(value) => setState((current) => current && cloneWithTarget(current, component.id, "z", value))}
+                        />
+                      </td>
+                      <td>{component.bottomFaceName}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
         <aside className="side-column">
           <div className="panel">
             <div className="panel-heading">
-              <h2>结果</h2>
+              <h2>Result</h2>
               <span className={`pill ${effectiveStatus}`}>{effectiveStatus}</span>
             </div>
             <p className="result-message">{effectiveMessage}</p>
@@ -236,18 +414,18 @@ function App() {
                     <StatusIcon ok={component.moveResult?.success !== false && component.faceSelection?.success !== false} />
                   </div>
                   <dl>
-                    <dt>选面</dt>
-                    <dd>{component.faceSelection?.success ? "成功" : component.faceSelection?.message ?? "未执行"}</dd>
-                    <dt>配合</dt>
-                    <dd>{component.bottomMateResult?.errorName ?? "锚点/未执行"}</dd>
-                    <dt>中心</dt>
+                    <dt>Face</dt>
+                    <dd>{component.faceSelection?.success ? "OK" : component.faceSelection?.message ?? "Not run"}</dd>
+                    <dt>Mate</dt>
+                    <dd>{component.bottomMateResult?.errorName ?? "Anchor / not run"}</dd>
+                    <dt>Center</dt>
                     <dd>
                       {component.bottomFaceCenter?.center
                         ? component.bottomFaceCenter.center.map((value) => value.toFixed(4)).join(", ")
-                        : "未读取"}
+                        : "Not read"}
                     </dd>
-                    <dt>移动</dt>
-                    <dd>{component.moveResult?.message ?? "未执行"}</dd>
+                    <dt>Move</dt>
+                    <dd>{component.moveResult?.message ?? "Not run"}</dd>
                   </dl>
                 </div>
               ))}
@@ -256,8 +434,8 @@ function App() {
 
           <div className="panel screenshot-panel">
             <div className="panel-heading">
-              <h2>截图</h2>
-              <span>{screenshotUrl ? "已生成" : "未生成"}</span>
+              <h2>Screenshot</h2>
+              <span>{screenshotUrl ? "Ready" : "Empty"}</span>
             </div>
             {screenshotUrl ? (
               <img src={screenshotUrl} alt="SolidWorks current view" />

@@ -41,6 +41,19 @@ public record DemoArrangementResult(
     IReadOnlyList<DemoComponentArrangementResult> Components,
     IReadOnlyList<string> MissingFaceMappings);
 
+public record DemoInitializationResult(
+    bool Success,
+    string Message,
+    string AssemblyPath,
+    string BasePlaneName,
+    string BasePlaneSelectionType,
+    SwDocumentInfo? CreatedDocument,
+    SwSaveResult? SaveResult,
+    RebuildExecutionResult? Rebuild,
+    SwImageExportResult? Screenshot,
+    IReadOnlyList<DemoComponentArrangementResult> Components,
+    IReadOnlyList<string> MissingFaceMappings);
+
 [McpServerToolType]
 public class DemoTools(
     StaDispatcher sta,
@@ -52,6 +65,76 @@ public class DemoTools(
     {
         WriteIndented = false,
     };
+
+    [McpServerTool, Description("Initialize the demo assembly once: create a fixed assembly file, insert subassemblies, mate later component bottom faces to the first component bottom face, move bottom-face centers to target positions on the common global plane, rebuild, save, and optionally export a screenshot.")]
+    public async Task<string> InitializeCommonBaseAssembly(
+        [Description("Components to insert and initialize. Each component must provide filePath, componentName, x/y/z, and bottomFaceName.")]
+        DemoComponentLayout[] components,
+        [Description("Output assembly path to save and reuse for later movement calls.")]
+        string outputAssemblyPath,
+        [Description("Optional assembly template path used when creating the new assembly.")]
+        string? templatePath = null,
+        [Description("Reference movement plane used to interpret later 2D moves. For XY movement use Front Plane.")]
+        string basePlaneName = "Front Plane",
+        [Description("Reserved for future reference-plane mate support. Not used by the current entity-face mate workflow.")]
+        string basePlaneSelectionType = "PLANE",
+        [Description("Optional output PNG path. Leave empty to skip screenshot export.")]
+        string? screenshotPath = null,
+        [Description("Screenshot width in pixels.")]
+        int screenshotWidth = 1600,
+        [Description("Screenshot height in pixels.")]
+        int screenshotHeight = 900,
+        [Description("When true, includes base64 PNG data in the result.")]
+        bool includeScreenshotBase64Data = false)
+    {
+        var result = await sta.InvokeLoggedAsync(
+            nameof(InitializeCommonBaseAssembly),
+            new { components, outputAssemblyPath, templatePath, basePlaneName, basePlaneSelectionType, screenshotPath, screenshotWidth, screenshotHeight, includeScreenshotBase64Data },
+            () => InitializeCore(
+                components,
+                outputAssemblyPath,
+                templatePath,
+                basePlaneName,
+                basePlaneSelectionType,
+                screenshotPath,
+                screenshotWidth,
+                screenshotHeight,
+                includeScreenshotBase64Data));
+
+        return JsonSerializer.Serialize(result, JsonOptions);
+    }
+
+    [McpServerTool, Description("Move existing components inside an already initialized common-base assembly. This does not insert components and does not recreate common-base mates.")]
+    public async Task<string> MoveComponentsOnCommonBase(
+        [Description("Existing components to move. Provide componentName plus target x/y/z and bottomFaceName. filePath is ignored.")]
+        DemoComponentLayout[] components,
+        [Description("Existing initialized assembly path to open or activate.")]
+        string assemblyPath,
+        [Description("Reference plane used during initialization. For XY movement use Front Plane.")]
+        string basePlaneName = "Front Plane",
+        [Description("Optional output PNG path. Leave empty to skip screenshot export.")]
+        string? screenshotPath = null,
+        [Description("Screenshot width in pixels.")]
+        int screenshotWidth = 1600,
+        [Description("Screenshot height in pixels.")]
+        int screenshotHeight = 900,
+        [Description("When true, includes base64 PNG data in the result.")]
+        bool includeScreenshotBase64Data = false)
+    {
+        var result = await sta.InvokeLoggedAsync(
+            nameof(MoveComponentsOnCommonBase),
+            new { components, assemblyPath, basePlaneName, screenshotPath, screenshotWidth, screenshotHeight, includeScreenshotBase64Data },
+            () => MoveExistingCore(
+                components,
+                assemblyPath,
+                basePlaneName,
+                screenshotPath,
+                screenshotWidth,
+                screenshotHeight,
+                includeScreenshotBase64Data));
+
+        return JsonSerializer.Serialize(result, JsonOptions);
+    }
 
     [McpServerTool, Description("High-level demo workflow: create or open an assembly, insert subassemblies, verify recorded bottom-face mappings, mate all bottom faces coplanar to the first component bottom face, apply target positions, rebuild, and optionally export a PNG screenshot.")]
     public async Task<string> ArrangeComponentsOnCommonBase(
@@ -89,6 +172,195 @@ public class DemoTools(
                 includeScreenshotBase64Data));
 
         return JsonSerializer.Serialize(result, JsonOptions);
+    }
+
+    private DemoInitializationResult InitializeCore(
+        DemoComponentLayout[] components,
+        string outputAssemblyPath,
+        string? templatePath,
+        string basePlaneName,
+        string basePlaneSelectionType,
+        string? screenshotPath,
+        int screenshotWidth,
+        int screenshotHeight,
+        bool includeScreenshotBase64Data)
+    {
+        if (components == null || components.Length == 0)
+        {
+            throw new ArgumentException("components must contain at least one component.", nameof(components));
+        }
+
+        if (string.IsNullOrWhiteSpace(outputAssemblyPath))
+        {
+            throw new ArgumentException("outputAssemblyPath must not be empty.", nameof(outputAssemblyPath));
+        }
+
+        var normalizedAssemblyPath = Path.GetFullPath(outputAssemblyPath);
+        var outputDirectory = Path.GetDirectoryName(normalizedAssemblyPath);
+        if (!string.IsNullOrWhiteSpace(outputDirectory))
+        {
+            Directory.CreateDirectory(outputDirectory);
+        }
+
+        var createdDocument = docs.NewDocument(SwDocType.Assembly, templatePath);
+        var prepared = components.Select(component => PrepareComponent(component, baseZ: 0, alignBottom: true)).ToList();
+        var missingMappings = MissingFaceMappings(prepared);
+        if (missingMappings.Count > 0)
+        {
+            return new DemoInitializationResult(
+                Success: false,
+                Message: "Please record bottom face mappings before initializing the common-base assembly.",
+                AssemblyPath: normalizedAssemblyPath,
+                BasePlaneName: basePlaneName,
+                BasePlaneSelectionType: basePlaneSelectionType,
+                CreatedDocument: createdDocument,
+                SaveResult: null,
+                Rebuild: null,
+                Screenshot: null,
+                Components: prepared.Select(ToBlockedResult).ToList().AsReadOnly(),
+                MissingFaceMappings: missingMappings);
+        }
+
+        var mateResult = MateBottomFacesToFirstComponent(prepared);
+        var arranged = new List<DemoComponentArrangementResult>();
+        foreach (var component in prepared)
+        {
+            mateResult.FaceSelections.TryGetValue(component.ComponentName, out var mateFaceSelection);
+            mateResult.BottomMates.TryGetValue(component.ComponentName, out var bottomMate);
+            var movePlan = CalculateMoveToTargetBottomCenter(component, baseZ: 0, alignBottom: true);
+            var move = movePlan.Center.Success && movePlan.Center.Center is { Length: >= 3 }
+                ? assembly.MoveComponent(component.ComponentName, movePlan.DeltaX, movePlan.DeltaY, movePlan.DeltaZ)
+                : new ComponentTransformResult(false, movePlan.Center.Message, component.ComponentName, null);
+
+            arranged.Add(new DemoComponentArrangementResult(
+                RequestedComponentName: component.Source.ComponentName ?? "",
+                ComponentName: component.ComponentName,
+                FilePath: component.Source.FilePath,
+                BottomFaceName: component.Source.BottomFaceName,
+                Inserted: component.Inserted,
+                FaceMappingFound: true,
+                FaceSelection: movePlan.FaceSelection ?? mateFaceSelection,
+                BottomMateResult: bottomMate,
+                BottomFaceCenter: movePlan.Center,
+                MoveResult: move));
+        }
+
+        var rebuild = docs.ForceRebuildActiveDocument(topOnly: false);
+        SwImageExportResult? screenshot = null;
+        if (!string.IsNullOrWhiteSpace(screenshotPath))
+        {
+            screenshot = docs.ExportCurrentViewPng(
+                screenshotPath,
+                screenshotWidth,
+                screenshotHeight,
+                includeScreenshotBase64Data);
+        }
+
+        var saveResult = docs.SaveDocumentAs(normalizedAssemblyPath, sourcePath: null, saveAsCopy: false);
+        var success = arranged.All(component =>
+            (component.BottomMateResult == null ||
+                string.Equals(component.BottomMateResult.ErrorName, "swAddMateError_NoError", StringComparison.OrdinalIgnoreCase)) &&
+            component.MoveResult?.Success != false &&
+            component.BottomFaceCenter?.Success != false);
+
+        return new DemoInitializationResult(
+            Success: success,
+            Message: success
+                ? "InitializeCommonBaseAssembly completed."
+                : "InitializeCommonBaseAssembly completed with errors. Check component mate and move results.",
+            AssemblyPath: normalizedAssemblyPath,
+            BasePlaneName: basePlaneName,
+            BasePlaneSelectionType: basePlaneSelectionType,
+            CreatedDocument: createdDocument,
+            SaveResult: saveResult,
+            Rebuild: rebuild,
+            Screenshot: screenshot,
+            Components: arranged.AsReadOnly(),
+            MissingFaceMappings: Array.Empty<string>());
+    }
+
+    private DemoArrangementResult MoveExistingCore(
+        DemoComponentLayout[] components,
+        string assemblyPath,
+        string basePlaneName,
+        string? screenshotPath,
+        int screenshotWidth,
+        int screenshotHeight,
+        bool includeScreenshotBase64Data)
+    {
+        if (components == null || components.Length == 0)
+        {
+            throw new ArgumentException("components must contain at least one component.", nameof(components));
+        }
+
+        if (string.IsNullOrWhiteSpace(assemblyPath))
+        {
+            throw new ArgumentException("assemblyPath must not be empty.", nameof(assemblyPath));
+        }
+
+        var openedDocument = docs.OpenDocument(assemblyPath);
+        var prepared = components.Select(PrepareExistingComponent).ToList();
+        var missingMappings = MissingFaceMappings(prepared);
+        if (missingMappings.Count > 0)
+        {
+            return new DemoArrangementResult(
+                Success: false,
+                Message: "Please record bottom face mappings before moving components on the common base.",
+                AlignBottom: false,
+                BaseZ: 0,
+                CreatedDocument: null,
+                OpenedDocument: openedDocument,
+                Rebuild: null,
+                Screenshot: null,
+                Components: prepared.Select(ToBlockedResult).ToList().AsReadOnly(),
+                MissingFaceMappings: missingMappings);
+        }
+
+        var arranged = new List<DemoComponentArrangementResult>();
+        foreach (var component in prepared)
+        {
+            var movePlan = CalculateMoveToTargetBottomCenterOnPlane(component, basePlaneName);
+            var move = movePlan.Center.Success && movePlan.Center.Center is { Length: >= 3 }
+                ? assembly.MoveComponent(component.ComponentName, movePlan.DeltaX, movePlan.DeltaY, movePlan.DeltaZ)
+                : new ComponentTransformResult(false, movePlan.Center.Message, component.ComponentName, null);
+
+            arranged.Add(new DemoComponentArrangementResult(
+                RequestedComponentName: component.Source.ComponentName ?? "",
+                ComponentName: component.ComponentName,
+                FilePath: null,
+                BottomFaceName: component.Source.BottomFaceName,
+                Inserted: false,
+                FaceMappingFound: true,
+                FaceSelection: movePlan.FaceSelection,
+                BottomMateResult: null,
+                BottomFaceCenter: movePlan.Center,
+                MoveResult: move));
+        }
+
+        var rebuild = docs.ForceRebuildActiveDocument(topOnly: false);
+        SwImageExportResult? screenshot = null;
+        if (!string.IsNullOrWhiteSpace(screenshotPath))
+        {
+            screenshot = docs.ExportCurrentViewPng(
+                screenshotPath,
+                screenshotWidth,
+                screenshotHeight,
+                includeScreenshotBase64Data);
+        }
+
+        return new DemoArrangementResult(
+            Success: arranged.All(component =>
+                component.MoveResult?.Success != false &&
+                component.BottomFaceCenter?.Success != false),
+            Message: "MoveComponentsOnCommonBase completed.",
+            AlignBottom: false,
+            BaseZ: 0,
+            CreatedDocument: null,
+            OpenedDocument: openedDocument,
+            Rebuild: rebuild,
+            Screenshot: screenshot,
+            Components: arranged.AsReadOnly(),
+            MissingFaceMappings: Array.Empty<string>());
     }
 
     private DemoArrangementResult ArrangeCore(
@@ -328,6 +600,117 @@ public class DemoTools(
             targetZ - center.Center[2]);
     }
 
+    private PreparedComponent PrepareExistingComponent(DemoComponentLayout source)
+    {
+        var componentName = source.ComponentName?.Trim();
+        if (string.IsNullOrWhiteSpace(componentName))
+        {
+            throw new ArgumentException("Each existing component must provide componentName.");
+        }
+
+        return new PreparedComponent(
+            Source: source with { FilePath = null },
+            ComponentName: componentName,
+            Inserted: false,
+            CurrentX: source.CurrentX ?? 0,
+            CurrentY: source.CurrentY ?? 0,
+            CurrentZ: source.CurrentZ ?? 0);
+    }
+
+    private IReadOnlyList<string> MissingFaceMappings(IReadOnlyList<PreparedComponent> prepared) =>
+        prepared
+            .Where(component => !HasFaceMapping(component.ComponentName, component.Source.BottomFaceName))
+            .Select(component => $"Please record bottom face mapping first. componentName={component.ComponentName}, faceName={component.Source.BottomFaceName}")
+            .ToList()
+            .AsReadOnly();
+
+    private ReferencePlaneMatePlan MateBottomFaceToReferencePlane(
+        PreparedComponent component,
+        string basePlaneName,
+        string basePlaneSelectionType)
+    {
+        selection.ClearSelection();
+        var faceSelection = selection.SelectFaceByName(
+            component.Source.BottomFaceName,
+            component.ComponentName,
+            append: false,
+            mark: 0);
+        if (!faceSelection.Success)
+        {
+            return new ReferencePlaneMatePlan(
+                faceSelection,
+                new SelectionResult(false, faceSelection.Message),
+                new MateOperationResult("Coincident", -1, "SelectBottomFaceFailed", faceSelection.Message));
+        }
+
+        var planeSelection = selection.SelectByName(
+            basePlaneName,
+            basePlaneSelectionType,
+            append: true,
+            mark: 0);
+        if (!planeSelection.Success)
+        {
+            return new ReferencePlaneMatePlan(
+                faceSelection,
+                planeSelection,
+                new MateOperationResult("Coincident", -1, "SelectBasePlaneFailed", planeSelection.Message));
+        }
+
+        return new ReferencePlaneMatePlan(
+            faceSelection,
+            planeSelection,
+            TryAddCoincidentMate());
+    }
+
+    private BottomCenterMovePlan CalculateMoveToTargetBottomCenterOnPlane(
+        PreparedComponent component,
+        string basePlaneName)
+    {
+        selection.ClearSelection();
+        var faceSelection = selection.SelectFaceByName(
+            component.Source.BottomFaceName,
+            component.ComponentName,
+            append: false,
+            mark: 0);
+        if (!faceSelection.Success)
+        {
+            return new BottomCenterMovePlan(
+                faceSelection,
+                new SelectedFaceCenterResult(false, faceSelection.Message),
+                0,
+                0,
+                0);
+        }
+
+        var center = selection.GetSelectedFaceCenter();
+        if (!center.Success || center.Center is not { Length: >= 3 })
+        {
+            return new BottomCenterMovePlan(faceSelection, center, 0, 0, 0);
+        }
+
+        var (deltaX, deltaY, deltaZ) = CalculatePlaneDelta(basePlaneName, component.Source, center.Center);
+        return new BottomCenterMovePlan(faceSelection, center, deltaX, deltaY, deltaZ);
+    }
+
+    private static (double DeltaX, double DeltaY, double DeltaZ) CalculatePlaneDelta(
+        string basePlaneName,
+        DemoComponentLayout source,
+        IReadOnlyList<double> center)
+    {
+        var normalized = (basePlaneName ?? "").Trim().ToLowerInvariant();
+        if (normalized.Contains("top"))
+        {
+            return (source.X - center[0], 0, source.Z - center[2]);
+        }
+
+        if (normalized.Contains("right"))
+        {
+            return (0, source.Y - center[1], source.Z - center[2]);
+        }
+
+        return (source.X - center[0], source.Y - center[1], 0);
+    }
+
     private BottomMateApplicationResult MateBottomFacesToFirstComponent(IReadOnlyList<PreparedComponent> prepared)
     {
         var faceSelections = new Dictionary<string, FaceMappingResult>(StringComparer.OrdinalIgnoreCase);
@@ -436,6 +819,11 @@ public class DemoTools(
     private sealed record BottomMateApplicationResult(
         IReadOnlyDictionary<string, FaceMappingResult> FaceSelections,
         IReadOnlyDictionary<string, MateOperationResult> BottomMates);
+
+    private sealed record ReferencePlaneMatePlan(
+        FaceMappingResult FaceSelection,
+        SelectionResult PlaneSelection,
+        MateOperationResult MateResult);
 
     private sealed record BottomCenterMovePlan(
         FaceMappingResult FaceSelection,
