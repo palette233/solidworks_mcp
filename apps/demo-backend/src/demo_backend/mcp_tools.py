@@ -1,0 +1,1 @@
+ARRANGE_COMPONENTS_ON_COMMON_BASE_TOOL = "arrange_components_on_common_base"

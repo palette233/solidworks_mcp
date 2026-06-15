@@ -18,6 +18,16 @@ public record SelectionResult(
     double[]? Box = null);
 
 /// <summary>
+/// World-space center of the currently selected planar or non-planar face.
+/// The center is computed from the selected face bounding box in assembly coordinates.
+/// </summary>
+public record SelectedFaceCenterResult(
+    bool Success,
+    string Message,
+    double[]? Center = null,
+    double? Area = null);
+
+/// <summary>
 /// Reference plane metadata discovered from the active document feature tree.
 /// </summary>
 public record ReferencePlaneInfo(
@@ -201,6 +211,11 @@ public record SelectableEntityInfo(
     double[]? Box);
 
 /// <summary>
+/// Result of a face-mapping record or select operation.
+/// </summary>
+public record FaceMappingResult(bool Success, string Message, string? FaceName, string? ComponentName);
+
+/// <summary>
 /// Stable reference to a measured topology entity.
 /// </summary>
 public record MeasuredEntityInfo(
@@ -323,6 +338,23 @@ public interface ISelectionService
 
     /// <summary>Clear the current selection set.</summary>
     void ClearSelection();
+
+    /// <summary>
+    /// Record the currently-selected face into the persistent face mapping file.
+    /// The face is stored in component-local coordinates so the entry survives
+    /// move/rotate/mate operations on the owning component.
+    /// </summary>
+    FaceMappingResult RecordFaceMapping(string faceName, string componentName);
+
+    /// <summary>
+    /// Select a face previously recorded with <see cref="RecordFaceMapping"/> by its name.
+    /// Matching is done in component-local coordinates, so the selection is stable
+    /// across move/rotate/mate operations.
+    /// </summary>
+    FaceMappingResult SelectFaceByName(string faceName, string componentName, bool append = false, int mark = 0);
+
+    /// <summary>Return the world-space bounding-box center for the currently selected face.</summary>
+    SelectedFaceCenterResult GetSelectedFaceCenter();
 }
 
 /// <summary>
@@ -1817,6 +1849,17 @@ public class SelectionService : ISelectionService
             .OfType<IBody2>();
     }
 
+    /// <summary>Recursively collect bodies from a component and all its child components.</summary>
+    private static IEnumerable<IBody2> GetBodiesDeep(IComponent2 component)
+    {
+        foreach (var body in GetBodies(component))
+            yield return body;
+        var children = (object[]?)component.GetChildren() ?? [];
+        foreach (var child in children.OfType<IComponent2>())
+            foreach (var body in GetBodiesDeep(child))
+                yield return body;
+    }
+
     private static double[]? GetBox(IFace2 face)
         => ToDoubleArray(face.GetBox());
 
@@ -2363,5 +2406,226 @@ public class SelectionService : ISelectionService
 
         string numeric = value.Value.ToString("0.###", CultureInfo.InvariantCulture);
         return string.IsNullOrWhiteSpace(units) ? numeric : $"{numeric} {units}";
+    }
+
+    // ── Face mapping ─────────────────────────────────────────────
+
+    private static string FaceMappingFilePath =>
+        Path.Combine(AppContext.BaseDirectory, "face_mappings.json");
+
+    private static System.Text.Json.Nodes.JsonObject LoadMappings()
+    {
+        if (!File.Exists(FaceMappingFilePath)) return [];
+        try { return System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(FaceMappingFilePath)) as System.Text.Json.Nodes.JsonObject ?? []; }
+        catch { return []; }
+    }
+
+    private static void SaveMappings(System.Text.Json.Nodes.JsonObject root)
+        => File.WriteAllText(FaceMappingFilePath,
+            root.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+
+    private IComponent2? FindComponent(string componentName)
+    {
+        var doc = GetActiveModelDoc();
+        if (doc is not IAssemblyDoc assy) return null;
+        var all = (object[]?)assy.GetComponents(false) ?? [];
+        // Match by exact Name2, or by the short name (last segment after '/').
+        return all.OfType<IComponent2>().FirstOrDefault(c =>
+            string.Equals(c.Name2, componentName, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(c.Name2.Split('/').Last(), componentName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static double[] BoxCenter(double[] box) =>
+        [(box[0] + box[3]) / 2, (box[1] + box[4]) / 2, (box[2] + box[5]) / 2];
+
+    public SelectedFaceCenterResult GetSelectedFaceCenter()
+    {
+        _cm.EnsureConnected();
+        var selMgr = GetActiveModelDoc().ISelectionManager;
+        int count = selMgr.GetSelectedObjectCount2(-1);
+        if (count == 0)
+            return new SelectedFaceCenterResult(false, "No entity selected. Select a face first.");
+
+        IFace2? face = null;
+        for (int i = 1; i <= count; i++)
+        {
+            if (selMgr.GetSelectedObjectType3(i, -1) == (int)swSelectType_e.swSelFACES)
+            {
+                face = selMgr.GetSelectedObject6(i, -1) as IFace2;
+                break;
+            }
+        }
+
+        if (face == null)
+            return new SelectedFaceCenterResult(false, "Selected entity is not a face.");
+
+        var box = ToDoubleArray(face.GetBox());
+        if (box == null || box.Length < 6)
+            return new SelectedFaceCenterResult(false, "Could not read selected face bounding box.");
+
+        var center = BoxCenter(box);
+        return new SelectedFaceCenterResult(
+            true,
+            $"Selected face center is ({center[0]}, {center[1]}, {center[2]}) meters.",
+            center,
+            face.GetArea());
+    }
+
+    private static double Dist(double[] a, double[] b) =>
+        Math.Sqrt((a[0]-b[0])*(a[0]-b[0]) + (a[1]-b[1])*(a[1]-b[1]) + (a[2]-b[2])*(a[2]-b[2]));
+
+    /// <summary>
+    /// Convert a world-space point to the local coordinate space of the given leaf component.
+    /// Uses the forward transform (world = T2 * local), so local = T2^-1 * world.
+    /// Transform2.ArrayData layout (column-major): columns are [R0|R1|R2|T], scale at index 12.
+    /// </summary>
+    private static double[] WorldToLocal(double[] world, IComponent2 component)
+    {
+        var xform = component.Transform2;
+        if (xform == null) return world;
+
+        // ArrayData: 16 doubles, column-major rotation + translation + scale
+        // [R00,R10,R20, R01,R11,R21, R02,R12,R22, Tx,Ty,Tz, Scale, 0,0,0]
+        //  col0         col1         col2          translation
+        var raw = xform.ArrayData as double[];
+        if (raw == null || raw.Length < 13) return world;
+
+        double s = raw[12] == 0 ? 1.0 : raw[12];
+        // Subtract translation first, then apply R^T (= inverse rotation for orthonormal R)
+        double dx = world[0] - raw[9] * s;
+        double dy = world[1] - raw[10] * s;
+        double dz = world[2] - raw[11] * s;
+        // R^T: row i of R^T = column i of R
+        // column 0 = raw[0],raw[1],raw[2]; column 1 = raw[3],raw[4],raw[5]; column 2 = raw[6],raw[7],raw[8]
+        double lx = raw[0]*dx + raw[1]*dy + raw[2]*dz;
+        double ly = raw[3]*dx + raw[4]*dy + raw[5]*dz;
+        double lz = raw[6]*dx + raw[7]*dy + raw[8]*dz;
+        return [lx / s, ly / s, lz / s];
+    }
+
+    public FaceMappingResult RecordFaceMapping(string faceName, string componentName)
+    {
+        _cm.EnsureConnected();
+        var selMgr = GetActiveModelDoc().ISelectionManager;
+        int count = selMgr.GetSelectedObjectCount2(-1);
+        if (count == 0)
+            return new FaceMappingResult(false, "No entity selected. Select a face in SolidWorks first.", faceName, componentName);
+
+        IFace2? face = null;
+        IComponent2? leafComponent = null;
+        for (int i = 1; i <= count; i++)
+        {
+            if (selMgr.GetSelectedObjectType3(i, -1) == (int)swSelectType_e.swSelFACES)
+            {
+                face = selMgr.GetSelectedObject6(i, -1) as IFace2;
+                // GetSelectedObjectsComponent3 returns the leaf component the face belongs to.
+                leafComponent = selMgr.GetSelectedObjectsComponent3(i, -1) as IComponent2;
+                break;
+            }
+        }
+        if (face == null)
+            return new FaceMappingResult(false, "Selected entity is not a face.", faceName, componentName);
+
+        var box = ToDoubleArray(face.GetBox());
+        if (box == null || box.Length < 6)
+            return new FaceMappingResult(false, "Could not read face bounding box.", faceName, componentName);
+
+        var worldCenter = BoxCenter(box);
+        double area = face.GetArea();
+
+        // Convert to leaf-component local coordinates — stable across assembly-level move/rotate/mate.
+        var localCenter = leafComponent != null ? WorldToLocal(worldCenter, leafComponent) : worldCenter;
+        // Name2 may be prefixed with ancestor names (e.g. "ParentAsm/LeafPart"); use the short name only.
+        string leafName = leafComponent?.Name2.Split('/').Last() ?? componentName;
+
+        var root = LoadMappings();
+        if (root[componentName] is not System.Text.Json.Nodes.JsonObject compNode)
+        {
+            compNode = [];
+            root[componentName] = compNode;
+        }
+        compNode[faceName] = System.Text.Json.Nodes.JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(new
+        {
+            leafComponentName = leafName,
+            localCenter,
+            area,
+        }));
+        SaveMappings(root);
+
+        return new FaceMappingResult(true,
+            $"Recorded face '{faceName}' on leaf '{leafName}' at local [{localCenter[0]:F4},{localCenter[1]:F4},{localCenter[2]:F4}], area={area:F6}",
+            faceName, componentName);
+    }
+
+    public FaceMappingResult SelectFaceByName(string faceName, string componentName, bool append = false, int mark = 0)
+    {
+        _cm.EnsureConnected();
+        var root = LoadMappings();
+        if (root[componentName] is not System.Text.Json.Nodes.JsonObject compNode || compNode[faceName] is not System.Text.Json.Nodes.JsonNode entryNode)
+            return new FaceMappingResult(false, $"No mapping found for '{faceName}' in '{componentName}'. Call record_face_mapping first.", faceName, componentName);
+
+        // Parse saved entry.
+        string? leafName = null;
+        double[]? savedLocal = null;
+        double savedArea = -1;
+
+        if (entryNode is System.Text.Json.Nodes.JsonObject obj)
+        {
+            leafName = obj["leafComponentName"]?.GetValue<string>();
+            savedLocal = obj["localCenter"] != null
+                ? System.Text.Json.JsonSerializer.Deserialize<double[]>(obj["localCenter"]!.ToJsonString())
+                : null;
+            savedArea = obj["area"] != null ? obj["area"]!.GetValue<double>() : -1;
+        }
+
+        // Fall back to legacy plain-array world-coord format.
+        if (savedLocal == null)
+            savedLocal = System.Text.Json.JsonSerializer.Deserialize<double[]>(entryNode.ToJsonString());
+
+        if (savedLocal == null || savedLocal.Length < 3)
+            return new FaceMappingResult(false, $"Invalid mapping data for '{faceName}'.", faceName, componentName);
+
+        // Locate the leaf component directly — O(N_components), not O(N_faces).
+        var leaf = leafName != null ? FindComponent(leafName) : FindComponent(componentName);
+        if (leaf == null)
+            return new FaceMappingResult(false, $"Leaf component '{leafName ?? componentName}' not found.", faceName, componentName);
+
+        // Scan only this leaf component's bodies — typically a single part with <100 faces.
+        IFace2? bestFace = null;
+        double bestScore = double.MaxValue;
+
+        foreach (var body in GetBodies(leaf))
+        {
+            foreach (var face in ((object[]?)body.GetFaces() ?? []).OfType<IFace2>())
+            {
+                var box = ToDoubleArray(face.GetBox());
+                if (box == null || box.Length < 6) continue;
+                var lc = WorldToLocal(BoxCenter(box), leaf);
+                double distScore = Dist(lc, savedLocal);
+
+                // If area is recorded, use it as a tiebreaker: penalise area mismatch.
+                if (savedArea > 0)
+                {
+                    double areaRatio = Math.Abs(face.GetArea() - savedArea) / savedArea;
+                    distScore += areaRatio * 0.01; // small weight so distance dominates
+                }
+
+                if (distScore < bestScore) { bestScore = distScore; bestFace = face; }
+                if (bestScore < 1e-5) goto done;
+            }
+        }
+        done:
+
+        if (bestFace == null)
+            return new FaceMappingResult(false, $"No faces found on leaf '{leafName}'. Re-record the mapping.", faceName, componentName);
+
+        var doc = GetActiveModelDoc();
+        if (!append) doc.ClearSelection2(true);
+        var selectData = CreateSelectData(doc.ISelectionManager, mark);
+        bool ok = ((IEntity)bestFace).Select4(append, selectData);
+
+        return ok
+            ? new FaceMappingResult(true, $"Selected face '{faceName}' for '{componentName}'.", faceName, componentName)
+            : new FaceMappingResult(false, $"Failed to select face '{faceName}' for '{componentName}'.", faceName, componentName);
     }
 }

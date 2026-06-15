@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "solidworks_mcp"
+version = "0.1.0"
+description = "SolidWorks API RAG knowledge base and MCP integration"
+requires-python = ">=3.9"
+dependencies = [
+    "requests",
+    "beautifulsoup4",
+    "numpy",
+    "scipy",
+    "scikit-learn",
+]
+
+[project.optional-dependencies]
+sbert = [
+    "sentence-transformers",
+]
+
+[tool.setuptools.packages.find]
+include = ["solidworks_rag*"]

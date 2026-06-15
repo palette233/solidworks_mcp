@@ -138,7 +138,7 @@ public class AssemblyTools(StaDispatcher sta, IAssemblyService assembly)
         return JsonSerializer.Serialize(list);
     }
 
-    [McpServerTool, Description("Move a component by the specified delta in meters. Use this to move parts or subassemblies in an assembly without needing to know their current position.")]
+    [McpServerTool, Description("Move a component by the specified delta in world-space meters. Searches all instances including subassemblies. Use the component instance name, e.g. 'Part1-1'.")]
     public async Task<string> MoveComponent(
         [Description("Component instance name, e.g. 'Part1-1'")] string componentName,
         [Description("X displacement in meters (e.g., 0.02 for 20mm)")] double deltaX,
@@ -149,6 +149,21 @@ public class AssemblyTools(StaDispatcher sta, IAssemblyService assembly)
             nameof(MoveComponent),
             new { componentName, deltaX, deltaY, deltaZ },
             () => assembly.MoveComponent(componentName, deltaX, deltaY, deltaZ));
+        return JsonSerializer.Serialize(result);
+    }
+
+    [McpServerTool, Description("Rotate a component around a world-space axis by the given angle. Use axisX/Y/Z to define the rotation axis (e.g. 0,0,1 for Z-axis), and angleDegrees for the rotation amount.")]
+    public async Task<string> RotateComponent(
+        [Description("Component instance name, e.g. 'Part1-1'")] string componentName,
+        [Description("X component of rotation axis")] double axisX,
+        [Description("Y component of rotation axis")] double axisY,
+        [Description("Z component of rotation axis")] double axisZ,
+        [Description("Rotation angle in degrees (positive = counter-clockwise when looking along the axis)")] double angleDegrees)
+    {
+        var result = await sta.InvokeLoggedAsync(
+            nameof(RotateComponent),
+            new { componentName, axisX, axisY, axisZ, angleDegrees },
+            () => assembly.RotateComponent(componentName, axisX, axisY, axisZ, angleDegrees));
         return JsonSerializer.Serialize(result);
     }
 

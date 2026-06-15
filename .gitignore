@@ -6,4 +6,13 @@ data.zip
 vendor/solidworks-mcp/.vs/
 vendor/solidworks-mcp/**/bin/
 vendor/solidworks-mcp/**/obj/
+apps/**/bin/
+apps/**/obj/
+apps/**/node_modules/
+apps/**/dist/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+demo/demo_state.json
 

@@ -2,9 +2,15 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
-from solidworks_rag import build_index
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_PROJECT_ROOT = _SCRIPT_DIR.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
+from solidworks_rag import build_index  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:

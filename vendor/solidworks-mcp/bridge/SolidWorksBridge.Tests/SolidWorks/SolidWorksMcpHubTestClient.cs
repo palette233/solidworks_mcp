@@ -502,6 +502,14 @@ internal sealed class McpSelectionService : ISelectionService
 
     public void ClearSelection()
         => _client.CallToolText("ClearSelection");
+
+    public FaceMappingResult RecordFaceMapping(string faceName, string componentName)
+        => _client.CallTool<FaceMappingResult>("RecordFaceMapping", SolidWorksMcpHubTestClient.Args(
+            ("faceName", faceName), ("componentName", componentName)));
+
+    public FaceMappingResult SelectFaceByName(string faceName, string componentName, bool append = false, int mark = 0)
+        => _client.CallTool<FaceMappingResult>("SelectFaceByName", SolidWorksMcpHubTestClient.Args(
+            ("faceName", faceName), ("componentName", componentName), ("append", append), ("mark", mark)));
 }
 
 internal sealed class McpSketchService : ISketchService
@@ -709,6 +717,21 @@ internal sealed class McpAssemblyService : IAssemblyService
             ("replaceAllInstances", replaceAllInstances),
             ("useConfigChoice", useConfigChoice),
             ("reattachMates", reattachMates)));
+
+    public ComponentTransformResult MoveComponent(string componentName, double deltaX, double deltaY, double deltaZ)
+        => _client.CallTool<ComponentTransformResult>("MoveComponent", SolidWorksMcpHubTestClient.Args(
+            ("componentName", componentName),
+            ("deltaX", deltaX),
+            ("deltaY", deltaY),
+            ("deltaZ", deltaZ)));
+
+    public ComponentTransformResult RotateComponent(string componentName, double axisX, double axisY, double axisZ, double angleDegrees)
+        => _client.CallTool<ComponentTransformResult>("RotateComponent", SolidWorksMcpHubTestClient.Args(
+            ("componentName", componentName),
+            ("axisX", axisX),
+            ("axisY", axisY),
+            ("axisZ", axisZ),
+            ("angleDegrees", angleDegrees)));
 }
 
 internal sealed class McpWorkflowService : IWorkflowService
