@@ -57,6 +57,7 @@ input {
 }
 
 .icon-button,
+.secondary-button,
 .primary-button {
   border: 1px solid #c8d1db;
   border-radius: 8px;
@@ -76,9 +77,16 @@ input {
 }
 
 .icon-button svg,
+.secondary-button svg,
 .primary-button svg {
   width: 18px;
   height: 18px;
+}
+
+.secondary-button {
+  padding: 0 12px;
+  background: #ffffff;
+  min-width: 118px;
 }
 
 .primary-button {

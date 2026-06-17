@@ -85,6 +85,19 @@ async def align_bottom(service: DemoService = Depends(get_service)) -> Operation
     return await service.align_bottom()
 
 
+@app.post("/api/demo/initialize-common-base", response_model=OperationResult)
+async def initialize_common_base(
+    request: ApplyLayoutRequest,
+    service: DemoService = Depends(get_service),
+) -> OperationResult:
+    return await service.initialize_common_base(request)
+
+
+@app.post("/api/demo/finalize-common-base", response_model=OperationResult)
+async def finalize_common_base(service: DemoService = Depends(get_service)) -> OperationResult:
+    return await service.finalize_common_base()
+
+
 @app.post("/api/demo/apply-layout", response_model=OperationResult)
 async def apply_layout(
     request: ApplyLayoutRequest,

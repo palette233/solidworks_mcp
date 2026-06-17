@@ -27,6 +27,7 @@ class DemoComponent(BaseModel):
 
 class DemoState(BaseModel):
     assembly_path: str | None = Field(default=None, alias="assemblyPath")
+    common_base_ready: bool = Field(default=False, alias="commonBaseReady")
     components: list[DemoComponent]
     last_run: dict | None = Field(default=None, alias="lastRun")
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), alias="updatedAt")

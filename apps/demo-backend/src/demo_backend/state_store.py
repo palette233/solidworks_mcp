@@ -31,4 +31,12 @@ class DemoStateStore:
         return state
 
     def reset(self) -> DemoState:
-        return self.save(default_demo_state(self.asset_dir))
+        state = default_demo_state(self.asset_dir)
+        state.last_run = {
+            "status": "ok",
+            "message": (
+                "Reset only clears the backend/frontend demo state. "
+                "It does not close open SolidWorks documents or delete existing assembly files."
+            ),
+        }
+        return self.save(state)

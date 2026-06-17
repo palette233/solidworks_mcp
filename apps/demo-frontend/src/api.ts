@@ -16,6 +16,7 @@ export type DemoComponent = {
 
 export type DemoState = {
   assemblyPath: string | null;
+  commonBaseReady: boolean;
   components: DemoComponent[];
   lastRun?: {
     status?: string;
@@ -103,6 +104,30 @@ export async function arrange(state: DemoState): Promise<OperationResult> {
         z: component.target.z
       }))
     })
+  });
+}
+
+export async function initializeCommonBase(state: DemoState): Promise<OperationResult> {
+  return request<OperationResult>("/api/demo/initialize-common-base", {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({
+      alignBottom: false,
+      useLlm: false,
+      components: state.components.map((component) => ({
+        id: component.id,
+        componentName: component.componentName,
+        x: component.target.x,
+        y: component.target.y,
+        z: component.target.z
+      }))
+    })
+  });
+}
+
+export async function finalizeCommonBase(): Promise<OperationResult> {
+  return request<OperationResult>("/api/demo/finalize-common-base", {
+    method: "POST"
   });
 }
 

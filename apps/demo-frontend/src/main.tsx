@@ -1,11 +1,13 @@
 import React, { PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { CheckCircle2, Loader2, Play, RefreshCw, RotateCcw, Save, XCircle } from "lucide-react";
+import { CheckCircle2, Layers, Loader2, Move3D, Play, RefreshCw, RotateCcw, Save, XCircle } from "lucide-react";
 import {
   arrange,
   DemoComponent,
   DemoState,
+  finalizeCommonBase,
   getState,
+  initializeCommonBase,
   OperationResult,
   parseArrangePayload,
   resetState,
@@ -291,6 +293,39 @@ function App() {
     }
   }
 
+  async function handleInitializeCommonBase() {
+    if (!state) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const nextResult = await initializeCommonBase(state);
+      setResult(nextResult);
+      if (nextResult.state) {
+        setState(nextResult.state);
+      }
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleFinalizeCommonBase() {
+    setBusy(true);
+    setError(null);
+    try {
+      const nextResult = await finalizeCommonBase();
+      setResult(nextResult);
+      if (nextResult.state) {
+        setState(nextResult.state);
+      }
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleReset() {
     setBusy(true);
     setResult(null);
@@ -321,7 +356,15 @@ function App() {
           <button className="icon-button" type="button" onClick={handleReset} disabled={busy} title="Reset">
             <RotateCcw aria-hidden="true" />
           </button>
-          <button className="primary-button" type="button" onClick={handleArrange} disabled={busy || !state}>
+          <button className="secondary-button" type="button" onClick={handleInitializeCommonBase} disabled={busy || !state || Boolean(state?.assemblyPath)}>
+            <Layers aria-hidden="true" />
+            Initialize
+          </button>
+          <button className="secondary-button" type="button" onClick={handleFinalizeCommonBase} disabled={busy || !state?.assemblyPath || Boolean(state?.commonBaseReady)}>
+            <Move3D aria-hidden="true" />
+            Common Base
+          </button>
+          <button className="primary-button" type="button" onClick={handleArrange} disabled={busy || !state?.commonBaseReady}>
             {busy ? <Loader2 className="spin" aria-hidden="true" /> : <Play aria-hidden="true" />}
             Arrange
           </button>
@@ -403,7 +446,9 @@ function App() {
           <div className="panel">
             <div className="panel-heading">
               <h2>Result</h2>
-              <span className={`pill ${effectiveStatus}`}>{effectiveStatus}</span>
+              <span className={`pill ${effectiveStatus}`}>
+                {effectiveStatus} / {state?.commonBaseReady ? "base ready" : "base pending"}
+              </span>
             </div>
             <p className="result-message">{effectiveMessage}</p>
             <div className="component-results">

@@ -8,6 +8,7 @@ from ..adapters.mcp_client import McpClient
 from ..face_mappings import FaceMappingStore
 from ..mcp_tools import (
     ARRANGE_COMPONENTS_ON_COMMON_BASE_TOOL,
+    FINALIZE_COMMON_BASE_ASSEMBLY_TOOL,
     INITIALIZE_COMMON_BASE_ASSEMBLY_TOOL,
     MOVE_COMPONENTS_ON_COMMON_BASE_TOOL,
 )
@@ -58,25 +59,32 @@ class DemoService:
     async def align_bottom(self) -> OperationResult:
         state = self.store.load()
         self._normalize_state(state)
+        result = await self._ensure_common_base_ready(state)
+        result.state = state
+        return result
+
+    async def initialize_common_base(self, request: ApplyLayoutRequest) -> OperationResult:
+        state = self._merge_targets(self.store.load(), request)
+        self._normalize_state(state)
+        self.store.save(state)
+
         if state.assembly_path:
             return OperationResult(
                 status="ok",
-                message="Common-base assembly is already initialized. Arrange will move existing components only.",
+                message="Common-base assembly is already initialized. Use finalize once, then arrange to move components.",
                 state=state,
             )
 
-        missing = self.face_mappings.missing_bottom_mappings(state.components)
-        if missing:
-            return OperationResult(
-                status="blocked",
-                message="\u8bf7\u8bb0\u5f55\u5e95\u9762\u6620\u5c04\u540e\u518d\u6267\u884c\u5171\u5e95\u9762\u64cd\u4f5c\u3002",
-                missingFaceMappings=missing,
-                state=state,
-            )
-
-        plan = self._initialize_plan(state, align_bottom=True)
+        plan = self._initialize_plan(state, align_bottom=False)
         result = await self.mcp.run_plan(plan)
         self._apply_arrange_outcome(result, state)
+        result.state = state
+        return result
+
+    async def finalize_common_base(self) -> OperationResult:
+        state = self.store.load()
+        self._normalize_state(state)
+        result = await self._ensure_common_base_ready(state)
         result.state = state
         return result
 
@@ -123,7 +131,24 @@ class DemoService:
                     state=state,
                 )
 
+        if not state.assembly_path:
+            return OperationResult(
+                status="blocked",
+                message="Assembly has not been initialized. Run initialize first, then finalize common base, then arrange.",
+                state=state,
+            )
+
         plan = self._arrange_plan(state, request.align_bottom)
+        if request.align_bottom and state.assembly_path and not state.common_base_ready:
+            return OperationResult(
+                status="blocked",
+                message=(
+                    "Common-base assembly has been initialized but common-base mating is not ready. "
+                    "Run finalize common base once, verify/remap bottom faces if needed, then arrange again."
+                ),
+                state=state,
+            )
+
         result = await self.mcp.run_plan(plan)
         self._apply_arrange_outcome(result, state)
         result.state = state
@@ -233,6 +258,37 @@ class DemoService:
         ]
 
     @staticmethod
+    def _finalize_common_base_plan(state: DemoState) -> list[ToolCallPlan]:
+        workspace = Path(__file__).resolve().parents[5]
+        arguments = {
+            "assemblyPath": state.assembly_path,
+            "screenshotPath": str(workspace / "demo" / "arrange_result_frontend.png"),
+            "screenshotWidth": 1600,
+            "screenshotHeight": 900,
+            "includeScreenshotBase64Data": False,
+            "components": [
+                {
+                    "componentName": component.component_name,
+                    "x": component.target.x,
+                    "y": component.target.y,
+                    "z": component.target.z,
+                    "bottomFaceName": component.bottom_face_name,
+                    "currentX": component.current.x,
+                    "currentY": component.current.y,
+                    "currentZ": component.current.z,
+                }
+                for component in state.components
+            ],
+        }
+
+        return [
+            ToolCallPlan(
+                tool=FINALIZE_COMMON_BASE_ASSEMBLY_TOOL,
+                arguments=arguments,
+            )
+        ]
+
+    @staticmethod
     def _normalize_state(state: DemoState) -> None:
         for component in state.components:
             if component.bottom_face_name in {"\u6434\u66df\u6f70", "\u6434\u66e2\u6f70", "\u4e45\u4e2d"}:
@@ -267,6 +323,11 @@ class DemoService:
             self.store.save(state)
             return
 
+        self._apply_assembly_path_from_payload(state, payload)
+        last_tool = result.plan[-1].tool if result.plan else None
+        if last_tool == INITIALIZE_COMMON_BASE_ASSEMBLY_TOOL:
+            state.common_base_ready = False
+
         if not payload.get("success"):
             result.status = "error"
             result.message = str(payload.get("message") or "MCP arrange tool reported failure.")
@@ -274,13 +335,63 @@ class DemoService:
             self.store.save(state)
             return
 
-        assembly_path = payload.get("assemblyPath")
-        if isinstance(assembly_path, str) and assembly_path.strip():
-            state.assembly_path = assembly_path
-
         self._promote_targets_to_current(state)
         state.last_run = self._last_run_from_payload(result, payload)
         self.store.save(state)
+
+    async def _ensure_common_base_ready(self, state: DemoState) -> OperationResult:
+        if not state.assembly_path:
+            return OperationResult(
+                status="blocked",
+                message="Assembly has not been initialized yet. Run arrange once to create ABC_arrange_demo.SLDASM.",
+                state=state,
+            )
+
+        missing = self.face_mappings.missing_bottom_mappings(state.components)
+        if missing:
+            return OperationResult(
+                status="blocked",
+                message="\u8bf7\u8bb0\u5f55\u5e95\u9762\u6620\u5c04\u540e\u518d\u6267\u884c\u5171\u5e95\u9762\u64cd\u4f5c\u3002",
+                missingFaceMappings=missing,
+                state=state,
+            )
+
+        plan = self._finalize_common_base_plan(state)
+        result = await self.mcp.run_plan(plan)
+        if result.status != "ok":
+            state.last_run = {
+                "status": result.status,
+                "message": result.message,
+            }
+            self.store.save(state)
+            return result
+
+        payload = self._arrange_payload(result)
+        if not payload:
+            result.status = "error"
+            result.message = "MCP tool did not return a parseable common-base result."
+            state.last_run = {
+                "status": result.status,
+                "message": result.message,
+            }
+            self.store.save(state)
+            return result
+
+        self._apply_assembly_path_from_payload(state, payload)
+        state.common_base_ready = bool(payload.get("success"))
+        if not payload.get("success"):
+            result.status = "error"
+            result.message = str(payload.get("message") or "MCP common-base tool reported failure.")
+
+        state.last_run = self._last_run_from_payload(result, payload)
+        self.store.save(state)
+        return result
+
+    @staticmethod
+    def _apply_assembly_path_from_payload(state: DemoState, payload: dict) -> None:
+        assembly_path = payload.get("assemblyPath")
+        if isinstance(assembly_path, str) and assembly_path.strip():
+            state.assembly_path = assembly_path
 
     @staticmethod
     def _last_run_from_payload(result: OperationResult, payload: dict) -> dict:

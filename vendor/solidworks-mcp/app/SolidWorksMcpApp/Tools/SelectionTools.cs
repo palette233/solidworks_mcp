@@ -121,6 +121,16 @@ public class SelectionTools(StaDispatcher sta, ISelectionService selection)
         return JsonSerializer.Serialize(result);
     }
 
+    [McpServerTool, Description("Return the mapping-style geometry fingerprint for the currently selected face without writing face_mappings.json. Use this to verify record/select accuracy.")]
+    public async Task<string> GetSelectedFaceMappingProbe(
+        [Description("Optional human-readable face name used only in the returned metadata.")] string? faceName = null,
+        [Description("Optional component instance name used only in the returned metadata.")] string? componentName = null)
+    {
+        var result = await sta.InvokeLoggedAsync(nameof(GetSelectedFaceMappingProbe), new { faceName, componentName },
+            () => selection.GetSelectedFaceMappingProbe(faceName, componentName));
+        return JsonSerializer.Serialize(result);
+    }
+
     [McpServerTool, Description("Measure two topology entities using SolidWorks' official IMeasure API. Provide indexes from ListEntities; the tool will select both entities internally, call IModelDocExtension.CreateMeasure().Calculate(null), and return distance-related values.")]
     public async Task<string> MeasureEntities(
         [Description("First entity type: Face, Edge, or Vertex")] string firstEntityType,
