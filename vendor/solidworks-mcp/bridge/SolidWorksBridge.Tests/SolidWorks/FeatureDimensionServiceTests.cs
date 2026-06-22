@@ -242,7 +242,7 @@ public class FeatureDimensionServiceTests
             System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
 
         Assert.NotNull(method);
-        var resolved = method!.Invoke(null, [tubeFeature.Object, CartesianAxis.Z]);
+        var resolved = method!.Invoke(null, [tubeFeature.Object, CartesianAxis.Z, null]);
         var sketchFeature = resolved!.GetType().GetProperty("SketchFeature")!.GetValue(resolved) as Feature;
         var segment = resolved.GetType().GetProperty("Segment")!.GetValue(resolved) as FeatureDimensionService.AxisSegmentCandidate;
 
