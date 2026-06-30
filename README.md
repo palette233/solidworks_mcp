@@ -236,6 +236,22 @@ After publishing, start the tray app:
 .\artifacts\solidworks-mcp\SolidWorksMcpApp.exe
 ```
 
+Demo backend startup for the common-base layout workflow:
+
+```cmd
+scripts\start_demo_backend.cmd
+```
+
+This script fixes the backend/MCP environment used by the demo:
+
+- `DEMO_MCP_MODE=bridge`
+- `DEMO_MCP_COMMAND=dotnet`
+- `DEMO_MCP_CWD=vendor\solidworks-mcp\app\SolidWorksMcpApp\bin\Release\net8.0-windows\win-x64`
+- `DEMO_FACE_MAPPING_PATH=artifacts\solidworks-mcp\face_mappings.json`
+- `DEMO_MCP_TIMEOUT_SECONDS=420`
+
+Use the frontend `Health` button or `GET /api/demo/mcp-health` to confirm that the active SolidWorks assembly matches `demo_state.json` and that backend/MCP are using the same `face_mappings.json`.
+
 The exported Claude Desktop and VS Code MCP configs now include the RAG environment variables automatically:
 
 - `SOLIDWORKS_MCP_WORKSPACE`

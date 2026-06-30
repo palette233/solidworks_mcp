@@ -1047,3 +1047,49 @@ Still pending:
    - Restart backend;
    - run `Replay Layout` from the frontend;
    - confirm `Replay Check` shows `matched` with near-zero errors.
+### 2026-06-30 Addendum: Two face_mappings Path Issue Confirmed and Needs Hardening
+
+Confirmed issue:
+- Backend health reported `artifacts\solidworks-mcp\face_mappings.json`.
+- MCP probing previously used `vendor\solidworks-mcp\app\SolidWorksMcpApp\bin\Release\net8.0-windows\win-x64\face_mappings.json`.
+- This lets the backend believe mappings exist while MCP uses stale mapping data, causing B/C selection failures or orientation probe errors.
+
+Temporary fix:
+- Restart backend with explicit `DEMO_FACE_MAPPING_PATH`.
+- Real validation now passes.
+
+Still to harden:
+1. Add an official backend startup script
+   - Set:
+     - `DEMO_MCP_MODE`
+     - `DEMO_MCP_COMMAND`
+     - `DEMO_MCP_CWD`
+     - `DEMO_FACE_MAPPING_PATH`
+     - `DEMO_MCP_TIMEOUT_SECONDS`
+2. Add MCP-side mapping path visibility to `/api/health` or `/api/demo/mcp-health`
+   - Current `mcp-health` reads active document only.
+   - Later, add a lightweight probe or dedicated tool to report the actual MCP-side `face_mappings.json`.
+3. Add a frontend Health status indicator
+   - MCP connectivity;
+   - active assembly match;
+   - mapping path consistency.
+### 2026-06-30 Addendum: MCP/Backend Startup and Health Hardening Completed, Long-Term Stability Still Pending
+
+Completed in this round:
+- Added official backend startup script `scripts/start_demo_backend.cmd`, fixing MCP mode, DLL startup directory, unified face mapping path, and 420-second timeout.
+- Added MCP tool `get_face_mapping_store_info` to report the `face_mappings.json` path used by the MCP process.
+- Extended backend `/api/demo/mcp-health` to return:
+  - active assembly vs `demo_state.json.assemblyPath` match;
+  - backend mapping path;
+  - MCP mapping path;
+  - whether the two paths match.
+- Added frontend `Health` button and status panel.
+
+Still pending:
+1. Make `scripts/start_demo_backend.cmd` part of the official daily test instructions.
+2. If MCP Hub multi-instance or stale-process issues continue, add a dedicated MCP Hub management script:
+   - list current hub process;
+   - show launch path;
+   - stop old hub;
+   - start the new hub through the DLL path.
+3. Health now depends on the new MCP tool. If an old MCP process is still running, it may report `unknown tool`, which is useful as a signal that the active MCP is stale.

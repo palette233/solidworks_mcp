@@ -8,6 +8,33 @@ namespace SolidWorksMcpApp.Tools;
 [McpServerToolType]
 public class SelectionTools(StaDispatcher sta, ISelectionService selection)
 {
+    public record FaceMappingStoreInfo(
+        string MappingPath,
+        bool Exists,
+        long? Length,
+        DateTimeOffset? LastWriteTimeUtc,
+        string Source);
+
+    [McpServerTool, Description("Return the face mapping JSON path used by this MCP process. Use this to verify that backend and MCP are reading the same face_mappings.json file.")]
+    public async Task<string> GetFaceMappingStoreInfo()
+    {
+        var result = await sta.InvokeLoggedAsync(nameof(GetFaceMappingStoreInfo), null, () =>
+        {
+            var configured = Environment.GetEnvironmentVariable("DEMO_FACE_MAPPING_PATH");
+            var path = string.IsNullOrWhiteSpace(configured)
+                ? Path.Combine(AppContext.BaseDirectory, "face_mappings.json")
+                : Path.GetFullPath(configured);
+            var info = File.Exists(path) ? new FileInfo(path) : null;
+            return new FaceMappingStoreInfo(
+                path,
+                info is not null,
+                info?.Length,
+                info?.LastWriteTimeUtc,
+                string.IsNullOrWhiteSpace(configured) ? "app-base-directory" : "DEMO_FACE_MAPPING_PATH");
+        });
+        return JsonSerializer.Serialize(result);
+    }
+
     [McpServerTool, Description("Report whether the active document is currently editing a sketch or is otherwise in a safe state for FeatureManager tree reads and delete operations. Use this before ListFeatureTree, DeleteFeatureByName, or DeleteUnusedSketches; if IsEditing is true, finish the sketch first.")]
     public async Task<string> GetEditState()
     {

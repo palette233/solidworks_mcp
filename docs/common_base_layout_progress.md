@@ -1711,3 +1711,88 @@ Service-level dry-run validation:
 Note:
 - This round does not change the C# MCP tool behavior, so it has low impact on the already validated Common Base / Replay core loop.
 - Real SolidWorks validation of `Replay Check` requires restarting the backend and running Replay Layout once from the frontend.
+### 2026-06-30 - Real Loop Passed After Unifying Face Mapping Path
+
+Background:
+- `FinalizeCommonBaseAssembly` previously returned `bottom face orientation probe errors`.
+- Logs showed that the backend used `artifacts\solidworks-mcp\face_mappings.json`, while MCP probing used `vendor\solidworks-mcp\app\SolidWorksMcpApp\bin\Release\net8.0-windows\win-x64\face_mappings.json`.
+- As a result, B/C face selection used stale mapping data and the strong `SelectFaceByName` validation rejected the candidates.
+
+Action:
+- Restarted backend with:
+
+```text
+DEMO_FACE_MAPPING_PATH=D:\zengshuang\workspace\cuhksz\cad\solidworks_mcp\artifacts\solidworks-mcp\face_mappings.json
+```
+
+- Re-ran `Verify Faces`.
+- Re-ran `Common Base`.
+- Re-ran `Replay Layout` and checked the automatic `Replay Check`.
+
+Result:
+- `Verify Faces` passed; A/B/C bottom faces were selected through persistent reference.
+- `MappingPath` is now consistently `artifacts\solidworks-mcp\face_mappings.json`.
+- `Common Base` passed and `commonBaseReady=true`.
+- B-1 was automatically corrected in the `PreMateTransform2` stage.
+- A/B/C `orientationChecks` all report:
+  - `success=true`
+  - `matchesBase=true`
+  - `dotWithBase=1`
+
+Replay Check:
+- `success=true`
+- `maxXyError=1.2412670766236366e-16m`
+- `maxThetaErrorDegrees=0.0deg`
+- A-1: `xyError=0.0m`, `thetaErrorDegrees=0.0deg`
+- B-1: `xyError=5.551115123125783e-17m`, `thetaErrorDegrees=0.0deg`
+- C-1: `xyError=1.2412670766236366e-16m`, `thetaErrorDegrees=0.0deg`
+
+Conclusion:
+- The real loop now passes: unified mapping path -> Verify Faces -> Common Base -> Replay Layout -> Replay Check.
+- `Replay Check` confirms that uploaded layout JSON restoration of `x/y/theta` is effectively exact for the current A/B/C demo.
+- Next, `DEMO_FACE_MAPPING_PATH` should be fixed in the official startup script or backend startup documentation to avoid the two-mapping-file issue.
+### 2026-06-30 - Completed First Three Hardening Steps: Startup Script, Health Path Check, Frontend Status Entry
+
+Goal:
+- Make backend startup repeatable and avoid missing `DEMO_FACE_MAPPING_PATH`.
+- Let the backend compare its expected mapping path with the mapping path actually used by the MCP process.
+- Let the frontend inspect MCP, active assembly, and mapping-path status directly.
+
+Completed:
+- Added `scripts/start_demo_backend.cmd`:
+  - sets `DEMO_MCP_MODE=bridge`;
+  - sets `DEMO_MCP_COMMAND=dotnet`;
+  - sets `DEMO_MCP_CWD=vendor/solidworks-mcp/app/SolidWorksMcpApp/bin/Release/net8.0-windows/win-x64`;
+  - sets `DEMO_FACE_MAPPING_PATH=artifacts/solidworks-mcp/face_mappings.json`;
+  - sets `DEMO_MCP_TIMEOUT_SECONDS=420`.
+- Added MCP tool `get_face_mapping_store_info`:
+  - reports the `face_mappings.json` path resolved inside the MCP process;
+  - reports file existence, size, last write time, and path source.
+- Extended backend `/api/demo/mcp-health`:
+  - keeps active document vs `demo_state.json.assemblyPath` matching;
+  - adds `faceMappingPath`, `mcpFaceMappingPath`, and `faceMappingPathsMatch`.
+- Added frontend `Health` button:
+  - displays MCP status;
+  - displays active assembly match;
+  - displays backend/MCP mapping path consistency.
+
+Validation plan:
+```text
+dotnet build vendor\solidworks-mcp\app\SolidWorksMcpApp\SolidWorksMcpApp.csproj -c Release
+python -m compileall apps\demo-backend\src
+cmd /c npm run build
+scripts\start_demo_backend.cmd
+curl.exe http://127.0.0.1:8000/api/demo/mcp-health
+```
+
+Expected:
+- `faceMappingPathsMatch=true`.
+- `mcpFaceMappingPath` and `faceMappingPath` both point to `artifacts\solidworks-mcp\face_mappings.json`.
+- If `demo_state.json` already has `assemblyPath` and SolidWorks is currently showing that assembly, `activeAssemblyMatchesState=true`.
+
+Local code validation completed:
+- C# MCP build passed.
+- Python backend compile passed.
+- Frontend TypeScript/Vite build passed.
+- `git diff --check` passed.
+- Backend service-level dry-run health passed; real `mcpFaceMappingPath` still needs validation after starting the new MCP build.

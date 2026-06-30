@@ -1073,3 +1073,49 @@ C-1 xy_error=1.11e-16m, theta_error=0deg
    - 重启后端；
    - 前端执行 `Replay Layout`；
    - 检查 `Replay Check` 是否显示 matched，且误差接近 0。
+### 2026-06-30 追加：双 face_mappings 路径问题已确认并需固化
+
+已确认问题：
+- 后端 health 显示的 `faceMappingPath` 是 `artifacts\solidworks-mcp\face_mappings.json`。
+- MCP 直接 probe 时曾使用 `vendor\solidworks-mcp\app\SolidWorksMcpApp\bin\Release\net8.0-windows\win-x64\face_mappings.json`。
+- 这会导致后端认为映射存在，但 MCP 实际使用旧映射，最终表现为 B/C 选面失败或 orientation probe error。
+
+临时解决：
+- 重启后端时显式设置 `DEMO_FACE_MAPPING_PATH`。
+- 真实验证已通过。
+
+仍待固化：
+1. 新增后端启动脚本
+   - 统一设置：
+     - `DEMO_MCP_MODE`
+     - `DEMO_MCP_COMMAND`
+     - `DEMO_MCP_CWD`
+     - `DEMO_FACE_MAPPING_PATH`
+     - `DEMO_MCP_TIMEOUT_SECONDS`
+2. 在 `/api/health` 或 `/api/demo/mcp-health` 中增加一次 MCP 侧 mapping path 回显
+   - 目前 `mcp-health` 只读 active document。
+   - 后续可以增加轻量 probe 或专门工具，明确显示 MCP 实际使用的 `face_mappings.json`。
+3. 前端 Health 状态灯
+   - 显示 MCP 连接状态；
+   - 显示 active assembly 是否匹配；
+   - 显示 mapping path 是否统一。
+### 2026-06-30 追加：MCP/后端启动与 Health 固化已完成，后续仍需补长期稳定项
+
+本轮已完成：
+- 新增正式后端启动脚本 `scripts/start_demo_backend.cmd`，固定 MCP 模式、DLL 启动目录、统一 face mapping 路径和 420 秒超时。
+- MCP 新增 `get_face_mapping_store_info`，用于回显 MCP 进程实际使用的 `face_mappings.json`。
+- 后端 `/api/demo/mcp-health` 已能返回：
+  - active assembly 是否匹配 `demo_state.json.assemblyPath`；
+  - 后端 mapping path；
+  - MCP mapping path；
+  - 两者是否一致。
+- 前端新增 `Health` 按钮和状态面板。
+
+仍待继续：
+1. 将 `scripts/start_demo_backend.cmd` 纳入正式使用说明和日常测试流程。
+2. 如未来继续遇到 MCP Hub 多实例/旧进程问题，补充独立的 MCP Hub 管理脚本：
+   - 查询当前 hub 进程；
+   - 显示启动路径；
+   - 一键停止旧 hub；
+   - 一键以 DLL 方式启动新版 hub。
+3. Health 目前依赖新 MCP 工具，旧 MCP 未重启时会报 unknown tool；这正好可以提醒用户当前运行的不是新版 MCP。

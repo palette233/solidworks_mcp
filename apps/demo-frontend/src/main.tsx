@@ -1,6 +1,6 @@
 import React, { PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { CheckCircle2, FileJson, Layers, Loader2, MapPinned, Move3D, Play, RefreshCw, RotateCcw, Save, Upload, XCircle } from "lucide-react";
+import { Activity, CheckCircle2, FileJson, Layers, Loader2, MapPinned, Move3D, Play, RefreshCw, RotateCcw, Save, Upload, XCircle } from "lucide-react";
 import {
   applyCapturedLayout,
   arrange,
@@ -8,10 +8,12 @@ import {
   DemoComponent,
   DemoState,
   finalizeCommonBase,
+  getMcpHealth,
   getState,
   initializeCommonBase,
   LayoutComponentSummary,
   LayoutJsonInfo,
+  McpHealthResult,
   listLayoutJsonFiles,
   OperationResult,
   OrientationCheck,
@@ -124,6 +126,12 @@ function formatVector(values?: number[] | null): string {
 
 function formatNumber(value?: number | null, digits = 4): string {
   return typeof value === "number" && Number.isFinite(value) ? value.toFixed(digits) : "n/a";
+}
+
+function formatHealthBool(value?: boolean | null): string {
+  if (value === true) return "Yes";
+  if (value === false) return "No";
+  return "n/a";
 }
 
 function shortPath(value?: string | null): string {
@@ -280,6 +288,7 @@ function App() {
   const [state, setState] = useState<DemoState | null>(null);
   const [layoutFiles, setLayoutFiles] = useState<LayoutJsonInfo[]>([]);
   const [result, setResult] = useState<OperationResult | null>(null);
+  const [mcpHealth, setMcpHealth] = useState<McpHealthResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const arrangePayload = useMemo(() => parseArrangePayload(result), [result]);
@@ -467,6 +476,18 @@ function App() {
     }
   }
 
+  async function handleMcpHealth() {
+    setBusy(true);
+    setError(null);
+    try {
+      setMcpHealth(await getMcpHealth());
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleReset() {
     setBusy(true);
     setResult(null);
@@ -512,6 +533,10 @@ function App() {
           <button className="secondary-button" type="button" onClick={handleVerifyFaceMappings} disabled={busy || !state}>
             <CheckCircle2 aria-hidden="true" />
             Verify Faces
+          </button>
+          <button className="secondary-button" type="button" onClick={handleMcpHealth} disabled={busy}>
+            <Activity aria-hidden="true" />
+            Health
           </button>
           <button className="secondary-button" type="button" onClick={handleApplyCapturedLayout} disabled={busy || !state?.assemblyPath}>
             <MapPinned aria-hidden="true" />
@@ -653,6 +678,30 @@ function App() {
         </div>
 
         <aside className="side-column">
+          {mcpHealth ? (
+            <div className="panel health-panel">
+              <div className="panel-heading">
+                <h2>MCP Health</h2>
+                <span className={`pill ${mcpHealth.status}`}>{mcpHealth.status}</span>
+              </div>
+              <p className="result-message">{mcpHealth.message}</p>
+              <dl className="validation-summary">
+                <dt>Assembly</dt>
+                <dd>{formatHealthBool(mcpHealth.activeAssemblyMatchesState)}</dd>
+                <dt>Mapping</dt>
+                <dd>{formatHealthBool(mcpHealth.faceMappingPathsMatch)}</dd>
+                <dt>Active</dt>
+                <dd>{shortPath(String(mcpHealth.activeDocument?.path ?? mcpHealth.activeDocument?.documentPath ?? ""))}</dd>
+                <dt>Expected</dt>
+                <dd>{shortPath(mcpHealth.expectedAssemblyPath)}</dd>
+                <dt>Backend map</dt>
+                <dd>{shortPath(mcpHealth.faceMappingPath)}</dd>
+                <dt>MCP map</dt>
+                <dd>{shortPath(mcpHealth.mcpFaceMappingPath)}</dd>
+              </dl>
+            </div>
+          ) : null}
+
           <div className="panel">
             <div className="panel-heading">
               <h2>Result</h2>

@@ -80,6 +80,10 @@ export type McpHealthResult = {
   activeDocument?: Record<string, unknown> | null;
   expectedAssemblyPath?: string | null;
   activeAssemblyMatchesState?: boolean | null;
+  faceMappingPath?: string | null;
+  mcpFaceMappingPath?: string | null;
+  faceMappingPathsMatch?: boolean | null;
+  mcpFaceMappingInfo?: Record<string, unknown> | null;
   toolResults: Array<Record<string, unknown>>;
 };
 

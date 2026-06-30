@@ -1719,3 +1719,88 @@ cmd /c npm run build
 注意：
 - 本轮没有修改 C# MCP 工具行为，因此对已验证的 Common Base / Replay 核心链路侵入较小。
 - `Replay Check` 的真实 SolidWorks 验证需要重新启动后端后，通过前端再执行一次 Replay Layout。
+### 2026-06-30 - 统一 face mapping 路径后真实闭环复核通过
+
+背景：
+- `FinalizeCommonBaseAssembly` 曾返回 `bottom face orientation probe errors`。
+- 日志显示后端使用的映射路径是 `artifacts\solidworks-mcp\face_mappings.json`，但 MCP 实际 probe 时使用的是 `vendor\solidworks-mcp\app\SolidWorksMcpApp\bin\Release\net8.0-windows\win-x64\face_mappings.json`。
+- 因此 B/C 的映射被旧数据影响，`SelectFaceByName` 强校验拒绝了候选面。
+
+处理：
+- 重启后端时显式设置：
+
+```text
+DEMO_FACE_MAPPING_PATH=D:\zengshuang\workspace\cuhksz\cad\solidworks_mcp\artifacts\solidworks-mcp\face_mappings.json
+```
+
+- 重新执行 `Verify Faces`。
+- 重新执行 `Common Base`。
+- 再执行 `Replay Layout`，并读取自动生成的 `Replay Check`。
+
+结果：
+- `Verify Faces` 通过，A/B/C 均通过 persistent reference 选中底面。
+- `MappingPath` 已统一为 `artifacts\solidworks-mcp\face_mappings.json`。
+- `Common Base` 通过，`commonBaseReady=true`。
+- B-1 在 `PreMateTransform2` 阶段自动完成底面朝向修正。
+- A/B/C 的 `orientationChecks` 均为：
+  - `success=true`
+  - `matchesBase=true`
+  - `dotWithBase=1`
+
+Replay Check：
+- `success=true`
+- `maxXyError=1.2412670766236366e-16m`
+- `maxThetaErrorDegrees=0.0deg`
+- A-1: `xyError=0.0m`, `thetaErrorDegrees=0.0deg`
+- B-1: `xyError=5.551115123125783e-17m`, `thetaErrorDegrees=0.0deg`
+- C-1: `xyError=1.2412670766236366e-16m`, `thetaErrorDegrees=0.0deg`
+
+结论：
+- 当前真实闭环已经通过：统一映射路径 -> Verify Faces -> Common Base -> Replay Layout -> Replay Check。
+- `Replay Check` 已证明根据上传 layout JSON 恢复 `x/y/theta` 的误差接近 0。
+- 后续应把 `DEMO_FACE_MAPPING_PATH` 固化到正式启动脚本或后端启动文档，避免再次出现双映射文件问题。
+### 2026-06-30 - 完成前三步工程固化：启动脚本、Health 路径校验、前端状态入口
+
+目标：
+- 固化后端启动环境，避免再次遗漏 `DEMO_FACE_MAPPING_PATH`。
+- 让后端能够同时看到“后端期望的 mapping path”和“MCP 进程实际使用的 mapping path”。
+- 让前端可以直接检查 MCP/active assembly/mapping path 状态。
+
+完成内容：
+- 新增 `scripts/start_demo_backend.cmd`：
+  - 固定 `DEMO_MCP_MODE=bridge`。
+  - 固定 `DEMO_MCP_COMMAND=dotnet`。
+  - 固定 `DEMO_MCP_CWD=vendor/solidworks-mcp/app/SolidWorksMcpApp/bin/Release/net8.0-windows/win-x64`。
+  - 固定 `DEMO_FACE_MAPPING_PATH=artifacts/solidworks-mcp/face_mappings.json`。
+  - 固定 `DEMO_MCP_TIMEOUT_SECONDS=420`。
+- MCP 新增 `get_face_mapping_store_info`：
+  - 返回 MCP 进程实际解析出的 `face_mappings.json` 路径。
+  - 返回文件是否存在、文件大小、更新时间、路径来源。
+- 后端 `/api/demo/mcp-health` 扩展：
+  - 继续返回 active document 与 `demo_state.json.assemblyPath` 是否匹配。
+  - 新增 `faceMappingPath`、`mcpFaceMappingPath`、`faceMappingPathsMatch`。
+- 前端新增 `Health` 按钮：
+  - 显示 MCP 状态。
+  - 显示 active assembly 是否匹配。
+  - 显示 backend/MCP mapping path 是否一致。
+
+验证计划：
+```text
+dotnet build vendor\solidworks-mcp\app\SolidWorksMcpApp\SolidWorksMcpApp.csproj -c Release
+python -m compileall apps\demo-backend\src
+cmd /c npm run build
+scripts\start_demo_backend.cmd
+curl.exe http://127.0.0.1:8000/api/demo/mcp-health
+```
+
+预期：
+- `faceMappingPathsMatch=true`。
+- `mcpFaceMappingPath` 与 `faceMappingPath` 都指向 `artifacts\solidworks-mcp\face_mappings.json`。
+- 如果 `demo_state.json` 已有 `assemblyPath`，且 SolidWorks 当前打开的是该装配体，则 `activeAssemblyMatchesState=true`。
+
+已完成本地代码验证：
+- C# MCP build 通过。
+- Python 后端 compile 通过。
+- 前端 TypeScript/Vite build 通过。
+- `git diff --check` 通过。
+- 后端服务级 dry-run health 通过；真实 `mcpFaceMappingPath` 仍需在新版 MCP 启动后验证。

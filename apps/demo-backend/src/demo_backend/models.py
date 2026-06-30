@@ -130,6 +130,10 @@ class McpHealthResult(BaseModel):
     active_document: dict | None = Field(default=None, alias="activeDocument")
     expected_assembly_path: str | None = Field(default=None, alias="expectedAssemblyPath")
     active_assembly_matches_state: bool | None = Field(default=None, alias="activeAssemblyMatchesState")
+    face_mapping_path: str | None = Field(default=None, alias="faceMappingPath")
+    mcp_face_mapping_path: str | None = Field(default=None, alias="mcpFaceMappingPath")
+    face_mapping_paths_match: bool | None = Field(default=None, alias="faceMappingPathsMatch")
+    mcp_face_mapping_info: dict | None = Field(default=None, alias="mcpFaceMappingInfo")
     tool_results: list[dict] = Field(default_factory=list, alias="toolResults")
 
     model_config = {"populate_by_name": True}

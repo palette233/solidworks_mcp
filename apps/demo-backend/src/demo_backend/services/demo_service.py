@@ -55,16 +55,27 @@ class DemoService:
         state = self.store.load()
         self._normalize_state(state)
         expected = state.assembly_path
-        plan = [ToolCallPlan(tool="get_active_document", arguments={})]
+        expected_mapping_path = str(self.face_mappings.mapping_path)
+        plan = [
+            ToolCallPlan(tool="get_active_document", arguments={}),
+            ToolCallPlan(tool="get_face_mapping_store_info", arguments={}),
+        ]
         result = await self.mcp.run_plan(plan)
-        active = self._first_json_payload(result)
+        active = self._json_payload_at(result, 0)
+        mcp_mapping_info = self._json_payload_at(result, 1)
+        mcp_mapping_path = self._mapping_payload_path(mcp_mapping_info)
         matches = self._paths_match(expected, self._payload_path(active)) if expected else None
+        mapping_matches = self._paths_match(expected_mapping_path, mcp_mapping_path) if mcp_mapping_path else None
         return McpHealthResult(
             status=result.status,
             message=result.message if result.status != "ok" else "MCP health probe completed.",
             activeDocument=active if isinstance(active, dict) else None,
             expectedAssemblyPath=expected,
             activeAssemblyMatchesState=matches,
+            faceMappingPath=expected_mapping_path,
+            mcpFaceMappingPath=mcp_mapping_path,
+            faceMappingPathsMatch=mapping_matches,
+            mcpFaceMappingInfo=mcp_mapping_info if isinstance(mcp_mapping_info, dict) else None,
             toolResults=result.tool_results,
         )
 
@@ -772,9 +783,15 @@ class DemoService:
 
     @staticmethod
     def _first_json_payload(result: OperationResult) -> dict | None:
+        return DemoService._json_payload_at(result, 0)
+
+    @staticmethod
+    def _json_payload_at(result: OperationResult, index: int) -> dict | None:
         if not result.tool_results:
             return None
-        texts = result.tool_results[0].get("text", [])
+        if index < 0 or index >= len(result.tool_results):
+            return None
+        texts = result.tool_results[index].get("text", [])
         if not isinstance(texts, list) or not texts:
             return None
         text = texts[-1]
@@ -791,6 +808,16 @@ class DemoService:
         if not isinstance(payload, dict):
             return None
         for key in ("path", "Path", "documentPath", "DocumentPath"):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                return value
+        return None
+
+    @staticmethod
+    def _mapping_payload_path(payload: dict | None) -> str | None:
+        if not isinstance(payload, dict):
+            return None
+        for key in ("mappingPath", "MappingPath", "path", "Path"):
             value = payload.get(key)
             if isinstance(value, str) and value.strip():
                 return value
