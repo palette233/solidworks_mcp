@@ -1804,3 +1804,103 @@ curl.exe http://127.0.0.1:8000/api/demo/mcp-health
 - 前端 TypeScript/Vite build 通过。
 - `git diff --check` 通过。
 - 后端服务级 dry-run health 通过；真实 `mcpFaceMappingPath` 仍需在新版 MCP 启动后验证。
+### 2026-06-30 - MCP Hub 管理脚本固化与闭环测试
+
+背景：
+- 当前后端自动化主链路优先使用 `--stdio-direct`，通常不依赖长期运行的 Hub。
+- 但此前多次出现旧 MCP、旧 Hub、命名管道或 proxy 链路混乱问题，因此仍需要一组脚本用于诊断和清理。
+
+完成内容：
+- 新增 `scripts/check_mcp_hub.cmd`：
+  - 检查 MCP DLL 是否存在。
+  - 尝试列出 `SolidWorksMcpApp.exe` / `dotnet.exe` 中与 `SolidWorksMcpApp` 相关的进程。
+  - 使用 `NamedPipeClientStream.Connect()` 检查 `SolidWorksMcpHub` pipe 是否可连接。
+  - 在受限环境无法读取进程 command line 时，会降级提示，不再刷红色异常。
+- 新增 `scripts/start_mcp_hub.cmd`：
+  - 以 DLL 方式启动 `SolidWorksMcpApp.dll --headless-hub`。
+  - 自动设置统一的 `DEMO_FACE_MAPPING_PATH`。
+  - 支持 `/dry-run`，只打印将要启动的命令。
+- 新增 `scripts/stop_mcp_hub.cmd`：
+  - 默认只停止 `--headless-hub` / `--hub` 进程。
+  - 支持 `/all` 清理所有 SolidWorksMcpApp 相关进程。
+  - 当无法读取进程 command line 时，采用保守降级策略，避免误杀无关 `dotnet.exe`。
+- README 已补充 Hub 管理脚本用法。
+
+闭环测试：
+```text
+cmd /c scripts\check_mcp_hub.cmd
+cmd /c scripts\stop_mcp_hub.cmd
+cmd /c scripts\start_mcp_hub.cmd /dry-run
+```
+
+真实 Hub 启动测试：
+- 通过隐藏进程启动：
+  - `dotnet SolidWorksMcpApp.dll --headless-hub`
+- 运行 `scripts\check_mcp_hub.cmd`。
+- 检查结果：
+  - 能识别临时 `dotnet.exe ... SolidWorksMcpApp.dll --headless-hub` 进程。
+  - `Pipe status: connectable`。
+- 测试结束后按 PID 停止该临时进程，确认 `stopped=True`。
+
+结论：
+- Hub/proxy 诊断与清理能力已经固化。
+- 演示和自动化主链路仍建议使用后端 direct stdio；Hub 脚本主要用于排查旧进程和命名管道问题。
+### 2026-06-30 - 项目化能力第一轮：画布自动缩放与 Replay 阈值配置
+
+目标：
+- 先完成项目化规划中风险最低的两项：
+  1. 前端 layout bounds 自动缩放，支持 n 个组件和更大布局范围；
+  2. Replay 后误差阈值可配置，支持不同项目按尺寸/精度调整验收标准。
+
+完成内容：
+- 前端 2D layout 画布不再使用固定 `WORLD_BOUNDS`：
+  - 根据当前组件 `target.x/y` 和已加载 layout JSON 的 `layout2d.x/y` 自动计算 bounds；
+  - 自动增加 padding；
+  - 保留最小视野，避免组件重叠时画布塌缩；
+  - X/Y 轴位置也改为根据动态 bounds 计算。
+- 前端 `Replay Layout` 区域新增阈值输入：
+  - `XY tol`
+  - `Theta tol`
+- 前端 `Replay Check` 显示从单纯误差值改为：
+  - `actual / tolerance`
+  - 每个组件也显示对应阈值。
+- 后端新增配置：
+  - `DEMO_REPLAY_XY_TOLERANCE_METERS`
+  - `DEMO_REPLAY_THETA_TOLERANCE_DEGREES`
+- `scripts/start_demo_backend.cmd` 已固定默认阈值：
+  - `0.000001m`
+  - `0.0001deg`
+- 后端 `POST /api/demo/apply-captured-layout` 支持可选请求体：
+  - `xyToleranceMeters`
+  - `thetaToleranceDegrees`
+- 后端 `state.lastRun.replayValidation` 现在会记录实际使用的阈值。
+
+闭环测试：
+```text
+python -m compileall apps\demo-backend\src
+cmd /c npm run build
+git diff --check
+```
+
+结果：
+- 后端 compile 通过。
+- 前端 TypeScript/Vite build 通过。
+- diff check 通过。
+
+服务级阈值测试：
+- 构造同一组 target/actual layout：
+  - `xyError=0.0005m`
+  - `thetaError=0.05deg`
+- 严格阈值：
+  - `xyToleranceMeters=1e-6`
+  - `thetaToleranceDegrees=1e-4`
+  - 结果 `success=false`
+- 放宽阈值：
+  - `xyToleranceMeters=0.001`
+  - `thetaToleranceDegrees=0.1`
+  - 结果 `success=true`
+
+结论：
+- 前端已具备更适合 n 组件展示的自适应画布基础。
+- Replay Check 已具备项目级误差阈值配置能力。
+- 本轮没有修改 SolidWorks C# 几何核心工具，对现有稳定链路影响较低。

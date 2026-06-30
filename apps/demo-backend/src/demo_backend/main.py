@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Body, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
@@ -16,6 +16,7 @@ from .models import (
     LayoutJsonInfo,
     McpHealthResult,
     OperationResult,
+    ApplyCapturedLayoutRequest,
     RecordSelectedFaceRequest,
     SelectLayoutJsonRequest,
     UploadLayoutJsonRequest,
@@ -36,7 +37,14 @@ def create_service(settings: Settings) -> DemoService:
         pipe_name=settings.mcp_pipe_name,
         timeout_seconds=settings.mcp_timeout_seconds,
     )
-    return DemoService(store, face_mappings, llm, mcp)
+    return DemoService(
+        store,
+        face_mappings,
+        llm,
+        mcp,
+        replay_xy_tolerance_meters=settings.replay_xy_tolerance_meters,
+        replay_theta_tolerance_degrees=settings.replay_theta_tolerance_degrees,
+    )
 
 
 def get_service(settings: Settings = Depends(get_settings)) -> DemoService:
@@ -152,8 +160,11 @@ async def record_selected_face(
 
 
 @app.post("/api/demo/apply-captured-layout", response_model=OperationResult)
-async def apply_captured_layout(service: DemoService = Depends(get_service)) -> OperationResult:
-    return await service.apply_captured_layout()
+async def apply_captured_layout(
+    request: ApplyCapturedLayoutRequest | None = Body(default=None),
+    service: DemoService = Depends(get_service),
+) -> OperationResult:
+    return await service.apply_captured_layout(request)
 
 
 @app.post("/api/demo/apply-layout", response_model=OperationResult)

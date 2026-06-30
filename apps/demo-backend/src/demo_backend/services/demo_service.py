@@ -15,6 +15,7 @@ from ..mcp_tools import (
     MOVE_COMPONENTS_ON_COMMON_BASE_TOOL,
 )
 from ..models import (
+    ApplyCapturedLayoutRequest,
     ApplyLayoutRequest,
     Coordinate,
     DemoComponent,
@@ -33,11 +34,21 @@ from ..state_store import DemoStateStore
 
 
 class DemoService:
-    def __init__(self, store: DemoStateStore, face_mappings: FaceMappingStore, llm: LlmClient, mcp: McpClient):
+    def __init__(
+        self,
+        store: DemoStateStore,
+        face_mappings: FaceMappingStore,
+        llm: LlmClient,
+        mcp: McpClient,
+        replay_xy_tolerance_meters: float = 1e-6,
+        replay_theta_tolerance_degrees: float = 1e-4,
+    ):
         self.store = store
         self.face_mappings = face_mappings
         self.llm = llm
         self.mcp = mcp
+        self.replay_xy_tolerance_meters = replay_xy_tolerance_meters
+        self.replay_theta_tolerance_degrees = replay_theta_tolerance_degrees
 
     def get_state(self) -> DemoState:
         state = self.store.load()
@@ -281,7 +292,7 @@ class DemoService:
         result.state = state
         return result
 
-    async def apply_captured_layout(self) -> OperationResult:
+    async def apply_captured_layout(self, request: ApplyCapturedLayoutRequest | None = None) -> OperationResult:
         state = self.store.load()
         self._normalize_state(state)
 
@@ -296,7 +307,19 @@ class DemoService:
         result = await self.mcp.run_plan(plan)
         self._apply_arrange_outcome(result, state, promote_targets=False)
         if result.status == "ok":
-            await self._append_replay_validation(state)
+            await self._append_replay_validation(
+                state,
+                xy_tolerance_meters=(
+                    request.xy_tolerance_meters
+                    if request and request.xy_tolerance_meters is not None
+                    else self.replay_xy_tolerance_meters
+                ),
+                theta_tolerance_degrees=(
+                    request.theta_tolerance_degrees
+                    if request and request.theta_tolerance_degrees is not None
+                    else self.replay_theta_tolerance_degrees
+                ),
+            )
             state = self.store.load()
             self._normalize_state(state)
         result.state = state
@@ -744,7 +767,12 @@ class DemoService:
 
         return None
 
-    async def _append_replay_validation(self, state: DemoState) -> None:
+    async def _append_replay_validation(
+        self,
+        state: DemoState,
+        xy_tolerance_meters: float,
+        theta_tolerance_degrees: float,
+    ) -> None:
         if not state.assembly_path or not state.layout_json_path or self.mcp.mode == "dry-run":
             return
 
@@ -769,7 +797,12 @@ class DemoService:
         capture_result = await self.mcp.run_plan(plan)
         target_payload = self._read_json_file_payload(Path(state.layout_json_path))
         actual_payload = self._arrange_payload(capture_result)
-        validation = self._compare_layout_payloads(target_payload, actual_payload)
+        validation = self._compare_layout_payloads(
+            target_payload,
+            actual_payload,
+            xy_tolerance_meters=xy_tolerance_meters,
+            theta_tolerance_degrees=theta_tolerance_degrees,
+        )
         validation["captureStatus"] = capture_result.status
         validation["captureMessage"] = capture_result.message
         validation["captureOutputPath"] = str(validation_path)
@@ -841,11 +874,19 @@ class DemoService:
         return payload if isinstance(payload, dict) else None
 
     @classmethod
-    def _compare_layout_payloads(cls, target: dict | None, actual: dict | None) -> dict:
+    def _compare_layout_payloads(
+        cls,
+        target: dict | None,
+        actual: dict | None,
+        xy_tolerance_meters: float = 1e-6,
+        theta_tolerance_degrees: float = 1e-4,
+    ) -> dict:
         if not isinstance(target, dict) or not isinstance(actual, dict):
             return {
                 "success": False,
                 "message": "Replay validation could not parse target or captured layout JSON.",
+                "xyToleranceMeters": xy_tolerance_meters,
+                "thetaToleranceDegrees": theta_tolerance_degrees,
                 "components": [],
             }
 
@@ -874,7 +915,9 @@ class DemoService:
             theta_error = cls._theta_error(target_layout, actual_layout)
             max_xy_error = max(max_xy_error, xy_error if xy_error is not None else 0.0)
             max_theta_error = max(max_theta_error, theta_error if theta_error is not None else 0.0)
-            row_success = (xy_error is not None and xy_error <= 1e-6) and (theta_error is None or theta_error <= 1e-4)
+            row_success = (xy_error is not None and xy_error <= xy_tolerance_meters) and (
+                theta_error is None or theta_error <= theta_tolerance_degrees
+            )
             success = success and row_success
             rows.append(
                 {
@@ -882,6 +925,8 @@ class DemoService:
                     "success": row_success,
                     "xyError": xy_error,
                     "thetaErrorDegrees": theta_error,
+                    "xyToleranceMeters": xy_tolerance_meters,
+                    "thetaToleranceDegrees": theta_tolerance_degrees,
                     "target": target_layout,
                     "actual": actual_layout,
                     "message": "ok" if row_success else "Replay layout differs from target.",
@@ -893,6 +938,8 @@ class DemoService:
             "message": "Replay validation completed." if success else "Replay validation found layout differences.",
             "maxXyError": max_xy_error,
             "maxThetaErrorDegrees": max_theta_error,
+            "xyToleranceMeters": xy_tolerance_meters,
+            "thetaToleranceDegrees": theta_tolerance_degrees,
             "components": rows,
         }
 

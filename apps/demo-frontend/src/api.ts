@@ -150,6 +150,8 @@ export type ReplayValidationComponent = {
   success?: boolean;
   xyError?: number | null;
   thetaErrorDegrees?: number | null;
+  xyToleranceMeters?: number | null;
+  thetaToleranceDegrees?: number | null;
   message?: string;
 };
 
@@ -158,6 +160,8 @@ export type ReplayValidation = {
   message?: string;
   maxXyError?: number | null;
   maxThetaErrorDegrees?: number | null;
+  xyToleranceMeters?: number | null;
+  thetaToleranceDegrees?: number | null;
   captureStatus?: string;
   captureMessage?: string;
   captureOutputPath?: string;
@@ -273,9 +277,11 @@ export async function verifyFaceMappings(): Promise<OperationResult> {
   });
 }
 
-export async function applyCapturedLayout(): Promise<OperationResult> {
+export async function applyCapturedLayout(xyToleranceMeters?: number, thetaToleranceDegrees?: number): Promise<OperationResult> {
   return request<OperationResult>("/api/demo/apply-captured-layout", {
-    method: "POST"
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({ xyToleranceMeters, thetaToleranceDegrees })
   });
 }
 

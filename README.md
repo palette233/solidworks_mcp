@@ -249,8 +249,29 @@ This script fixes the backend/MCP environment used by the demo:
 - `DEMO_MCP_CWD=vendor\solidworks-mcp\app\SolidWorksMcpApp\bin\Release\net8.0-windows\win-x64`
 - `DEMO_FACE_MAPPING_PATH=artifacts\solidworks-mcp\face_mappings.json`
 - `DEMO_MCP_TIMEOUT_SECONDS=420`
+- `DEMO_REPLAY_XY_TOLERANCE_METERS=0.000001`
+- `DEMO_REPLAY_THETA_TOLERANCE_DEGREES=0.0001`
 
 Use the frontend `Health` button or `GET /api/demo/mcp-health` to confirm that the active SolidWorks assembly matches `demo_state.json` and that backend/MCP are using the same `face_mappings.json`.
+
+The frontend `Replay Layout` action can also pass per-run replay validation thresholds. The backend records the effective tolerances in `state.lastRun.replayValidation` and shows `actual / tolerance` in the frontend `Replay Check` panel.
+
+Optional MCP Hub management scripts:
+
+```cmd
+scripts\check_mcp_hub.cmd
+scripts\start_mcp_hub.cmd
+scripts\stop_mcp_hub.cmd
+scripts\stop_mcp_hub.cmd /all
+```
+
+The demo backend normally uses direct stdio and does not require a long-lived Hub. These scripts are mainly for Hub/proxy diagnostics:
+
+- `check_mcp_hub.cmd` checks the MCP DLL, visible MCP processes, and whether the `SolidWorksMcpHub` named pipe is connectable.
+- `start_mcp_hub.cmd` starts the DLL in `--headless-hub` mode with the unified `DEMO_FACE_MAPPING_PATH`.
+- `start_mcp_hub.cmd /dry-run` prints the command without starting a process.
+- `stop_mcp_hub.cmd` stops only `--headless-hub` / `--hub` processes when command-line process inspection is available.
+- `stop_mcp_hub.cmd /all` stops all SolidWorksMcpApp-related processes when command-line inspection is available, with a conservative fallback that avoids killing unrelated `dotnet.exe` processes.
 
 The exported Claude Desktop and VS Code MCP configs now include the RAG environment variables automatically:
 

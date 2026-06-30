@@ -107,6 +107,13 @@ class UploadLayoutJsonRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class ApplyCapturedLayoutRequest(BaseModel):
+    xy_tolerance_meters: float | None = Field(default=None, alias="xyToleranceMeters")
+    theta_tolerance_degrees: float | None = Field(default=None, alias="thetaToleranceDegrees")
+
+    model_config = {"populate_by_name": True}
+
+
 class ToolCallPlan(BaseModel):
     tool: str
     arguments: dict

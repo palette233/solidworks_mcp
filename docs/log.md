@@ -1855,3 +1855,88 @@ DEMO_FACE_MAPPING_PATH=D:\zengshuang\workspace\cuhksz\cad\solidworks_mcp\artifac
 - 使用 `scripts\start_demo_backend.cmd` 启动后端。
 - 前端点击 `Health` 或调用 `/api/demo/mcp-health`。
 - 确认 `faceMappingPathsMatch=true`。
+## 2026-06-30 - MCP Hub 管理脚本与项目化规划
+
+本次操作：
+- 新增 `scripts/check_mcp_hub.cmd`：
+  - 检查 MCP DLL 是否存在。
+  - 查询 `SolidWorksMcpApp` 相关进程。
+  - 通过 `NamedPipeClientStream.Connect()` 检查 `SolidWorksMcpHub` pipe 是否可连接。
+  - 当环境不允许读取进程 command line 时，降级为提示，不再输出未处理异常。
+- 新增 `scripts/start_mcp_hub.cmd`：
+  - 以 `dotnet SolidWorksMcpApp.dll --headless-hub` 启动 MCP Hub。
+  - 自动设置 `DEMO_FACE_MAPPING_PATH`。
+  - 支持 `/dry-run` 参数。
+- 新增 `scripts/stop_mcp_hub.cmd`：
+  - 默认停止 `--headless-hub` / `--hub` 进程。
+  - `/all` 模式清理 SolidWorksMcpApp 相关进程。
+  - 无法读取 command line 时采用保守策略，避免误杀无关 `dotnet.exe`。
+- README 已补充脚本用法。
+- 中英文进展文档已记录脚本能力和测试结果。
+- 中英文待办文档已补充真实项目化能力详细规划。
+
+非侵入式测试：
+```text
+cmd /c scripts\check_mcp_hub.cmd
+cmd /c scripts\stop_mcp_hub.cmd
+cmd /c scripts\start_mcp_hub.cmd /dry-run
+```
+
+真实临时 Hub 测试：
+- 使用隐藏进程启动 `dotnet SolidWorksMcpApp.dll --headless-hub`。
+- 运行 `scripts\check_mcp_hub.cmd`。
+- 结果：
+  - 成功识别临时 `dotnet.exe ... SolidWorksMcpApp.dll --headless-hub` 进程。
+  - `Pipe status: connectable`。
+  - 按 PID 停止临时进程后，`stopped=True`。
+
+项目化规划重点：
+- n 个子装配体自动发现。
+- layout JSON 自动生成项目配置。
+- 前端 layout bounds 自动缩放。
+- Replay 后误差阈值可配置。
+- 批量面映射验证与问题清单。
+## 2026-06-30 - 项目化能力第一轮：自动缩放与阈值配置
+
+本次操作：
+- 前端 2D layout 画布从固定范围改为自动 bounds：
+  - 读取当前组件 target；
+  - 读取 layout JSON 中的 layout2d；
+  - 自动计算 min/max 和 padding；
+  - 动态显示 X/Y 轴。
+- 前端新增 Replay 阈值输入：
+  - `XY tol`
+  - `Theta tol`
+- 前端 Replay Check 改为显示：
+  - 最大误差 / 阈值；
+  - 每个组件误差 / 阈值。
+- 后端新增环境变量：
+  - `DEMO_REPLAY_XY_TOLERANCE_METERS`
+  - `DEMO_REPLAY_THETA_TOLERANCE_DEGREES`
+- `scripts/start_demo_backend.cmd` 已设置默认阈值。
+- `POST /api/demo/apply-captured-layout` 支持请求体覆盖阈值。
+- `state.lastRun.replayValidation` 会记录实际使用的阈值。
+
+验证命令：
+```text
+python -m compileall apps\demo-backend\src
+cmd /c npm run build
+git diff --check
+```
+
+验证结果：
+- 后端 compile 通过。
+- 前端 build 通过。
+- diff check 通过。
+
+服务级闭环：
+- 构造 target/actual layout，误差为：
+  - `xyError=0.0005m`
+  - `thetaError=0.05deg`
+- 严格阈值 `1e-6m / 1e-4deg` 下结果失败。
+- 放宽阈值 `0.001m / 0.1deg` 下结果通过。
+
+下一步建议：
+- 做 `DiscoverLayoutComponentsFromAssembly` 最小只读版本。
+- 后端新增 discovery endpoint。
+- 前端新增 discovered components 表格。

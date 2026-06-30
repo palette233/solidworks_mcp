@@ -42,7 +42,7 @@ type BlockSpec = {
   color: string;
 };
 
-const WORLD_BOUNDS: WorldBounds = {
+const DEFAULT_WORLD_BOUNDS: WorldBounds = {
   minX: -0.1,
   maxX: 0.8,
   minY: -0.3,
@@ -117,6 +117,44 @@ function roundMeters(value: number): number {
   return Math.round(value * 1000) / 1000;
 }
 
+function expandBounds(bounds: WorldBounds, minimumSize = 0.4, paddingRatio = 0.18): WorldBounds {
+  const centerX = (bounds.minX + bounds.maxX) / 2;
+  const centerY = (bounds.minY + bounds.maxY) / 2;
+  const width = Math.max(bounds.maxX - bounds.minX, minimumSize);
+  const height = Math.max(bounds.maxY - bounds.minY, minimumSize);
+  const paddedWidth = width * (1 + paddingRatio * 2);
+  const paddedHeight = height * (1 + paddingRatio * 2);
+  return {
+    minX: centerX - paddedWidth / 2,
+    maxX: centerX + paddedWidth / 2,
+    minY: centerY - paddedHeight / 2,
+    maxY: centerY + paddedHeight / 2
+  };
+}
+
+function computeWorldBounds(state: DemoState | null): WorldBounds {
+  if (!state) return DEFAULT_WORLD_BOUNDS;
+
+  const points: Array<{ x: number; y: number }> = [];
+  for (const component of state.components) {
+    points.push({ x: component.target.x, y: component.target.y });
+    const layout = layoutFor(component, state.layoutInfo);
+    if (layout?.layout2d) {
+      points.push({ x: layout.layout2d.x, y: layout.layout2d.y });
+    }
+  }
+
+  const valid = points.filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
+  if (!valid.length) return DEFAULT_WORLD_BOUNDS;
+
+  return expandBounds({
+    minX: Math.min(...valid.map((point) => point.x)),
+    maxX: Math.max(...valid.map((point) => point.x)),
+    minY: Math.min(...valid.map((point) => point.y)),
+    maxY: Math.max(...valid.map((point) => point.y))
+  });
+}
+
 function formatVector(values?: number[] | null): string {
   if (!values?.length) {
     return "n/a";
@@ -176,24 +214,26 @@ function CoordinateInput({
 
 function LayoutCanvas({
   state,
+  worldBounds,
   disabled,
   onMove
 }: {
   state: DemoState;
+  worldBounds: WorldBounds;
   disabled: boolean;
   onMove: (id: string, x: number, y: number) => void;
 }) {
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
-  const worldWidth = WORLD_BOUNDS.maxX - WORLD_BOUNDS.minX;
-  const worldHeight = WORLD_BOUNDS.maxY - WORLD_BOUNDS.minY;
+  const worldWidth = worldBounds.maxX - worldBounds.minX;
+  const worldHeight = worldBounds.maxY - worldBounds.minY;
 
   function toScreenX(worldX: number): number {
-    return ((worldX - WORLD_BOUNDS.minX) / worldWidth) * 100;
+    return ((worldX - worldBounds.minX) / worldWidth) * 100;
   }
 
   function toScreenY(worldY: number): number {
-    return ((WORLD_BOUNDS.maxY - worldY) / worldHeight) * 100;
+    return ((worldBounds.maxY - worldY) / worldHeight) * 100;
   }
 
   function pointerToWorld(event: PointerEvent<HTMLDivElement>) {
@@ -204,8 +244,8 @@ function LayoutCanvas({
 
     const localX = clamp(event.clientX - rect.left, 0, rect.width);
     const localY = clamp(event.clientY - rect.top, 0, rect.height);
-    const worldX = WORLD_BOUNDS.minX + (localX / rect.width) * worldWidth;
-    const worldY = WORLD_BOUNDS.maxY - (localY / rect.height) * worldHeight;
+    const worldX = worldBounds.minX + (localX / rect.width) * worldWidth;
+    const worldY = worldBounds.maxY - (localY / rect.height) * worldHeight;
     return {
       x: roundMeters(worldX),
       y: roundMeters(worldY)
@@ -235,7 +275,8 @@ function LayoutCanvas({
       <div className="panel-heading">
         <h2>2D layout</h2>
         <span>
-          X {WORLD_BOUNDS.minX}..{WORLD_BOUNDS.maxX} m, Y {WORLD_BOUNDS.minY}..{WORLD_BOUNDS.maxY} m
+          X {formatNumber(worldBounds.minX, 3)}..{formatNumber(worldBounds.maxX, 3)} m, Y {formatNumber(worldBounds.minY, 3)}..
+          {formatNumber(worldBounds.maxY, 3)} m
         </span>
       </div>
       <div
@@ -245,12 +286,12 @@ function LayoutCanvas({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       >
-        <div className="axis x-axis" />
-        <div className="axis y-axis" />
+        <div className="axis x-axis" style={{ top: `${clamp(toScreenY(0), 0, 100)}%` }} />
+        <div className="axis y-axis" style={{ left: `${clamp(toScreenX(0), 0, 100)}%` }} />
         {state.components.map((component) => {
           const spec = blockSpec(component);
-          const widthPercent = (spec.width / worldWidth) * 100;
-          const heightPercent = (spec.height / worldHeight) * 100;
+          const widthPercent = clamp((spec.width / worldWidth) * 100, 4, 24);
+          const heightPercent = clamp((spec.height / worldHeight) * 100, 4, 24);
           return (
             <button
               key={component.id}
@@ -289,6 +330,8 @@ function App() {
   const [layoutFiles, setLayoutFiles] = useState<LayoutJsonInfo[]>([]);
   const [result, setResult] = useState<OperationResult | null>(null);
   const [mcpHealth, setMcpHealth] = useState<McpHealthResult | null>(null);
+  const [xyToleranceMeters, setXyToleranceMeters] = useState(0.000001);
+  const [thetaToleranceDegrees, setThetaToleranceDegrees] = useState(0.0001);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const arrangePayload = useMemo(() => parseArrangePayload(result), [result]);
@@ -302,6 +345,7 @@ function App() {
   const screenshotUrl = hasScreenshot
     ? `/api/demo/screenshot?t=${encodeURIComponent(state?.updatedAt ?? String(Date.now()))}`
     : null;
+  const worldBounds = useMemo(() => computeWorldBounds(state), [state]);
 
   async function load() {
     setBusy(true);
@@ -392,7 +436,7 @@ function App() {
     setBusy(true);
     setError(null);
     try {
-      const nextResult = await applyCapturedLayout();
+      const nextResult = await applyCapturedLayout(xyToleranceMeters, thetaToleranceDegrees);
       setResult(nextResult);
       if (nextResult.state) {
         setState(nextResult.state);
@@ -556,6 +600,7 @@ function App() {
           {state ? (
             <LayoutCanvas
               state={state}
+              worldBounds={worldBounds}
               disabled={busy}
               onMove={(id, x, y) => setState((current) => current && cloneWithXYTarget(current, id, x, y))}
             />
@@ -589,6 +634,30 @@ function App() {
                 <input type="file" accept="application/json,.json" disabled={busy} onChange={handleUploadLayout} />
               </label>
               <span className="layout-path">{shortPath(state?.layoutJsonPath)}</span>
+            </div>
+            <div className="replay-settings">
+              <label>
+                XY tol
+                <input
+                  type="number"
+                  min="0"
+                  step="0.000001"
+                  value={numberValue(xyToleranceMeters)}
+                  onChange={(event) => setXyToleranceMeters(Math.max(0, Number(event.target.value)))}
+                />
+                m
+              </label>
+              <label>
+                Theta tol
+                <input
+                  type="number"
+                  min="0"
+                  step="0.0001"
+                  value={numberValue(thetaToleranceDegrees)}
+                  onChange={(event) => setThetaToleranceDegrees(Math.max(0, Number(event.target.value)))}
+                />
+                deg
+              </label>
             </div>
             {state?.layoutInfo?.components?.length ? (
               <div className="layout-summary">
@@ -817,9 +886,13 @@ function App() {
               <p className="result-message">{replayValidation.message ?? "Replay validation completed."}</p>
               <dl className="validation-summary">
                 <dt>Max XY</dt>
-                <dd>{formatNumber(replayValidation.maxXyError, 8)} m</dd>
+                <dd>
+                  {formatNumber(replayValidation.maxXyError, 8)} / {formatNumber(replayValidation.xyToleranceMeters, 8)} m
+                </dd>
                 <dt>Max Theta</dt>
-                <dd>{formatNumber(replayValidation.maxThetaErrorDegrees, 6)} deg</dd>
+                <dd>
+                  {formatNumber(replayValidation.maxThetaErrorDegrees, 6)} / {formatNumber(replayValidation.thetaToleranceDegrees, 6)} deg
+                </dd>
                 <dt>Capture</dt>
                 <dd>{replayValidation.captureStatus ?? "n/a"}</dd>
               </dl>
@@ -833,9 +906,13 @@ function App() {
                       </div>
                       <dl>
                         <dt>XY error</dt>
-                        <dd>{formatNumber(component.xyError, 8)} m</dd>
+                        <dd>
+                          {formatNumber(component.xyError, 8)} / {formatNumber(component.xyToleranceMeters, 8)} m
+                        </dd>
                         <dt>Theta error</dt>
-                        <dd>{formatNumber(component.thetaErrorDegrees, 6)} deg</dd>
+                        <dd>
+                          {formatNumber(component.thetaErrorDegrees, 6)} / {formatNumber(component.thetaToleranceDegrees, 6)} deg
+                        </dd>
                         <dt>Message</dt>
                         <dd>{component.message ?? "n/a"}</dd>
                       </dl>

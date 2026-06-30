@@ -1093,3 +1093,186 @@ Still pending:
    - stop old hub;
    - start the new hub through the DLL path.
 3. Health now depends on the new MCP tool. If an old MCP process is still running, it may report `unknown tool`, which is useful as a signal that the active MCP is stale.
+### 2026-06-30 Addendum: Detailed Plan for Project-Scale Workflow
+
+Goal:
+- Move from the current A/B/C demo toward a generic workflow where a source assembly X contains n child assemblies/components.
+- Capture layout2d from X, then create a new assembly, insert n child components, align common base, and replay layout2d position/theta.
+
+Recommended implementation phases:
+
+#### Phase 1: Auto-discover n child components
+
+Goal:
+- Given source assembly X, automatically list child assemblies/components that can become layout units.
+
+Recommended new MCP high-level tool:
+```text
+DiscoverLayoutComponentsFromAssembly
+```
+
+Inputs:
+- `sourceAssemblyPath`
+- `scope`: `topLevelOnly` / `recursive`
+- `includeParts`
+- `includeSuppressed=false`
+
+Output:
+- `assemblyPath`
+- `components[]`:
+  - `componentName`
+  - `componentPath`
+  - `filePath`
+  - `isAssembly`
+  - `isSuppressed`
+  - `transform`
+  - `candidateBottomFaces`, empty in the first version and enhanced later.
+
+Backend changes:
+- Add `ProjectLayoutConfig` or extend `DemoState` for n components.
+- Add endpoints:
+  - `POST /api/demo/discover-components`
+  - `POST /api/demo/import-discovered-components`
+
+Frontend changes:
+- Add source assembly path input.
+- Show discovered components in a table.
+- Let the user choose which components participate in layout replay.
+
+Risks:
+- Real assemblies may include nested assemblies, lightweight components, virtual components, and suppressed components.
+- First version should support only top-level resolved components.
+
+#### Phase 2: Generate layout JSON project config
+
+Goal:
+- Generate a replayable layout JSON from the source assembly X.
+
+Recommended enhancement to `CaptureCommonBaseLayoutFromAssembly`:
+- Ensure output contains:
+  - `sourceAssemblyPath`
+  - `baseComponentName`
+  - `basePlane`
+  - `createdAt`
+  - `components[]`:
+    - `componentName`
+    - `filePath`
+    - `bottomFaceName`
+    - `layout2d.x`
+    - `layout2d.y`
+    - `layout2d.thetaDegrees`
+    - `layout2d.thetaAxis`
+    - `sourceTransform`
+    - `faceMappingFound`
+    - `faceMappingPath`
+
+Backend flow:
+```text
+Discover -> Verify Faces -> Capture Layout JSON -> Save Project Config
+```
+
+Frontend changes:
+- Add `Capture from Source Assembly`.
+- Auto-load the captured layout JSON.
+- Show whether each component file path exists and whether face mapping exists.
+
+Risk:
+- Missing bottom-face mappings should return a structured missing list instead of failing the entire project.
+
+#### Phase 3: Auto-fit frontend layout bounds
+
+Goal:
+- Support n components and larger layouts without fixed `WORLD_BOUNDS`.
+
+Implementation:
+- Compute bounds from `state.components[].target` and `layoutInfo.components[].layout2d`.
+- Add 10%-20% padding.
+- Keep minimum width/height defaults so the canvas does not collapse when components overlap.
+- Add reset view / fit view if needed.
+
+Frontend data:
+- `worldBounds = computeLayoutBounds(components, layoutInfo)`
+- Keep fixed fallback block sizes for now; later, derive sizes from CAD bounding boxes.
+
+Risk:
+- The 2D canvas is an operation view. Its rectangles should not imply true CAD shape/scale unless bounding-box data is added.
+
+#### Phase 4: Configurable replay validation thresholds
+
+Goal:
+- Different projects can use tolerances suitable for their size and complexity.
+
+Backend options:
+- Add settings:
+  - `DEMO_REPLAY_XY_TOLERANCE_METERS`
+  - `DEMO_REPLAY_THETA_TOLERANCE_DEGREES`
+- Or pass in replay request:
+  - `xyToleranceMeters`
+  - `thetaToleranceDegrees`
+- Store actual thresholds in `state.lastRun.replayValidation`.
+
+Frontend:
+- Add compact settings:
+  - XY tolerance
+  - Theta tolerance
+- Display:
+  - `actual / tolerance`
+  - per-component pass/fail status.
+
+Risk:
+- Loose thresholds can hide replay failures; defaults should stay strict and only change when users opt in.
+
+#### Phase 5: Batch face-mapping validation issue list
+
+Goal:
+- For n components, one bad mapping should produce a useful table instead of forcing the user to inspect logs.
+
+Recommended structured result:
+- `componentName`
+- `faceName`
+- `selected`
+- `persistentReferenceUsed`
+- `centerError`
+- `areaError`
+- `normalDot`
+- `result`
+- `recommendedAction`
+
+Frontend:
+- Highlight failed components.
+- Show a clear “re-record this component bottom face” action.
+
+#### Recommended order
+
+1. Implement frontend layout bounds auto-fit first. Completed.
+   - Pure frontend, lowest risk, immediately improves n-component usability.
+2. Add configurable replay thresholds. Completed.
+   - Backend comparison logic already exists, so scope is small.
+3. Implement n-component discovery. Recommended next.
+   - Requires real SolidWorks tree traversal and broader testing.
+4. Add layout JSON project config generation and batch issue reporting.
+   - This ties discovery, face mapping, and capture into the full project workflow.
+
+### 2026-06-30 Addendum: Next Step After Project-Scale Round 1
+
+Completed:
+- Frontend layout bounds auto-fit.
+- Configurable Replay validation thresholds.
+- Replay Check display now shows `actual / tolerance`.
+
+Recommended next:
+1. Implement a minimal `DiscoverLayoutComponentsFromAssembly`.
+   - Scan only top-level resolved components.
+   - Return `componentName/filePath/isAssembly/transform`.
+   - Do not auto-detect bottom faces yet.
+2. Add backend discovery endpoint.
+   - `POST /api/demo/discover-components`
+   - Return candidate components first; do not overwrite state automatically.
+3. Add frontend discovered-components table.
+   - Let the user select components.
+   - Let the user sync selected components into demo state.
+4. Then implement “capture from source assembly and generate layout JSON project config”.
+
+Notes:
+- Discovery should be read-only first.
+- The first version should avoid automatic bottom-face inference to reduce geometry false positives.

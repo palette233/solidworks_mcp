@@ -31,6 +31,8 @@ class Settings:
         self.mcp_args = os.environ.get("DEMO_MCP_ARGS", self._default_mcp_args())
         self.mcp_pipe_name = os.environ.get("DEMO_MCP_PIPE_NAME", "SolidWorksMcpHub")
         self.mcp_timeout_seconds = float(os.environ.get("DEMO_MCP_TIMEOUT_SECONDS", "180"))
+        self.replay_xy_tolerance_meters = float(os.environ.get("DEMO_REPLAY_XY_TOLERANCE_METERS", "0.000001"))
+        self.replay_theta_tolerance_degrees = float(os.environ.get("DEMO_REPLAY_THETA_TOLERANCE_DEGREES", "0.0001"))
 
     def _default_mcp_args(self) -> str:
         if (self.mcp_command or "").lower() != "dotnet" or not self.mcp_cwd:

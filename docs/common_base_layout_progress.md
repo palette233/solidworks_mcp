@@ -1796,3 +1796,103 @@ Local code validation completed:
 - Frontend TypeScript/Vite build passed.
 - `git diff --check` passed.
 - Backend service-level dry-run health passed; real `mcpFaceMappingPath` still needs validation after starting the new MCP build.
+### 2026-06-30 - MCP Hub Management Scripts and Closed-Loop Check
+
+Background:
+- The backend automation path now prefers `--stdio-direct`, so the normal demo loop does not require a long-lived Hub.
+- However, stale MCP/Hub/proxy processes and named-pipe confusion have caused repeated debugging noise, so dedicated diagnostic scripts are still useful.
+
+Completed:
+- Added `scripts/check_mcp_hub.cmd`:
+  - checks whether the MCP DLL exists;
+  - lists visible `SolidWorksMcpApp.exe` / `dotnet.exe` processes related to `SolidWorksMcpApp`;
+  - uses `NamedPipeClientStream.Connect()` to check whether the `SolidWorksMcpHub` pipe is connectable;
+  - gracefully degrades when command-line process inspection is blocked.
+- Added `scripts/start_mcp_hub.cmd`:
+  - starts `SolidWorksMcpApp.dll --headless-hub` through `dotnet`;
+  - sets the unified `DEMO_FACE_MAPPING_PATH`;
+  - supports `/dry-run` to print the command without starting a process.
+- Added `scripts/stop_mcp_hub.cmd`:
+  - by default stops only `--headless-hub` / `--hub` processes;
+  - supports `/all` to clean all SolidWorksMcpApp-related processes;
+  - falls back conservatively when command-line process inspection is unavailable, avoiding unrelated `dotnet.exe` processes.
+- README now documents the Hub management scripts.
+
+Closed-loop checks:
+```text
+cmd /c scripts\check_mcp_hub.cmd
+cmd /c scripts\stop_mcp_hub.cmd
+cmd /c scripts\start_mcp_hub.cmd /dry-run
+```
+
+Real temporary Hub check:
+- Started hidden process:
+  - `dotnet SolidWorksMcpApp.dll --headless-hub`
+- Ran `scripts\check_mcp_hub.cmd`.
+- Confirmed:
+  - temporary `dotnet.exe ... SolidWorksMcpApp.dll --headless-hub` process was visible;
+  - `Pipe status: connectable`.
+- Stopped the temporary process by PID and confirmed `stopped=True`.
+
+Conclusion:
+- Hub/proxy diagnostics and cleanup are now hardened.
+- The stable demo/backend automation loop should still use direct stdio; Hub scripts are primarily for stale-process and named-pipe diagnostics.
+### 2026-06-30 - Project-Scale Capability Round 1: Auto-Fit Canvas and Configurable Replay Thresholds
+
+Goal:
+- Implement the two lowest-risk items from the project-scale plan:
+  1. frontend layout bounds auto-fit for n components and larger layouts;
+  2. configurable post-Replay validation thresholds for project-specific precision.
+
+Completed:
+- The frontend 2D layout canvas no longer uses fixed `WORLD_BOUNDS`:
+  - computes bounds from current component `target.x/y` and loaded layout JSON `layout2d.x/y`;
+  - adds padding automatically;
+  - keeps a minimum viewport to avoid collapse when components overlap;
+  - computes X/Y axis positions from the dynamic bounds.
+- Added frontend Replay threshold inputs:
+  - `XY tol`
+  - `Theta tol`
+- Updated frontend `Replay Check` display from raw error values to:
+  - `actual / tolerance`
+  - per-component tolerance display.
+- Added backend settings:
+  - `DEMO_REPLAY_XY_TOLERANCE_METERS`
+  - `DEMO_REPLAY_THETA_TOLERANCE_DEGREES`
+- `scripts/start_demo_backend.cmd` now fixes default tolerances:
+  - `0.000001m`
+  - `0.0001deg`
+- `POST /api/demo/apply-captured-layout` now accepts optional request body:
+  - `xyToleranceMeters`
+  - `thetaToleranceDegrees`
+- `state.lastRun.replayValidation` now records the effective thresholds.
+
+Closed-loop checks:
+```text
+python -m compileall apps\demo-backend\src
+cmd /c npm run build
+git diff --check
+```
+
+Result:
+- Backend compile passed.
+- Frontend TypeScript/Vite build passed.
+- Diff check passed.
+
+Service-level threshold test:
+- Used the same target/actual layout with:
+  - `xyError=0.0005m`
+  - `thetaError=0.05deg`
+- Strict thresholds:
+  - `xyToleranceMeters=1e-6`
+  - `thetaToleranceDegrees=1e-4`
+  - result `success=false`
+- Loose thresholds:
+  - `xyToleranceMeters=0.001`
+  - `thetaToleranceDegrees=0.1`
+  - result `success=true`
+
+Conclusion:
+- The frontend now has a better foundation for n-component layout visualization.
+- Replay Check now supports project-level validation tolerances.
+- This round did not change SolidWorks C# geometry tools, so it has low risk for the existing stable workflow.

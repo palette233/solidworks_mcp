@@ -301,6 +301,34 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+.replay-settings {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  border-bottom: 1px solid #edf1f5;
+  background: #fbfcfe;
+}
+
+.replay-settings label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #4d5a66;
+  font-size: 13px;
+}
+
+.replay-settings input {
+  width: 112px;
+  height: 32px;
+  border: 1px solid #c8d1db;
+  border-radius: 6px;
+  padding: 0 8px;
+  background: #ffffff;
+  color: #1f2933;
+}
+
 .layout-summary {
   display: grid;
   gap: 8px;

@@ -1119,3 +1119,184 @@ C-1 xy_error=1.11e-16m, theta_error=0deg
    - 一键停止旧 hub；
    - 一键以 DLL 方式启动新版 hub。
 3. Health 目前依赖新 MCP 工具，旧 MCP 未重启时会报 unknown tool；这正好可以提醒用户当前运行的不是新版 MCP。
+### 2026-06-30 追加：真实项目化能力详细规划
+
+目标：
+- 从当前 A/B/C 演示，推进到“原始装配体 X 由 n 个子装配体组成”的通用工作流。
+- 支持从 X 捕获 layout2d，再在新 assembly 中导入 n 个子装配体、共底面、按 layout2d 恢复位置和 theta。
+
+推荐分阶段实现：
+
+#### 阶段 1：n 个子装配体自动发现
+
+目标：
+- 给定原始装配体 X，自动列出可作为布局单元的子装配体/零件。
+
+建议新增 MCP 高层工具：
+```text
+DiscoverLayoutComponentsFromAssembly
+```
+
+输入：
+- `sourceAssemblyPath`
+- `scope`：`topLevelOnly` / `recursive`
+- `includeParts`
+- `includeSuppressed=false`
+
+输出：
+- `assemblyPath`
+- `components[]`：
+  - `componentName`
+  - `componentPath`
+  - `filePath`
+  - `isAssembly`
+  - `isSuppressed`
+  - `transform`
+  - `candidateBottomFaces` 初版可为空，后续再自动候选。
+
+后端变化：
+- 新增 `ProjectLayoutConfig` 或扩展现有 `DemoState`，支持 n 个组件。
+- 新增接口：
+  - `POST /api/demo/discover-components`
+  - `POST /api/demo/import-discovered-components`
+
+前端变化：
+- 增加“源装配体路径”输入。
+- 显示 discovered components 表格。
+- 允许用户勾选哪些组件参与 layout replay。
+
+风险：
+- 真实装配体可能存在嵌套子装配体、轻量化组件、虚拟组件、压缩组件。
+- 第一版建议只支持 top-level resolved components，避免一次吃太多复杂度。
+
+#### 阶段 2：layout JSON 自动生成配置
+
+目标：
+- 从原始装配体 X 一键生成可 replay 的 layout JSON。
+
+建议增强现有 `CaptureCommonBaseLayoutFromAssembly`：
+- 确保输出包含：
+  - `sourceAssemblyPath`
+  - `baseComponentName`
+  - `basePlane`
+  - `createdAt`
+  - `components[]`：
+    - `componentName`
+    - `filePath`
+    - `bottomFaceName`
+    - `layout2d.x`
+    - `layout2d.y`
+    - `layout2d.thetaDegrees`
+    - `layout2d.thetaAxis`
+    - `sourceTransform`
+    - `faceMappingFound`
+    - `faceMappingPath`
+
+后端新增流程：
+```text
+Discover -> Verify Faces -> Capture Layout JSON -> Save Project Config
+```
+
+前端变化：
+- 增加“Capture from Source Assembly”按钮。
+- 捕获成功后自动加载 layout JSON。
+- 表格中显示每个组件的 filePath 是否存在、face mapping 是否存在。
+
+风险：
+- 如果底面映射缺失，capture 不应直接失败整个项目；应返回“哪些组件缺失映射”的清单。
+
+#### 阶段 3：前端 layout bounds 自动缩放
+
+目标：
+- 支持 n 个组件和大范围 layout，不再依赖固定 `WORLD_BOUNDS`。
+
+实现建议：
+- 根据当前 `state.components[].target` 与 `layoutInfo.components[].layout2d` 计算 bounds。
+- padding 取最大尺寸的 10%-20%。
+- bounds 最小宽高给默认值，避免所有组件重叠时画布塌缩。
+- 保留手动 reset view / fit view。
+
+前端数据：
+- `worldBounds = computeLayoutBounds(components, layoutInfo)`
+- block size 初版继续使用固定 fallback，后续可根据真实 bounding box 做比例显示。
+
+风险：
+- UI 画布只是 2D 操作视图，不应暗示其矩形尺寸等同真实 CAD 外形。
+
+#### 阶段 4：Replay 后误差阈值可配置
+
+目标：
+- 不同项目可根据尺寸、单位、装配复杂度设置误差容忍度。
+
+后端建议：
+- 新增设置：
+  - `DEMO_REPLAY_XY_TOLERANCE_METERS`
+  - `DEMO_REPLAY_THETA_TOLERANCE_DEGREES`
+- 或在 Replay 请求体中传：
+  - `xyToleranceMeters`
+  - `thetaToleranceDegrees`
+- `state.lastRun.replayValidation` 中记录实际阈值。
+
+前端建议：
+- 增加 compact settings 区：
+  - XY tolerance
+  - Theta tolerance
+- Replay Check 显示：
+  - `actual / tolerance`
+  - 每个组件是否通过。
+
+风险：
+- 阈值过松会掩盖实际复原失败；默认值应保持严格，用户显式修改才放宽。
+
+#### 阶段 5：批量面映射验证与问题清单
+
+目标：
+- n 个组件场景下，一个组件映射错误不应让用户只能从日志里找问题。
+
+建议：
+- `Verify Faces` 返回结构化表格：
+  - componentName
+  - faceName
+  - selected
+  - persistentReferenceUsed
+  - centerError
+  - areaError
+  - normalDot
+  - result
+  - recommendedAction
+- 前端高亮失败组件，并给出“重新记录此组件底面”的操作提示。
+
+#### 推荐实施顺序
+
+1. 先做前端 layout bounds 自动缩放。已完成。
+   - 纯前端，风险最低，立刻提升 n 组件可用性。
+2. 再做 Replay 阈值可配置。已完成。
+   - 后端对比逻辑已存在，改动集中。
+3. 再做 n 组件 discovery。下一步建议优先处理。
+   - 涉及 SolidWorks 真实树遍历，测试成本更高。
+4. 最后做 layout JSON 自动生成配置与批量问题清单。
+   - 需要把 discovery、face mapping、capture 三块串成完整项目化工作流。
+
+### 2026-06-30 追加：项目化能力第一轮完成后的下一步
+
+已完成：
+- 前端 layout bounds 自动缩放。
+- Replay 阈值可配置。
+- Replay Check 显示 `actual / tolerance`。
+
+下一步建议：
+1. 实现 `DiscoverLayoutComponentsFromAssembly` 的最小版本。
+   - 只扫描 top-level resolved components。
+   - 先返回 `componentName/filePath/isAssembly/transform`。
+   - 不急着自动识别底面。
+2. 后端新增 discovery 接口。
+   - `POST /api/demo/discover-components`
+   - 结果先不直接覆盖当前 state，而是返回候选列表。
+3. 前端新增 discovered components 表格。
+   - 允许用户选择组件。
+   - 允许用户把选择结果同步到 state。
+4. 之后再做“从 source assembly 捕获并生成 layout JSON 项目配置”。
+
+注意：
+- Discovery 应先保持只读，不修改 SolidWorks 文档。
+- 第一轮不要自动推断底面，避免引入新的几何误判风险。
