@@ -10,7 +10,7 @@ from .adapters.llm_client import LlmClient
 from .adapters.mcp_client import McpClient
 from .config import Settings, get_settings
 from .face_mappings import FaceMappingStore
-from .models import ApplyLayoutRequest, DemoState, OperationResult
+from .models import ApplyLayoutRequest, DemoState, OperationResult, RecordSelectedFaceRequest
 from .services.demo_service import DemoService
 from .state_store import DemoStateStore
 
@@ -98,6 +98,24 @@ async def finalize_common_base(service: DemoService = Depends(get_service)) -> O
     return await service.finalize_common_base()
 
 
+@app.post("/api/demo/capture-common-base-layout", response_model=OperationResult)
+async def capture_common_base_layout(service: DemoService = Depends(get_service)) -> OperationResult:
+    return await service.capture_common_base_layout()
+
+
+@app.post("/api/demo/record-selected-face", response_model=OperationResult)
+async def record_selected_face(
+    request: RecordSelectedFaceRequest,
+    service: DemoService = Depends(get_service),
+) -> OperationResult:
+    return await service.record_selected_face(request)
+
+
+@app.post("/api/demo/apply-captured-layout", response_model=OperationResult)
+async def apply_captured_layout(service: DemoService = Depends(get_service)) -> OperationResult:
+    return await service.apply_captured_layout()
+
+
 @app.post("/api/demo/apply-layout", response_model=OperationResult)
 async def apply_layout(
     request: ApplyLayoutRequest,
@@ -115,8 +133,13 @@ async def arrange(
 
 
 @app.get("/api/demo/screenshot")
-def get_screenshot() -> FileResponse:
-    path = Path(__file__).resolve().parents[4] / "demo" / "arrange_result_frontend.png"
+def get_screenshot(service: DemoService = Depends(get_service)) -> FileResponse:
+    state = service.get_state()
+    last_run = state.last_run if isinstance(state.last_run, dict) else {}
+    screenshot_path = last_run.get("screenshotPath")
+    path = Path(screenshot_path) if isinstance(screenshot_path, str) and screenshot_path else None
+    if path is None:
+        path = Path(__file__).resolve().parents[4] / "demo" / "arrange_result_frontend.png"
     if not path.exists():
         raise HTTPException(status_code=404, detail="Screenshot has not been generated yet.")
     return FileResponse(path, media_type="image/png")

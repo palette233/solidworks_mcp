@@ -8,11 +8,13 @@ from ..adapters.mcp_client import McpClient
 from ..face_mappings import FaceMappingStore
 from ..mcp_tools import (
     ARRANGE_COMPONENTS_ON_COMMON_BASE_TOOL,
+    APPLY_CAPTURED_COMMON_BASE_LAYOUT_TOOL,
+    CAPTURE_COMMON_BASE_LAYOUT_TOOL,
     FINALIZE_COMMON_BASE_ASSEMBLY_TOOL,
     INITIALIZE_COMMON_BASE_ASSEMBLY_TOOL,
     MOVE_COMPONENTS_ON_COMMON_BASE_TOOL,
 )
-from ..models import ApplyLayoutRequest, Coordinate, DemoState, OperationResult, ToolCallPlan
+from ..models import ApplyLayoutRequest, Coordinate, DemoState, OperationResult, RecordSelectedFaceRequest, ToolCallPlan
 from ..state_store import DemoStateStore
 
 
@@ -87,6 +89,98 @@ class DemoService:
         result = await self._ensure_common_base_ready(state)
         result.state = state
         return result
+
+    async def capture_common_base_layout(self) -> OperationResult:
+        state = self.store.load()
+        self._normalize_state(state)
+
+        if not state.assembly_path:
+            return OperationResult(
+                status="blocked",
+                message="Assembly has not been initialized. Run initialize before capturing layout2d.",
+                state=state,
+            )
+
+        missing = self.face_mappings.missing_bottom_mappings(state.components)
+        if missing:
+            return OperationResult(
+                status="blocked",
+                message="Please record bottom face mappings before capturing layout2d.",
+                missingFaceMappings=missing,
+                state=state,
+            )
+
+        plan = self._capture_common_base_layout_plan(state)
+        result = await self.mcp.run_plan(plan)
+        self._apply_arrange_outcome(result, state, promote_targets=False)
+        result.state = state
+        return result
+
+    async def apply_captured_layout(self) -> OperationResult:
+        state = self.store.load()
+        self._normalize_state(state)
+
+        if not state.assembly_path:
+            return OperationResult(
+                status="blocked",
+                message="Assembly has not been initialized. Run initialize before replaying captured layout2d.",
+                state=state,
+            )
+
+        plan = self._apply_captured_layout_plan(state)
+        result = await self.mcp.run_plan(plan)
+        self._apply_arrange_outcome(result, state, promote_targets=False)
+        result.state = state
+        return result
+
+    async def record_selected_face(self, request: RecordSelectedFaceRequest) -> OperationResult:
+        state = self.store.load()
+        self._normalize_state(state)
+        plan = [
+            ToolCallPlan(
+                tool="record_face_mapping",
+                arguments={
+                    "componentName": request.component_name,
+                    "faceName": request.face_name,
+                },
+            ),
+            ToolCallPlan(
+                tool="get_selected_face_mapping_probe",
+                arguments={
+                    "componentName": request.component_name,
+                    "faceName": request.face_name,
+                },
+            ),
+        ]
+        result = await self.mcp.run_plan(plan)
+        self._repair_mojibake_face_mapping_key(request.component_name, request.face_name)
+        state.last_run = {
+            "status": result.status,
+            "message": result.message,
+            "toolResults": result.tool_results,
+        }
+        self.store.save(state)
+        result.state = state
+        return result
+
+    def _repair_mojibake_face_mapping_key(self, component_name: str, face_name: str) -> None:
+        if face_name == "??":
+            return
+
+        path = self.face_mappings.mapping_path
+        mappings = self.face_mappings.load()
+        component_entry = mappings.get(component_name)
+        if not isinstance(component_entry, dict):
+            return
+
+        mojibake_entry = component_entry.get("??")
+        if not isinstance(mojibake_entry, dict):
+            return
+
+        component_entry[face_name] = mojibake_entry
+        component_entry.pop("??", None)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(mappings, ensure_ascii=False, indent=2), encoding="utf-8")
 
     async def apply_layout(self, request: ApplyLayoutRequest) -> OperationResult:
         if not request.use_llm:
@@ -289,6 +383,44 @@ class DemoService:
         ]
 
     @staticmethod
+    def _capture_common_base_layout_plan(state: DemoState) -> list[ToolCallPlan]:
+        workspace = Path(__file__).resolve().parents[5]
+        return [
+            ToolCallPlan(
+                tool=CAPTURE_COMMON_BASE_LAYOUT_TOOL,
+                arguments={
+                    "sourceAssemblyPath": state.assembly_path,
+                    "baseComponentName": state.components[0].component_name if state.components else None,
+                    "outputPath": str(workspace / "demo" / "captured_common_base_layout.json"),
+                    "components": [
+                        {
+                            "componentName": component.component_name,
+                            "bottomFaceName": component.bottom_face_name,
+                        }
+                        for component in state.components
+                    ],
+                },
+            )
+        ]
+
+    @staticmethod
+    def _apply_captured_layout_plan(state: DemoState) -> list[ToolCallPlan]:
+        workspace = Path(__file__).resolve().parents[5]
+        return [
+            ToolCallPlan(
+                tool=APPLY_CAPTURED_COMMON_BASE_LAYOUT_TOOL,
+                arguments={
+                    "layoutJsonPath": str(workspace / "demo" / "captured_common_base_layout.json"),
+                    "assemblyPath": state.assembly_path,
+                    "screenshotPath": str(workspace / "demo" / "apply_captured_layout_result.png"),
+                    "screenshotWidth": 1600,
+                    "screenshotHeight": 900,
+                    "includeScreenshotBase64Data": False,
+                },
+            )
+        ]
+
+    @staticmethod
     def _normalize_state(state: DemoState) -> None:
         for component in state.components:
             if component.bottom_face_name in {"\u6434\u66df\u6f70", "\u6434\u66e2\u6f70", "\u4e45\u4e2d"}:
@@ -303,7 +435,7 @@ class DemoService:
                 z=component.target.z,
             )
 
-    def _apply_arrange_outcome(self, result: OperationResult, state: DemoState) -> None:
+    def _apply_arrange_outcome(self, result: OperationResult, state: DemoState, promote_targets: bool = True) -> None:
         if result.status != "ok":
             state.last_run = {
                 "status": result.status,
@@ -335,7 +467,8 @@ class DemoService:
             self.store.save(state)
             return
 
-        self._promote_targets_to_current(state)
+        if promote_targets:
+            self._promote_targets_to_current(state)
         state.last_run = self._last_run_from_payload(result, payload)
         self.store.save(state)
 
@@ -404,6 +537,9 @@ class DemoService:
             "assemblyPath": payload.get("assemblyPath"),
             "screenshotPath": screenshot.get("outputPath") if screenshot else None,
             "components": payload.get("components", []),
+            "orientationCorrections": payload.get("orientationCorrections", []),
+            "orientationChecks": payload.get("orientationChecks", []),
+            "missingFaceMappings": payload.get("missingFaceMappings", []),
         }
 
     @staticmethod

@@ -21,16 +21,33 @@ class Settings:
         self.face_mapping_path = Path(
             os.environ.get(
                 "DEMO_FACE_MAPPING_PATH",
-                str(workspace_root() / "artifacts" / "solidworks-mcp-20260615-demo-mate" / "face_mappings.json"),
+                str(workspace_root() / "artifacts" / "solidworks-mcp" / "face_mappings.json"),
             )
         )
         self.mcp_mode = os.environ.get("DEMO_MCP_MODE", "dry-run")
         self.llm_mode = os.environ.get("DEMO_LLM_MODE", "dry-run")
         self.mcp_command = os.environ.get("DEMO_MCP_COMMAND")
-        self.mcp_args = os.environ.get("DEMO_MCP_ARGS", "")
         self.mcp_cwd = os.environ.get("DEMO_MCP_CWD")
+        self.mcp_args = os.environ.get("DEMO_MCP_ARGS", self._default_mcp_args())
         self.mcp_pipe_name = os.environ.get("DEMO_MCP_PIPE_NAME", "SolidWorksMcpHub")
         self.mcp_timeout_seconds = float(os.environ.get("DEMO_MCP_TIMEOUT_SECONDS", "180"))
+
+    def _default_mcp_args(self) -> str:
+        if (self.mcp_command or "").lower() != "dotnet" or not self.mcp_cwd:
+            return ""
+
+        cwd = self.resolved_mcp_cwd
+        if cwd is None:
+            return ""
+
+        dll = cwd / "SolidWorksMcpApp.dll"
+        if not dll.exists():
+            return ""
+
+        # Prefer direct stdio for backend automation. The old proxy path depends
+        # on a long-lived tray/Hub process and is much more sensitive to stale
+        # named pipes or DLL-mode auto-start issues.
+        return f"{dll} --stdio-direct"
 
     @property
     def resolved_state_path(self) -> Path:

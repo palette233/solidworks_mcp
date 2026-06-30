@@ -53,6 +53,13 @@ class ApplyLayoutRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class RecordSelectedFaceRequest(BaseModel):
+    component_name: str = Field(alias="componentName")
+    face_name: str = Field(default="\u5e95\u9762", alias="faceName")
+
+    model_config = {"populate_by_name": True}
+
+
 class ToolCallPlan(BaseModel):
     tool: str
     arguments: dict

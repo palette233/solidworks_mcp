@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
+import shlex
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -10,15 +12,32 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNNER = ROOT / "apps" / "demo-backend" / "tools" / "McpToolRunner" / "bin" / "Release" / "net8.0" / "McpToolRunner.dll"
-DEFAULT_MAPPING = ROOT / "vendor" / "solidworks-mcp" / "app" / "SolidWorksMcpApp" / "bin" / "Release" / "net8.0-windows" / "win-x64" / "face_mappings.json"
+DEFAULT_MAPPING = ROOT / "artifacts" / "solidworks-mcp" / "face_mappings.json"
+DEFAULT_MCP_CWD = ROOT / "vendor" / "solidworks-mcp" / "app" / "SolidWorksMcpApp" / "bin" / "Release" / "net8.0-windows" / "win-x64"
+
+
+def mcp_server_config(client_name: str) -> dict[str, Any]:
+    command = os.environ.get("DEMO_MCP_COMMAND", "dotnet")
+    args_text = os.environ.get("DEMO_MCP_ARGS")
+    args = shlex.split(args_text, posix=False) if args_text else [
+        "SolidWorksMcpApp.dll",
+        "--proxy",
+        "--client",
+        client_name,
+    ]
+    cwd = Path(os.environ.get("DEMO_MCP_CWD", str(DEFAULT_MCP_CWD)))
+    return {
+        "serverCommand": command,
+        "serverArguments": args,
+        "workingDirectory": str(cwd),
+    }
 
 
 def call_tools(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    config = mcp_server_config("FaceMappingVerifySelect")
     payload = json.dumps(
         {
-            "serverCommand": "SolidWorksMcpApp.exe",
-            "serverArguments": ["--proxy", "--client", "FaceMappingVerifySelect"],
-            "workingDirectory": str(ROOT / "artifacts" / "solidworks-mcp"),
+            **config,
             "tools": tools,
         },
         ensure_ascii=True,
@@ -82,7 +101,13 @@ def main() -> None:
     parser.add_argument("--mapping-path", default=str(DEFAULT_MAPPING), help="Path to face_mappings.json")
     parser.add_argument("--center-tolerance", type=float, default=1e-5, help="Allowed local-center distance in meters")
     parser.add_argument("--area-relative-tolerance", type=float, default=1e-3, help="Allowed relative area error")
+    parser.add_argument("--normal-dot-tolerance", type=float, default=1e-3, help="Allowed 1-abs(dot) error for local normals when stored")
+    parser.add_argument("--print-mcp-config", action="store_true", help="Print the MCP command/cwd used by this script before running.")
     args = parser.parse_args()
+
+    if args.print_mcp_config:
+        print(json.dumps(mcp_server_config("FaceMappingVerifySelect"), ensure_ascii=False, indent=2))
+        return
 
     mapping_path = Path(args.mapping_path)
     recorded = load_mapping(mapping_path, args.component, args.face)
@@ -115,6 +140,8 @@ def main() -> None:
     selected_leaf = get_key(probe_result, "LeafComponentName", "leafComponentName")
     recorded_leaf_full = recorded.get("leafComponentFullName")
     selected_leaf_full = get_key(probe_result, "LeafComponentFullName", "leafComponentFullName")
+    recorded_normal = recorded.get("localNormal")
+    selected_normal = get_key(probe_result, "LocalNormal", "localNormal")
 
     print("=== SelectFaceByName result ===")
     print(json.dumps(select_result, ensure_ascii=False, indent=2))
@@ -130,6 +157,12 @@ def main() -> None:
 
     center_distance = distance(recorded_center, selected_center)
     area_relative_error = abs(float(recorded_area) - float(selected_area)) / max(abs(float(recorded_area)), 1e-12)
+    normal_error = None
+    normal_matches = True
+    if isinstance(recorded_normal, list) and isinstance(selected_normal, list):
+        dot = abs(sum(float(x) * float(y) for x, y in zip(recorded_normal, selected_normal)))
+        normal_error = 1 - min(1, dot)
+        normal_matches = normal_error <= args.normal_dot_tolerance
     if recorded_leaf_full and selected_leaf_full:
         leaf_matches = recorded_leaf_full == selected_leaf_full
     else:
@@ -138,6 +171,7 @@ def main() -> None:
         bool(get_key(select_result, "Success", "success"))
         and center_distance <= args.center_tolerance
         and area_relative_error <= args.area_relative_tolerance
+        and normal_matches
         and leaf_matches
     )
 
@@ -156,6 +190,10 @@ def main() -> None:
     print(f"selected area: {selected_area}")
     print(f"area relative error: {area_relative_error:.12g}")
     print(f"area relative tolerance: {args.area_relative_tolerance:.12g}")
+    print(f"recorded localNormal: {recorded_normal}")
+    print(f"selected localNormal: {selected_normal}")
+    print(f"normal error: {normal_error}")
+    print(f"normal dot tolerance: {args.normal_dot_tolerance:.12g}")
     print(f"RESULT: {'PASS' if passed else 'FAIL'}")
 
     if not passed:

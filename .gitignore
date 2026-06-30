@@ -15,4 +15,15 @@ __pycache__/
 *.egg-info/
 .venv/
 demo/demo_state.json
-
+demo/*.json
+!demo/x_reference_layout2d_theta.json
+!demo/abc_replay_from_x_reference_theta_signfix_layout2d.json
+demo/**/*.SLDASM
+demo/*.SLDASM
+demo/*.png
+logs/
+apps/demo-frontend/tsconfig.tsbuildinfo
+/cad_task.md
+/solve_problem.md
+/git
+/python

@@ -1,14 +1,18 @@
 import React, { PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { CheckCircle2, Layers, Loader2, Move3D, Play, RefreshCw, RotateCcw, Save, XCircle } from "lucide-react";
+import { CheckCircle2, Layers, Loader2, MapPinned, Move3D, Play, RefreshCw, RotateCcw, Save, XCircle } from "lucide-react";
 import {
+  applyCapturedLayout,
   arrange,
+  captureCommonBaseLayout,
   DemoComponent,
   DemoState,
   finalizeCommonBase,
   getState,
   initializeCommonBase,
   OperationResult,
+  OrientationCheck,
+  OrientationCorrection,
   parseArrangePayload,
   resetState,
   saveState
@@ -92,6 +96,17 @@ function numberValue(value: number): string {
 
 function roundMeters(value: number): number {
   return Math.round(value * 1000) / 1000;
+}
+
+function formatVector(values?: number[] | null): string {
+  if (!values?.length) {
+    return "n/a";
+  }
+  return values.map((value) => value.toFixed(4)).join(", ");
+}
+
+function formatNumber(value?: number | null, digits = 4): string {
+  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(digits) : "n/a";
 }
 
 function StatusIcon({ ok }: { ok?: boolean }) {
@@ -240,6 +255,8 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const arrangePayload = useMemo(() => parseArrangePayload(result), [result]);
   const effectiveComponents = arrangePayload?.components ?? state?.lastRun?.components ?? [];
+  const orientationCorrections = arrangePayload?.orientationCorrections ?? state?.lastRun?.orientationCorrections ?? [];
+  const orientationChecks = arrangePayload?.orientationChecks ?? state?.lastRun?.orientationChecks ?? [];
   const effectiveMessage = arrangePayload?.message ?? state?.lastRun?.toolMessage ?? result?.message ?? "Waiting";
   const effectiveStatus = result?.status ?? state?.lastRun?.status ?? "idle";
   const hasScreenshot = Boolean(arrangePayload?.screenshot?.outputPath || state?.lastRun?.screenshotPath);
@@ -326,6 +343,38 @@ function App() {
     }
   }
 
+  async function handleApplyCapturedLayout() {
+    setBusy(true);
+    setError(null);
+    try {
+      const nextResult = await applyCapturedLayout();
+      setResult(nextResult);
+      if (nextResult.state) {
+        setState(nextResult.state);
+      }
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleCaptureCommonBaseLayout() {
+    setBusy(true);
+    setError(null);
+    try {
+      const nextResult = await captureCommonBaseLayout();
+      setResult(nextResult);
+      if (nextResult.state) {
+        setState(nextResult.state);
+      }
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleReset() {
     setBusy(true);
     setResult(null);
@@ -363,6 +412,14 @@ function App() {
           <button className="secondary-button" type="button" onClick={handleFinalizeCommonBase} disabled={busy || !state?.assemblyPath || Boolean(state?.commonBaseReady)}>
             <Move3D aria-hidden="true" />
             Common Base
+          </button>
+          <button className="secondary-button" type="button" onClick={handleCaptureCommonBaseLayout} disabled={busy || !state?.assemblyPath}>
+            <Save aria-hidden="true" />
+            Capture Layout
+          </button>
+          <button className="secondary-button" type="button" onClick={handleApplyCapturedLayout} disabled={busy || !state?.assemblyPath}>
+            <MapPinned aria-hidden="true" />
+            Replay Layout
           </button>
           <button className="primary-button" type="button" onClick={handleArrange} disabled={busy || !state?.commonBaseReady}>
             {busy ? <Loader2 className="spin" aria-hidden="true" /> : <Play aria-hidden="true" />}
@@ -476,6 +533,69 @@ function App() {
               ))}
             </div>
           </div>
+
+          {(orientationCorrections.length > 0 || orientationChecks.length > 0) ? (
+            <div className="panel diagnostics-panel">
+              <div className="panel-heading">
+                <h2>Orientation</h2>
+                <span>{orientationChecks.length} checks</span>
+              </div>
+              {orientationCorrections.length > 0 ? (
+                <div className="diagnostics-block">
+                  <h3>Corrections</h3>
+                  {orientationCorrections.map((item: OrientationCorrection, index: number) => (
+                    <div className="diagnostic-card" key={`${item.stage}-${item.componentName}-${index}`}>
+                      <div className="component-title">
+                        <strong>{item.componentName}</strong>
+                        <StatusIcon ok={item.success} />
+                      </div>
+                      <dl>
+                        <dt>Stage</dt>
+                        <dd>{item.stage ?? "n/a"}</dd>
+                        <dt>Applied</dt>
+                        <dd>{item.applied ? "Yes" : "No"}</dd>
+                        <dt>Angle</dt>
+                        <dd>{formatNumber(item.angleDegrees, 3)} deg</dd>
+                        <dt>Axis</dt>
+                        <dd>{formatVector(item.rotationAxis)}</dd>
+                        <dt>Before</dt>
+                        <dd>{formatVector(item.beforeProbe?.worldNormal)}</dd>
+                        <dt>After</dt>
+                        <dd>{formatVector(item.afterRotationProbe?.worldNormal)}</dd>
+                        <dt>Message</dt>
+                        <dd>{item.message ?? "n/a"}</dd>
+                      </dl>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {orientationChecks.length > 0 ? (
+                <div className="diagnostics-block">
+                  <h3>Checks</h3>
+                  {orientationChecks.map((item: OrientationCheck, index: number) => (
+                    <div className="diagnostic-card" key={`${item.componentName}-${index}`}>
+                      <div className="component-title">
+                        <strong>{item.componentName}</strong>
+                        <StatusIcon ok={item.success && item.matchesBase} />
+                      </div>
+                      <dl>
+                        <dt>Match</dt>
+                        <dd>{item.matchesBase ? "Yes" : "No"}</dd>
+                        <dt>Dot</dt>
+                        <dd>
+                          {formatNumber(item.dotWithBase, 5)} / {formatNumber(item.normalDotThreshold, 2)}
+                        </dd>
+                        <dt>Normal</dt>
+                        <dd>{formatVector(item.worldNormal ?? item.faceProbe?.worldNormal)}</dd>
+                        <dt>Message</dt>
+                        <dd>{item.message ?? "n/a"}</dd>
+                      </dl>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="panel screenshot-panel">
             <div className="panel-heading">

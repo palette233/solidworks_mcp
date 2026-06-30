@@ -25,6 +25,9 @@ export type DemoState = {
     toolMessage?: string;
     screenshotPath?: string | null;
     components?: ArrangeComponentResult[];
+    orientationCorrections?: OrientationCorrection[];
+    orientationChecks?: OrientationCheck[];
+    missingFaceMappings?: string[];
   } | null;
   updatedAt: string;
 };
@@ -51,11 +54,49 @@ export type ArrangeComponentResult = {
   moveResult?: { success?: boolean; message?: string } | null;
 };
 
+export type FaceProbe = {
+  worldNormal?: number[] | null;
+  localNormal?: number[] | null;
+  worldCenter?: number[] | null;
+  localCenter?: number[] | null;
+  area?: number | null;
+  message?: string;
+};
+
+export type OrientationCorrection = {
+  stage?: string;
+  componentName: string;
+  bottomFaceName?: string;
+  success?: boolean;
+  applied?: boolean;
+  rotationAxis?: number[] | null;
+  angleDegrees?: number;
+  beforeProbe?: FaceProbe | null;
+  afterRotationProbe?: FaceProbe | null;
+  afterRestoreProbe?: FaceProbe | null;
+  message?: string;
+};
+
+export type OrientationCheck = {
+  componentName: string;
+  bottomFaceName?: string;
+  success?: boolean;
+  matchesBase?: boolean;
+  dotWithBase?: number | null;
+  normalDotThreshold?: number;
+  worldNormal?: number[] | null;
+  faceProbe?: FaceProbe | null;
+  message?: string;
+};
+
 export type ArrangeToolPayload = {
   success: boolean;
   message: string;
   screenshot?: { outputPath?: string | null } | null;
   components?: ArrangeComponentResult[];
+  orientationCorrections?: OrientationCorrection[];
+  orientationChecks?: OrientationCheck[];
+  missingFaceMappings?: string[];
 };
 
 const jsonHeaders = {
@@ -127,6 +168,18 @@ export async function initializeCommonBase(state: DemoState): Promise<OperationR
 
 export async function finalizeCommonBase(): Promise<OperationResult> {
   return request<OperationResult>("/api/demo/finalize-common-base", {
+    method: "POST"
+  });
+}
+
+export async function captureCommonBaseLayout(): Promise<OperationResult> {
+  return request<OperationResult>("/api/demo/capture-common-base-layout", {
+    method: "POST"
+  });
+}
+
+export async function applyCapturedLayout(): Promise<OperationResult> {
+  return request<OperationResult>("/api/demo/apply-captured-layout", {
     method: "POST"
   });
 }

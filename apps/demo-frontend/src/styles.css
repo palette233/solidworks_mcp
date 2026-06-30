@@ -351,6 +351,31 @@ td span {
   padding: 12px;
 }
 
+.diagnostics-block {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-bottom: 1px solid #edf1f5;
+}
+
+.diagnostics-block:last-child {
+  border-bottom: 0;
+}
+
+.diagnostics-block h3 {
+  margin: 0;
+  color: #36424f;
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+.diagnostic-card {
+  border: 1px solid #e0e6ed;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfcfe;
+}
+
 .component-title {
   display: flex;
   align-items: center;

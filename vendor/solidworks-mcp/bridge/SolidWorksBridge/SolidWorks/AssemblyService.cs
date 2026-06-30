@@ -14,6 +14,17 @@ public record ComponentInfo(string Name, string Path);
 /// </summary>
 public record ComponentInstanceInfo(string Name, string Path, string HierarchyPath, int Depth);
 
+public record ComponentPoseInfo(
+    string Name,
+    string Path,
+    string HierarchyPath,
+    int Depth,
+    double[]? Transform,
+    double[]? Translation,
+    double[]? XAxis,
+    double[]? YAxis,
+    double[]? ZAxis);
+
 /// <summary>
 /// Summary of a static interference check in an assembly.
 /// </summary>
@@ -204,6 +215,8 @@ public interface IAssemblyService
     /// List all component instances in the active assembly by recursively traversing subassemblies.
     /// 閫掑綊鍒楀嚭褰撳墠娲诲姩瑁呴厤浣撲腑鐨勬墍鏈夌粍浠跺疄渚嬶紝骞惰繑鍥炲眰绾ц矾寰勶紝閫傚悎澶勭悊宓屽瀛愯閰嶄綋銆?    /// </summary>
     IReadOnlyList<ComponentInstanceInfo> ListComponentsRecursive();
+
+    IReadOnlyList<ComponentPoseInfo> ListComponentPoses(bool topLevelOnly = true);
 
     /// <summary>
     /// Resolve one exact component instance in the active assembly using name, hierarchy path, path, or any combination.
@@ -477,6 +490,18 @@ public class AssemblyService : IAssemblyService
             .ToList();
 
         return instances.AsReadOnly();
+    }
+
+    public IReadOnlyList<ComponentPoseInfo> ListComponentPoses(bool topLevelOnly = true)
+    {
+        _cm.EnsureConnected();
+        var assy = GetAssemblyDoc();
+
+        return EnumerateComponentInstances(assy)
+            .Where(instance => !topLevelOnly || instance.Info.Depth == 0)
+            .Select(instance => ToComponentPoseInfo(instance.Component, instance.Info))
+            .ToList()
+            .AsReadOnly();
     }
 
     public AssemblyTargetResolutionResult ResolveComponentTarget(
@@ -1785,6 +1810,44 @@ public class AssemblyService : IAssemblyService
         {
             return value;
         }
+    }
+
+    private static ComponentPoseInfo ToComponentPoseInfo(IComponent2 component, ComponentInstanceInfo info)
+    {
+        var transform = component.Transform2?.ArrayData as double[];
+        if (transform == null || transform.Length < 13)
+        {
+            return new ComponentPoseInfo(
+                info.Name,
+                info.Path,
+                info.HierarchyPath,
+                info.Depth,
+                null,
+                null,
+                null,
+                null,
+                null);
+        }
+
+        var data = (double[])transform.Clone();
+        return new ComponentPoseInfo(
+            info.Name,
+            info.Path,
+            info.HierarchyPath,
+            info.Depth,
+            data,
+            [data[9], data[10], data[11]],
+            NormalizeVector([data[0], data[1], data[2]]),
+            NormalizeVector([data[3], data[4], data[5]]),
+            NormalizeVector([data[6], data[7], data[8]]));
+    }
+
+    private static double[] NormalizeVector(double[] vector)
+    {
+        var length = Math.Sqrt(vector[0] * vector[0] + vector[1] * vector[1] + vector[2] * vector[2]);
+        return length < 1e-12
+            ? [0, 0, 0]
+            : [vector[0] / length, vector[1] / length, vector[2] / length];
     }
 
     private static string? GetParentHierarchyPath(string hierarchyPath)

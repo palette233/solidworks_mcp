@@ -138,6 +138,14 @@ public class AssemblyTools(StaDispatcher sta, IAssemblyService assembly)
         return JsonSerializer.Serialize(list);
     }
 
+    [McpServerTool, Description("List component Transform2 poses in the active SolidWorks assembly. Returns transform, translation, and component axes for layout-capture workflows.")]
+    public async Task<string> ListComponentPoses(
+        [Description("When true, only first-level components are returned. When false, nested instances are included.")] bool topLevelOnly = true)
+    {
+        var list = await sta.InvokeLoggedAsync(nameof(ListComponentPoses), new { topLevelOnly }, () => assembly.ListComponentPoses(topLevelOnly));
+        return JsonSerializer.Serialize(list);
+    }
+
     [McpServerTool, Description("Move a component by the specified delta in world-space meters. Searches all instances including subassemblies. Use the component instance name, e.g. 'Part1-1'.")]
     public async Task<string> MoveComponent(
         [Description("Component instance name, e.g. 'Part1-1'")] string componentName,

@@ -446,10 +446,12 @@ internal sealed class McpSelectionService : ISelectionService
         _client = client;
     }
 
-    public SelectionResult SelectByName(string name, string selType)
+    public SelectionResult SelectByName(string name, string selType, bool append = false, int mark = 0)
         => _client.CallTool<SelectionResult>("SelectByName", SolidWorksMcpHubTestClient.Args(
             ("name", name),
-            ("selType", selType)));
+            ("selType", selType),
+            ("append", append),
+            ("mark", mark)));
 
     public IReadOnlyList<SelectableEntityInfo> ListEntities(SelectableEntityType? entityType = null, string? componentName = null)
         => _client.CallTool<List<SelectableEntityInfo>>("ListEntities", SolidWorksMcpHubTestClient.Args(
@@ -518,6 +520,13 @@ internal sealed class McpSelectionService : ISelectionService
     public FaceMappingResult SelectFaceByName(string faceName, string componentName, bool append = false, int mark = 0)
         => _client.CallTool<FaceMappingResult>("SelectFaceByName", SolidWorksMcpHubTestClient.Args(
             ("faceName", faceName), ("componentName", componentName), ("append", append), ("mark", mark)));
+
+    public FaceMappingProbeResult GetSelectedFaceMappingProbe(string? faceName = null, string? componentName = null)
+        => _client.CallTool<FaceMappingProbeResult>("GetSelectedFaceMappingProbe", SolidWorksMcpHubTestClient.Args(
+            ("faceName", faceName), ("componentName", componentName)));
+
+    public SelectedFaceCenterResult GetSelectedFaceCenter()
+        => _client.CallTool<SelectedFaceCenterResult>("GetSelectedFaceCenter");
 }
 
 internal sealed class McpSketchService : ISketchService
@@ -685,6 +694,9 @@ internal sealed class McpAssemblyService : IAssemblyService
 
     public IReadOnlyList<ComponentInstanceInfo> ListComponentsRecursive()
         => throw new NotSupportedException("ListComponentsRecursive is intentionally not exposed through the MCP test client.");
+
+    public IReadOnlyList<ComponentPoseInfo> ListComponentPoses(bool topLevelOnly = true)
+        => _client.CallTool<List<ComponentPoseInfo>>("ListComponentPoses", SolidWorksMcpHubTestClient.Args(("topLevelOnly", topLevelOnly)));
 
     public AssemblyTargetResolutionResult ResolveComponentTarget(string? componentName = null, string? hierarchyPath = null, string? componentPath = null)
         => throw new NotSupportedException("ResolveComponentTarget is intentionally not exposed through the MCP test client.");

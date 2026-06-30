@@ -213,7 +213,37 @@ public record SelectableEntityInfo(
 /// <summary>
 /// Result of a face-mapping record or select operation.
 /// </summary>
-public record FaceMappingResult(bool Success, string Message, string? FaceName, string? ComponentName);
+public record FaceMappingResult(
+    bool Success,
+    string Message,
+    string? FaceName,
+    string? ComponentName,
+    FaceMappingSelectionDiagnostics? Diagnostics = null);
+
+public record FaceMappingSelectionDiagnostics(
+    string? LeafComponentName,
+    string? LeafComponentFullName,
+    double[]? SavedLocalCenter,
+    double? SavedArea,
+    double[]? SavedLocalNormal,
+    double CenterTolerance,
+    double AreaRelativeTolerance,
+    double NormalDotTolerance,
+    string? FailureReason,
+    IReadOnlyList<FaceMappingCandidateDiagnostic> Candidates);
+
+public record FaceMappingCandidateDiagnostic(
+    int Rank,
+    double Score,
+    bool Accepted,
+    string? RejectReason,
+    double CenterDistance,
+    double? Area,
+    double? AreaRelativeError,
+    double? NormalDot,
+    double[]? LocalCenter,
+    double[]? LocalNormal,
+    double[]? Box);
 
 public record FaceMappingProbeResult(
     bool Success,
@@ -224,6 +254,8 @@ public record FaceMappingProbeResult(
     string? LeafComponentFullName,
     double[]? WorldCenter,
     double[]? LocalCenter,
+    double[]? WorldNormal,
+    double[]? LocalNormal,
     double? Area,
     double[]? Box,
     string MappingPath);
@@ -1940,6 +1972,25 @@ public class SelectionService : ISelectionService
         };
     }
 
+    private static byte[]? ToByteArray(object? raw)
+    {
+        return raw switch
+        {
+            null => null,
+            byte[] bytes => bytes,
+            object[] objects => objects
+                .Select(value =>
+                {
+                    try { return (byte?)Convert.ToByte(value, CultureInfo.InvariantCulture); }
+                    catch { return null; }
+                })
+                .Where(value => value.HasValue)
+                .Select(value => value!.Value)
+                .ToArray(),
+            _ => null,
+        };
+    }
+
     private static double? NormalizeMeasureValue(double value)
         => value == -1 ? null : value;
 
@@ -2437,7 +2488,15 @@ public class SelectionService : ISelectionService
     // ── Face mapping ─────────────────────────────────────────────
 
     private static string FaceMappingFilePath =>
-        Path.Combine(AppContext.BaseDirectory, "face_mappings.json");
+        ResolveFaceMappingFilePath();
+
+    private static string ResolveFaceMappingFilePath()
+    {
+        var configured = System.Environment.GetEnvironmentVariable("DEMO_FACE_MAPPING_PATH");
+        return string.IsNullOrWhiteSpace(configured)
+            ? Path.Combine(AppContext.BaseDirectory, "face_mappings.json")
+            : Path.GetFullPath(configured);
+    }
 
     private static System.Text.Json.Nodes.JsonObject LoadMappings()
     {
@@ -2447,8 +2506,16 @@ public class SelectionService : ISelectionService
     }
 
     private static void SaveMappings(System.Text.Json.Nodes.JsonObject root)
-        => File.WriteAllText(FaceMappingFilePath,
+    {
+        var directory = Path.GetDirectoryName(FaceMappingFilePath);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        File.WriteAllText(FaceMappingFilePath,
             root.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+    }
 
     private IComponent2? FindComponent(string componentName)
     {
@@ -2507,7 +2574,7 @@ public class SelectionService : ISelectionService
     /// </summary>
     private static double[] WorldToLocal(double[] world, IComponent2 component)
     {
-        var xform = component.Transform2;
+        var xform = GetComponentWorldTransform(component);
         if (xform == null) return world;
 
         // ArrayData: 16 doubles, column-major rotation + translation + scale
@@ -2529,13 +2596,320 @@ public class SelectionService : ISelectionService
         return [lx / s, ly / s, lz / s];
     }
 
+    private static double[] LocalToWorld(double[] local, IComponent2 component)
+    {
+        var xform = GetComponentWorldTransform(component);
+        if (xform == null) return local;
+
+        var raw = xform.ArrayData as double[];
+        if (raw == null || raw.Length < 13) return local;
+
+        double s = raw[12] == 0 ? 1.0 : raw[12];
+        double lx = local[0] * s;
+        double ly = local[1] * s;
+        double lz = local[2] * s;
+        return [
+            raw[9] * s + raw[0] * lx + raw[3] * ly + raw[6] * lz,
+            raw[10] * s + raw[1] * lx + raw[4] * ly + raw[7] * lz,
+            raw[11] * s + raw[2] * lx + raw[5] * ly + raw[8] * lz,
+        ];
+    }
+
+    private static IMathTransform? GetComponentWorldTransform(IComponent2 component)
+    {
+        try
+        {
+            return component.GetTotalTransform(true) ?? component.Transform2;
+        }
+        catch
+        {
+            return component.Transform2;
+        }
+    }
+
+    private static double[]? LocalToWorldVector(double[] localVector, IComponent2 component)
+    {
+        var xform = GetComponentWorldTransform(component);
+        if (xform == null) return NormalizeVectorOrNull(localVector);
+
+        var raw = xform.ArrayData as double[];
+        if (raw == null || raw.Length < 13) return NormalizeVectorOrNull(localVector);
+
+        double wx = raw[0] * localVector[0] + raw[3] * localVector[1] + raw[6] * localVector[2];
+        double wy = raw[1] * localVector[0] + raw[4] * localVector[1] + raw[7] * localVector[2];
+        double wz = raw[2] * localVector[0] + raw[5] * localVector[1] + raw[8] * localVector[2];
+        return NormalizeVectorOrNull([wx, wy, wz]);
+    }
+
+    private static double[]? NormalizeVectorOrNull(double[] vector)
+    {
+        if (vector.Length < 3) return null;
+        double length = Math.Sqrt(vector[0] * vector[0] + vector[1] * vector[1] + vector[2] * vector[2]);
+        return length < 1e-9
+            ? null
+            : [vector[0] / length, vector[1] / length, vector[2] / length];
+    }
+
+    private static double[]? TryGetPlanarFaceNormal(IFace2 face)
+    {
+        try
+        {
+            var surface = face.GetSurface() as ISurface;
+            if (surface != null && surface.IsPlane())
+            {
+                var plane = ToDoubleArray(surface.PlaneParams);
+                if (plane != null && plane.Length >= 6)
+                {
+                    var normal = NormalizeVectorOrNull([plane[3], plane[4], plane[5]]);
+                    if (normal != null)
+                    {
+                        return ApplyFaceSense(face, normal);
+                    }
+                }
+            }
+
+            return TryGetTessellatedFaceNormal(face);
+        }
+        catch
+        {
+            return TryGetTessellatedFaceNormal(face);
+        }
+    }
+
+    private static double[] ApplyFaceSense(IFace2 face, double[] normal)
+    {
+        try
+        {
+            if (!face.FaceInSurfaceSense())
+            {
+                return [-normal[0], -normal[1], -normal[2]];
+            }
+        }
+        catch
+        {
+            // Some topology proxies do not expose FaceInSurfaceSense reliably.
+        }
+
+        return normal;
+    }
+
+    private static double[]? TryGetTessellatedFaceNormal(IFace2 face)
+    {
+        var normal = TryGetAverageTessellatedNormal(face);
+        if (normal != null)
+        {
+            return normal;
+        }
+
+        var tessTriangles =
+            TryInvokeDoubleArray(face, "GetTessTriangles", true)
+            ?? TryInvokeDoubleArray(face, "GetTessTriangles", false)
+            ?? TryInvokeDoubleArray(face, "GetTessTriangles");
+
+        normal = TryFitTriangleNormalFromTessellation(tessTriangles);
+        return normal == null ? null : ApplyFaceSense(face, normal);
+    }
+
+    private static double[]? TryGetAverageTessellatedNormal(IFace2 face)
+    {
+        var tessNormals =
+            TryInvokeDoubleArray(face, "GetTessNorms")
+            ?? TryInvokeDoubleArray(face, "GetTessNormals");
+        if (tessNormals == null || tessNormals.Length < 3)
+        {
+            return null;
+        }
+
+        double x = 0, y = 0, z = 0;
+        for (var i = 0; i + 2 < tessNormals.Length; i += 3)
+        {
+            x += tessNormals[i];
+            y += tessNormals[i + 1];
+            z += tessNormals[i + 2];
+        }
+
+        return NormalizeVectorOrNull([x, y, z]);
+    }
+
+    internal static double[]? TryFitTriangleNormalFromTessellation(double[]? tessTriangles)
+    {
+        if (tessTriangles == null || tessTriangles.Length < 9)
+        {
+            return null;
+        }
+
+        var candidates = new List<TessellationNormalCandidate>();
+        AddTessellationNormalCandidate(tessTriangles, vertexStride: 3, candidates);
+        AddTessellationNormalCandidate(tessTriangles, vertexStride: 9, candidates);
+
+        return candidates
+            .OrderBy(candidate => candidate.MaxPlaneResidual)
+            .ThenByDescending(candidate => candidate.AreaWeight)
+            .FirstOrDefault()
+            ?.Normal;
+    }
+
+    private static void AddTessellationNormalCandidate(
+        double[] data,
+        int vertexStride,
+        ICollection<TessellationNormalCandidate> candidates)
+    {
+        var triangleStride = vertexStride * 3;
+        if (data.Length < triangleStride || data.Length % triangleStride != 0)
+        {
+            return;
+        }
+
+        var points = new List<double[]>();
+        double nx = 0, ny = 0, nz = 0, areaWeight = 0;
+        for (var offset = 0; offset + triangleStride - 1 < data.Length; offset += triangleStride)
+        {
+            var p0 = ReadPoint(data, offset);
+            var p1 = ReadPoint(data, offset + vertexStride);
+            var p2 = ReadPoint(data, offset + vertexStride * 2);
+            var cross = Cross(Subtract(p1, p0), Subtract(p2, p0));
+            var area2 = Length(cross);
+            if (area2 < 1e-12)
+            {
+                continue;
+            }
+
+            nx += cross[0];
+            ny += cross[1];
+            nz += cross[2];
+            areaWeight += area2;
+            points.Add(p0);
+            points.Add(p1);
+            points.Add(p2);
+        }
+
+        var normal = NormalizeVectorOrNull([nx, ny, nz]);
+        if (normal == null || points.Count < 3)
+        {
+            return;
+        }
+
+        var origin = points[0];
+        var maxResidual = points
+            .Select(point => Math.Abs(Dot(Subtract(point, origin), normal)))
+            .DefaultIfEmpty(double.PositiveInfinity)
+            .Max();
+        candidates.Add(new TessellationNormalCandidate(normal, areaWeight, maxResidual));
+    }
+
+    private static double[] ReadPoint(double[] data, int offset) =>
+        [data[offset], data[offset + 1], data[offset + 2]];
+
+    private static double[] Subtract(double[] a, double[] b) =>
+        [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+
+    private static double[] Cross(double[] a, double[] b) =>
+        [
+            a[1] * b[2] - a[2] * b[1],
+            a[2] * b[0] - a[0] * b[2],
+            a[0] * b[1] - a[1] * b[0],
+        ];
+
+    private static double Dot(double[] a, double[] b) =>
+        a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+
+    private static double Length(double[] vector) =>
+        Math.Sqrt(Dot(vector, vector));
+
+    private static double[]? TryInvokeDoubleArray(object target, string methodName, params object[] args)
+    {
+        try
+        {
+            var result = target
+                .GetType()
+                .InvokeMember(
+                    methodName,
+                    BindingFlags.InvokeMethod | BindingFlags.Public | BindingFlags.Instance,
+                    binder: null,
+                    target,
+                    args);
+            return ToDoubleArray(result);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private sealed record TessellationNormalCandidate(double[] Normal, double AreaWeight, double MaxPlaneResidual);
+
+    private string? TryGetPersistentReferenceBase64(IFace2 face)
+    {
+        try
+        {
+            var doc = GetActiveModelDoc();
+            var bytes = ToByteArray(doc.Extension.GetPersistReference3(face));
+            return bytes is { Length: > 0 } ? Convert.ToBase64String(bytes) : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private FaceMappingResult? TrySelectFaceByPersistentReference(
+        string persistentReferenceBase64,
+        string faceName,
+        string componentName,
+        bool append,
+        int mark)
+    {
+        try
+        {
+            var bytes = Convert.FromBase64String(persistentReferenceBase64);
+            var doc = GetActiveModelDoc();
+            int error = 0;
+            var resolved = doc.Extension.GetObjectByPersistReference3(bytes, out error);
+            if (resolved is not IFace2 face)
+            {
+                return new FaceMappingResult(
+                    false,
+                    $"Persistent reference did not resolve to a face for '{faceName}' in '{componentName}'. Error={error}.",
+                    faceName,
+                    componentName);
+            }
+
+            if (!append)
+            {
+                doc.ClearSelection2(true);
+            }
+
+            var selectData = CreateSelectData(doc.ISelectionManager, mark);
+            var ok = ((IEntity)face).Select4(append, selectData);
+            return ok
+                ? new FaceMappingResult(
+                    true,
+                    $"Selected face '{faceName}' for '{componentName}' via persistent reference.",
+                    faceName,
+                    componentName)
+                : new FaceMappingResult(
+                    false,
+                    $"Persistent reference resolved but failed to select face '{faceName}' for '{componentName}'.",
+                    faceName,
+                    componentName);
+        }
+        catch (Exception ex)
+        {
+            return new FaceMappingResult(
+                false,
+                $"Persistent reference selection failed for '{faceName}' in '{componentName}': {ex.Message}",
+                faceName,
+                componentName);
+        }
+    }
+
     public FaceMappingProbeResult GetSelectedFaceMappingProbe(string? faceName = null, string? componentName = null)
     {
         _cm.EnsureConnected();
         var selMgr = GetActiveModelDoc().ISelectionManager;
         int count = selMgr.GetSelectedObjectCount2(-1);
         if (count == 0)
-            return new FaceMappingProbeResult(false, "No entity selected. Select a face in SolidWorks first.", faceName, componentName, null, null, null, null, null, null, FaceMappingFilePath);
+            return new FaceMappingProbeResult(false, "No entity selected. Select a face in SolidWorks first.", faceName, componentName, null, null, null, null, null, null, null, null, FaceMappingFilePath);
 
         IFace2? face = null;
         IComponent2? leafComponent = null;
@@ -2550,27 +2924,37 @@ public class SelectionService : ISelectionService
         }
 
         if (face == null)
-            return new FaceMappingProbeResult(false, "Selected entity is not a face.", faceName, componentName, null, null, null, null, null, null, FaceMappingFilePath);
+            return new FaceMappingProbeResult(false, "Selected entity is not a face.", faceName, componentName, null, null, null, null, null, null, null, null, FaceMappingFilePath);
 
         var box = ToDoubleArray(face.GetBox());
         if (box == null || box.Length < 6)
-            return new FaceMappingProbeResult(false, "Could not read face bounding box.", faceName, componentName, null, null, null, null, null, null, FaceMappingFilePath);
+            return new FaceMappingProbeResult(false, "Could not read face bounding box.", faceName, componentName, null, null, null, null, null, null, null, null, FaceMappingFilePath);
 
-        var worldCenter = BoxCenter(box);
-        var localCenter = leafComponent != null ? WorldToLocal(worldCenter, leafComponent) : worldCenter;
+        var localCenter = BoxCenter(box);
+        var worldCenter = leafComponent != null ? LocalToWorld(localCenter, leafComponent) : localCenter;
+        var localNormal = TryGetPlanarFaceNormal(face);
+        var worldNormal = localNormal != null && leafComponent != null
+            ? LocalToWorldVector(localNormal, leafComponent)
+            : localNormal;
         var leafFullName = leafComponent?.Name2 ?? componentName;
         var leafName = leafFullName?.Split('/').Last() ?? componentName;
         var area = face.GetArea();
 
+        var normalMessage = worldNormal == null
+            ? " Selected face has no valid planar normal."
+            : $" normal=[{worldNormal[0]:F6},{worldNormal[1]:F6},{worldNormal[2]:F6}].";
+
         return new FaceMappingProbeResult(
             true,
-            $"Selected face probe: leaf='{leafName}', local=[{localCenter[0]:F6},{localCenter[1]:F6},{localCenter[2]:F6}], area={area:F9}.",
+            $"Selected face probe: leaf='{leafName}', local=[{localCenter[0]:F6},{localCenter[1]:F6},{localCenter[2]:F6}], area={area:F9}.{normalMessage}",
             faceName,
             componentName,
             leafName,
             leafFullName,
             worldCenter,
             localCenter,
+            worldNormal,
+            localNormal,
             area,
             box,
             FaceMappingFilePath);
@@ -2603,14 +2987,19 @@ public class SelectionService : ISelectionService
         if (box == null || box.Length < 6)
             return new FaceMappingResult(false, "Could not read face bounding box.", faceName, componentName);
 
-        var worldCenter = BoxCenter(box);
+        var localCenter = BoxCenter(box);
+        var worldCenter = leafComponent != null ? LocalToWorld(localCenter, leafComponent) : localCenter;
         double area = face.GetArea();
+        var localNormal = TryGetPlanarFaceNormal(face);
 
         // Convert to leaf-component local coordinates — stable across assembly-level move/rotate/mate.
-        var localCenter = leafComponent != null ? WorldToLocal(worldCenter, leafComponent) : worldCenter;
+        var worldNormal = localNormal != null && leafComponent != null
+            ? LocalToWorldVector(localNormal, leafComponent)
+            : localNormal;
         // Name2 may be prefixed with ancestor names (e.g. "ParentAsm/LeafPart"); use the short name only.
         string leafFullName = leafComponent?.Name2 ?? componentName;
         string leafName = leafFullName.Split('/').Last();
+        string? persistentReferenceBase64 = TryGetPersistentReferenceBase64(face);
 
         var root = LoadMappings();
         if (root[componentName] is not System.Text.Json.Nodes.JsonObject compNode)
@@ -2623,6 +3012,9 @@ public class SelectionService : ISelectionService
             leafComponentName = leafName,
             leafComponentFullName = leafFullName,
             localCenter,
+            localNormal,
+            worldNormal,
+            persistentReferenceBase64,
             area,
         }));
         SaveMappings(root);
@@ -2643,15 +3035,25 @@ public class SelectionService : ISelectionService
         string? leafName = null;
         string? leafFullName = null;
         double[]? savedLocal = null;
+        double[]? savedLocalNormal = null;
+        string? persistentReferenceBase64 = null;
         double savedArea = -1;
 
         if (entryNode is System.Text.Json.Nodes.JsonObject obj)
         {
             leafName = obj["leafComponentName"]?.GetValue<string>();
             leafFullName = obj["leafComponentFullName"]?.GetValue<string>();
+            persistentReferenceBase64 = obj["persistentReferenceBase64"]?.GetValue<string>();
             savedLocal = obj["localCenter"] != null
                 ? System.Text.Json.JsonSerializer.Deserialize<double[]>(obj["localCenter"]!.ToJsonString())
                 : null;
+            savedLocalNormal = obj["localNormal"] != null
+                ? System.Text.Json.JsonSerializer.Deserialize<double[]>(obj["localNormal"]!.ToJsonString())
+                : null;
+            if (savedLocalNormal is { Length: >= 3 } && !CommonBaseLayoutMath.IsValidNormal(savedLocalNormal))
+            {
+                savedLocalNormal = null;
+            }
             savedArea = obj["area"] != null ? obj["area"]!.GetValue<double>() : -1;
         }
 
@@ -2662,6 +3064,20 @@ public class SelectionService : ISelectionService
         if (savedLocal == null || savedLocal.Length < 3)
             return new FaceMappingResult(false, $"Invalid mapping data for '{faceName}'.", faceName, componentName);
 
+        if (!string.IsNullOrWhiteSpace(persistentReferenceBase64))
+        {
+            var persistentResult = TrySelectFaceByPersistentReference(
+                persistentReferenceBase64,
+                faceName,
+                componentName,
+                append,
+                mark);
+            if (persistentResult?.Success == true)
+            {
+                return persistentResult;
+            }
+        }
+
         // Locate the leaf component directly — O(N_components), not O(N_faces).
         var leaf = !string.IsNullOrWhiteSpace(leafFullName)
             ? FindComponent(leafFullName)
@@ -2669,9 +3085,10 @@ public class SelectionService : ISelectionService
         if (leaf == null)
             return new FaceMappingResult(false, $"Leaf component '{leafName ?? componentName}' not found.", faceName, componentName);
 
-        // Scan only this leaf component's bodies — typically a single part with <100 faces.
-        IFace2? bestFace = null;
-        double bestScore = double.MaxValue;
+        const double centerTolerance = 0.002; // meters, leaf-local bounding-box center tolerance
+        const double areaRelativeTolerance = 0.05;
+        const double normalDotTolerance = 0.95;
+        var candidateRows = new List<(IFace2 Face, FaceMappingCandidateDiagnostic Diagnostic)>();
 
         foreach (var body in GetBodies(leaf))
         {
@@ -2680,31 +3097,114 @@ public class SelectionService : ISelectionService
                 var box = ToDoubleArray(face.GetBox());
                 if (box == null || box.Length < 6) continue;
                 var lc = WorldToLocal(BoxCenter(box), leaf);
-                double distScore = Dist(lc, savedLocal);
+                double centerDistance = Dist(lc, savedLocal);
+                double score = centerDistance;
 
-                // If area is recorded, use it as a tiebreaker: penalise area mismatch.
+                double? area = null;
+                double? areaRelativeError = null;
                 if (savedArea > 0)
                 {
-                    double areaRatio = Math.Abs(face.GetArea() - savedArea) / savedArea;
-                    distScore += areaRatio * 0.01; // small weight so distance dominates
+                    area = face.GetArea();
+                    areaRelativeError = Math.Abs(area.Value - savedArea) / savedArea;
+                    score += areaRelativeError.Value * 0.1;
                 }
 
-                if (distScore < bestScore) { bestScore = distScore; bestFace = face; }
-                if (bestScore < 1e-5) goto done;
+                double? normalDot = null;
+                double[]? candidateNormal = null;
+                if (savedLocalNormal is { Length: >= 3 } savedNormal
+                    && CommonBaseLayoutMath.IsValidNormal(savedNormal))
+                {
+                    candidateNormal = TryGetPlanarFaceNormal(face);
+                    if (candidateNormal is { Length: >= 3 } candidateNormalValue
+                        && CommonBaseLayoutMath.IsValidNormal(candidateNormalValue))
+                    {
+                        normalDot = Math.Abs(Dot(candidateNormalValue, savedNormal));
+                        score += (1 - Math.Min(1, normalDot.Value)) * 0.05;
+                    }
+                    else
+                    {
+                        score += 1.0;
+                    }
+                }
+
+                var rejectReasons = new List<string>();
+                if (centerDistance > centerTolerance)
+                {
+                    rejectReasons.Add($"center distance {centerDistance:F6}m > {centerTolerance:F6}m");
+                }
+                if (areaRelativeError is not null && areaRelativeError > areaRelativeTolerance)
+                {
+                    rejectReasons.Add($"area relative error {areaRelativeError:F6} > {areaRelativeTolerance:F6}");
+                }
+                if (savedLocalNormal is { Length: >= 3 } && normalDot is null)
+                {
+                    rejectReasons.Add("candidate normal unavailable");
+                }
+                else if (normalDot is not null && normalDot < normalDotTolerance)
+                {
+                    rejectReasons.Add($"normal dot {normalDot:F6} < {normalDotTolerance:F6}");
+                }
+
+                candidateRows.Add((face, new FaceMappingCandidateDiagnostic(
+                    Rank: 0,
+                    Score: score,
+                    Accepted: rejectReasons.Count == 0,
+                    RejectReason: rejectReasons.Count == 0 ? null : string.Join("; ", rejectReasons),
+                    CenterDistance: centerDistance,
+                    Area: area,
+                    AreaRelativeError: areaRelativeError,
+                    NormalDot: normalDot,
+                    LocalCenter: lc,
+                    LocalNormal: candidateNormal,
+                    Box: box)));
             }
         }
-        done:
 
-        if (bestFace == null)
-            return new FaceMappingResult(false, $"No faces found on leaf '{leafName}'. Re-record the mapping.", faceName, componentName);
+        var rankedRows = candidateRows
+            .OrderBy(row => row.Diagnostic.Accepted ? 0 : 1)
+            .ThenBy(row => row.Diagnostic.Score)
+            .Select((row, index) => (row.Face, Diagnostic: row.Diagnostic with { Rank = index + 1 }))
+            .ToList();
+        var diagnostics = new FaceMappingSelectionDiagnostics(
+            LeafComponentName: leafName,
+            LeafComponentFullName: leafFullName,
+            SavedLocalCenter: savedLocal,
+            SavedArea: savedArea > 0 ? savedArea : null,
+            SavedLocalNormal: savedLocalNormal,
+            CenterTolerance: centerTolerance,
+            AreaRelativeTolerance: areaRelativeTolerance,
+            NormalDotTolerance: normalDotTolerance,
+            FailureReason: null,
+            Candidates: rankedRows.Take(5).Select(row => row.Diagnostic).ToList().AsReadOnly());
+
+        if (rankedRows.Count == 0)
+        {
+            return new FaceMappingResult(
+                false,
+                $"No faces found on leaf '{leafName}'. Re-record the mapping.",
+                faceName,
+                componentName,
+                diagnostics with { FailureReason = "No faces were available on the mapped leaf component." });
+        }
+
+        var best = rankedRows[0];
+        if (!best.Diagnostic.Accepted)
+        {
+            return new FaceMappingResult(
+                false,
+                $"Mapped face '{faceName}' for '{componentName}' could not be selected reliably. Best candidate rejected: {best.Diagnostic.RejectReason}.",
+                faceName,
+                componentName,
+                diagnostics with { FailureReason = best.Diagnostic.RejectReason });
+        }
 
         var doc = GetActiveModelDoc();
         if (!append) doc.ClearSelection2(true);
         var selectData = CreateSelectData(doc.ISelectionManager, mark);
-        bool ok = ((IEntity)bestFace).Select4(append, selectData);
+        bool ok = ((IEntity)best.Face).Select4(append, selectData);
 
         return ok
-            ? new FaceMappingResult(true, $"Selected face '{faceName}' for '{componentName}'.", faceName, componentName)
-            : new FaceMappingResult(false, $"Failed to select face '{faceName}' for '{componentName}'.", faceName, componentName);
+            ? new FaceMappingResult(true, $"Selected face '{faceName}' for '{componentName}'.", faceName, componentName, diagnostics)
+            : new FaceMappingResult(false, $"Failed to select face '{faceName}' for '{componentName}'.", faceName, componentName, diagnostics);
     }
 }
