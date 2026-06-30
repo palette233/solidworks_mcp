@@ -420,6 +420,11 @@ td span {
   padding: 12px;
 }
 
+.component-results.compact {
+  gap: 8px;
+  padding-top: 0;
+}
+
 .component-card {
   border: 1px solid #e0e6ed;
   border-radius: 8px;
@@ -449,6 +454,25 @@ td span {
   border-radius: 8px;
   padding: 12px;
   background: #fbfcfe;
+}
+
+.validation-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 10px;
+  margin: 0;
+  padding: 12px 16px;
+  border-bottom: 1px solid #edf1f5;
+  font-size: 13px;
+}
+
+.validation-summary dt {
+  color: #6b7785;
+}
+
+.validation-summary dd {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 .component-title {

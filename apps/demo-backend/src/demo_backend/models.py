@@ -124,6 +124,17 @@ class OperationResult(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class McpHealthResult(BaseModel):
+    status: Literal["ok", "dry-run", "blocked", "error"]
+    message: str
+    active_document: dict | None = Field(default=None, alias="activeDocument")
+    expected_assembly_path: str | None = Field(default=None, alias="expectedAssemblyPath")
+    active_assembly_matches_state: bool | None = Field(default=None, alias="activeAssemblyMatchesState")
+    tool_results: list[dict] = Field(default_factory=list, alias="toolResults")
+
+    model_config = {"populate_by_name": True}
+
+
 def default_demo_state(asset_dir: Path) -> DemoState:
     components = [
         DemoComponent(

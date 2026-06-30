@@ -54,6 +54,7 @@ export type DemoState = {
     orientationCorrections?: OrientationCorrection[];
     orientationChecks?: OrientationCheck[];
     missingFaceMappings?: string[];
+    replayValidation?: ReplayValidation;
   } | null;
   updatedAt: string;
 };
@@ -71,6 +72,15 @@ export type OperationResult = {
   state: DemoState | null;
   missingFaceMappings: Array<Record<string, string>>;
   layoutInfo?: LayoutJsonInfo | null;
+};
+
+export type McpHealthResult = {
+  status: "ok" | "dry-run" | "blocked" | "error";
+  message: string;
+  activeDocument?: Record<string, unknown> | null;
+  expectedAssemblyPath?: string | null;
+  activeAssemblyMatchesState?: boolean | null;
+  toolResults: Array<Record<string, unknown>>;
 };
 
 export type ArrangeComponentResult = {
@@ -131,6 +141,25 @@ export type ArrangeToolPayload = {
   missingFaceMappings?: string[];
 };
 
+export type ReplayValidationComponent = {
+  componentName: string;
+  success?: boolean;
+  xyError?: number | null;
+  thetaErrorDegrees?: number | null;
+  message?: string;
+};
+
+export type ReplayValidation = {
+  success?: boolean;
+  message?: string;
+  maxXyError?: number | null;
+  maxThetaErrorDegrees?: number | null;
+  captureStatus?: string;
+  captureMessage?: string;
+  captureOutputPath?: string;
+  components?: ReplayValidationComponent[];
+};
+
 const jsonHeaders = {
   "Content-Type": "application/json"
 };
@@ -146,6 +175,10 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 
 export async function getState(): Promise<DemoState> {
   return request<DemoState>("/api/demo/state");
+}
+
+export async function getMcpHealth(): Promise<McpHealthResult> {
+  return request<McpHealthResult>("/api/demo/mcp-health");
 }
 
 export async function saveState(state: DemoState): Promise<DemoState> {

@@ -286,6 +286,7 @@ function App() {
   const effectiveComponents = arrangePayload?.components ?? state?.lastRun?.components ?? [];
   const orientationCorrections = arrangePayload?.orientationCorrections ?? state?.lastRun?.orientationCorrections ?? [];
   const orientationChecks = arrangePayload?.orientationChecks ?? state?.lastRun?.orientationChecks ?? [];
+  const replayValidation = state?.lastRun?.replayValidation;
   const effectiveMessage = arrangePayload?.message ?? state?.lastRun?.toolMessage ?? result?.message ?? "Waiting";
   const effectiveStatus = result?.status ?? state?.lastRun?.status ?? "idle";
   const hasScreenshot = Boolean(arrangePayload?.screenshot?.outputPath || state?.lastRun?.screenshotPath);
@@ -748,6 +749,46 @@ function App() {
                         <dd>{formatVector(item.worldNormal ?? item.faceProbe?.worldNormal)}</dd>
                         <dt>Message</dt>
                         <dd>{item.message ?? "n/a"}</dd>
+                      </dl>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {replayValidation ? (
+            <div className="panel validation-panel">
+              <div className="panel-heading">
+                <h2>Replay Check</h2>
+                <span className={`pill ${replayValidation.success ? "ok" : "error"}`}>
+                  {replayValidation.success ? "matched" : "review"}
+                </span>
+              </div>
+              <p className="result-message">{replayValidation.message ?? "Replay validation completed."}</p>
+              <dl className="validation-summary">
+                <dt>Max XY</dt>
+                <dd>{formatNumber(replayValidation.maxXyError, 8)} m</dd>
+                <dt>Max Theta</dt>
+                <dd>{formatNumber(replayValidation.maxThetaErrorDegrees, 6)} deg</dd>
+                <dt>Capture</dt>
+                <dd>{replayValidation.captureStatus ?? "n/a"}</dd>
+              </dl>
+              {replayValidation.components?.length ? (
+                <div className="component-results compact">
+                  {replayValidation.components.map((component) => (
+                    <div className="component-card" key={component.componentName}>
+                      <div className="component-title">
+                        <strong>{component.componentName}</strong>
+                        <StatusIcon ok={component.success} />
+                      </div>
+                      <dl>
+                        <dt>XY error</dt>
+                        <dd>{formatNumber(component.xyError, 8)} m</dd>
+                        <dt>Theta error</dt>
+                        <dd>{formatNumber(component.thetaErrorDegrees, 6)} deg</dd>
+                        <dt>Message</dt>
+                        <dd>{component.message ?? "n/a"}</dd>
                       </dl>
                     </div>
                   ))}

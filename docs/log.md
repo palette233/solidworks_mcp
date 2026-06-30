@@ -1702,3 +1702,68 @@ Replay 细节：
 - 前端上传 layout JSON、批量面验证、Common Base、Replay Layout 的真实闭环通过。
 - 当前版本可作为 A/B/C JSON-driven layout replay 的稳定演示基线。
 - 后续建议把二次 capture 对比自动接入 Replay 结果，形成前端可见的误差报告。
+## 2026-06-30 - 工程链路稳定性增强：Health / Active Assembly / Replay Check
+
+目标：
+- 按下一步规划补齐工程链路稳定性，而不是继续改底层几何逻辑。
+- 重点解决：
+  - MCP/活动文档状态不可见；
+  - Verify Faces 可能对错误 assembly 操作；
+  - Replay 后缺少自动误差报告。
+
+修改：
+- 后端新增模型 `McpHealthResult`。
+- 后端新增接口：
+
+```text
+GET /api/demo/mcp-health
+```
+
+- `DemoService.mcp_health()` 调用 MCP `get_active_document`，返回 active document 与 `demo_state.json.assemblyPath` 的匹配情况。
+- `verify_face_mappings()` 在真实 MCP 模式下先检查 active assembly 是否与 state 一致；不一致时返回 blocked。
+- `apply_captured_layout()` replay 成功后自动追加一次 capture：
+
+```text
+capture_common_base_layout_from_assembly
+```
+
+- 后端将 capture 结果与目标 layout JSON 对比，生成：
+  - `maxXyError`
+  - `maxThetaErrorDegrees`
+  - 每个组件的 `xyError/thetaErrorDegrees`
+- 结果写入：
+
+```text
+state.lastRun.replayValidation
+```
+
+- 前端新增 `Replay Check` 区域，用于显示 replay 误差。
+
+验证命令：
+
+```text
+python -m compileall apps\demo-backend\src
+cmd /c npm run build
+```
+
+验证结果：
+- 后端编译通过。
+- 前端 build 通过。
+
+服务级 dry-run 验证：
+
+```text
+mcp_health() -> dry-run
+list_layout_json_files() -> 10 files
+select_layout_json(demo/x_reference_layout2d_theta.json) -> ok, componentCount=3
+verify_face_mappings() -> dry-run, 6 planned calls
+_compare_layout_payloads(target, target) -> success=True, max errors = 0
+```
+
+遇到的问题：
+- `fastapi.testclient.TestClient` 在当前环境缺少 `httpx2`，无法使用。
+- 已改为直接实例化 `DemoService` 进行服务级 dry-run 验证，避免新增依赖。
+
+待真实验证：
+- 重启后端后，在前端执行一次 `Replay Layout`。
+- 检查右侧 `Replay Check` 是否显示 `matched`，且 A/B/C 误差接近 0。

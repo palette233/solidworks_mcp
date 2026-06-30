@@ -1673,3 +1673,49 @@ MCP 几何复核：
 - 前端 JSON 上传、组件同步、批量面验证、Common Base、Replay Layout 的真实闭环验证通过。
 - 当前版本已经可以用上传的 layout JSON 驱动 SolidWorks 中 A/B/C 的 `x/y/theta` 复原。
 - 终端/日志中仍可能出现中文 `底面` 或角度符号的编码显示问题，但本次功能调用未受影响。
+### 2026-06-30 - 稳定工程链路第二轮：健康检查与 Replay 误差报告
+
+目标：
+- 降低 SolidWorks / MCP 多实例或活动文档切换导致的误操作风险。
+- 在 Replay Layout 后自动生成几何复核结果，不再完全依赖人工二次 capture。
+- 尽量不改动底层 SolidWorks 工具，优先在后端编排层增强稳定性。
+
+完成内容：
+- 后端新增 `GET /api/demo/mcp-health`：
+  - 调用 MCP `get_active_document`；
+  - 返回当前 SolidWorks active document；
+  - 如果 `demo_state.json` 中已有 `assemblyPath`，会给出 active document 是否与 state 一致的判断。
+- `Verify Faces` 前新增 active assembly 一致性检查：
+  - 当 `assemblyPath` 已存在且 MCP 不是 dry-run 时，先检查当前 active document；
+  - 如果 active assembly 与 `demo_state.json.assemblyPath` 不一致，直接 blocked，避免对错误装配体做选面验证。
+- `Replay Layout` 后新增自动复核：
+  - replay 成功后，后端自动调用 `capture_common_base_layout_from_assembly`；
+  - 输出 `demo/replay_validation_layout2d.json`；
+  - 将实际 capture 的 `layout2d.x/y/theta` 与目标 layout JSON 对比；
+  - 在 `state.lastRun.replayValidation` 中保存每个组件的 `xyError/thetaErrorDegrees` 和最大误差。
+- 前端新增 `Replay Check` 展示：
+  - 显示最大 XY 误差；
+  - 显示最大 theta 误差；
+  - 显示每个组件的误差和通过状态。
+
+验证：
+
+```text
+python -m compileall apps\demo-backend\src
+cmd /c npm run build
+```
+
+结果：
+- 后端编译通过。
+- 前端 TypeScript/Vite build 通过。
+
+服务级 dry-run 验证：
+- `mcp_health()` 返回 `dry-run`。
+- `list_layout_json_files()` 可列出 layout JSON。
+- `select_layout_json(demo/x_reference_layout2d_theta.json)` 成功，组件数为 3。
+- `verify_face_mappings()` 在 dry-run 下生成 6 个计划调用。
+- `_compare_layout_payloads(target, target)` 返回 `success=true`，最大 XY/theta 误差为 0。
+
+注意：
+- 本轮没有修改 C# MCP 工具行为，因此对已验证的 Common Base / Replay 核心链路侵入较小。
+- `Replay Check` 的真实 SolidWorks 验证需要重新启动后端后，通过前端再执行一次 Replay Layout。

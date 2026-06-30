@@ -1048,3 +1048,28 @@ C-1 xy_error=1.11e-16m, theta_error=0deg
 6. Replay 后自动误差报告
    - 当前已可手动二次 capture 并比较。
    - 后续可在 `Replay Layout` 后自动 capture 当前布局，直接返回每个组件的 `xy_error/theta_error`。
+### 2026-06-30 追加：健康检查与 Replay 误差报告后的待办
+
+已完成：
+- 后端已增加 `/api/demo/mcp-health`。
+- `Verify Faces` 前已增加 active assembly 一致性检查。
+- `Replay Layout` 后已自动 capture 当前布局并写入 `state.lastRun.replayValidation`。
+- 前端已显示 `Replay Check`。
+
+仍待继续：
+
+1. 将 MCP Health 做成前端显式按钮或状态灯
+   - 当前接口已存在，但前端没有独立入口。
+   - 后续可以在工具栏增加 `Health` 按钮，显示 active document 与 state assembly 是否一致。
+2. 对 `Common Base` 和 `Replay Layout` 前也增加更温和的一致性提示
+   - 这些工具会通过 `assemblyPath` 打开目标文件，因此不一定要直接 blocked。
+   - 更适合返回 warning，让用户知道 SolidWorks 当前窗口可能不是目标 assembly。
+3. Replay 自动复核的阈值可配置化
+   - 当前默认 `xyError <= 1e-6m`，`thetaError <= 1e-4deg`。
+   - 真实大装配体可能需要根据单位、复杂度和 SolidWorks 解算误差调整阈值。
+4. 将 `demo/replay_validation_layout2d.json` 纳入忽略策略
+   - 该文件是运行时复核产物，不建议提交。
+5. 真实 SolidWorks 再验证
+   - 重启后端；
+   - 前端执行 `Replay Layout`；
+   - 检查 `Replay Check` 是否显示 matched，且误差接近 0。

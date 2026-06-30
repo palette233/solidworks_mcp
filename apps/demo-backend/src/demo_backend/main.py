@@ -14,6 +14,7 @@ from .models import (
     ApplyLayoutRequest,
     DemoState,
     LayoutJsonInfo,
+    McpHealthResult,
     OperationResult,
     RecordSelectedFaceRequest,
     SelectLayoutJsonRequest,
@@ -66,6 +67,11 @@ def health(settings: Settings = Depends(get_settings)) -> dict:
         "mcpCwd": str(settings.resolved_mcp_cwd) if settings.resolved_mcp_cwd else None,
         "mcpPipeName": settings.mcp_pipe_name,
     }
+
+
+@app.get("/api/demo/mcp-health", response_model=McpHealthResult)
+async def demo_mcp_health(service: DemoService = Depends(get_service)) -> McpHealthResult:
+    return await service.mcp_health()
 
 
 @app.get("/api/demo/state", response_model=DemoState)

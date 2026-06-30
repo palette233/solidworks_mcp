@@ -1022,3 +1022,28 @@ Recommended follow-ups:
 6. Add automatic post-replay error reporting
    - The current geometry recheck can be run manually by capturing the replayed assembly and comparing it with the target layout.
    - Later, `Replay Layout` should optionally capture and return per-component `xy_error/theta_error`.
+### 2026-06-30 Addendum: Follow-ups After Health Check and Replay Error Report
+
+Completed:
+- Backend now exposes `/api/demo/mcp-health`.
+- `Verify Faces` now checks active assembly consistency before selecting faces.
+- `Replay Layout` now automatically captures the current layout and stores `state.lastRun.replayValidation`.
+- Frontend now displays `Replay Check`.
+
+Still pending:
+
+1. Add an explicit frontend MCP Health button or status light
+   - The endpoint exists, but the frontend does not have a dedicated entry yet.
+   - Later, add a toolbar `Health` button that shows whether the active document matches the state assembly.
+2. Add softer consistency warnings before `Common Base` and `Replay Layout`
+   - These tools open the target file via `assemblyPath`, so they should not always block.
+   - A warning is enough to tell users that the visible SolidWorks window may differ from the target assembly.
+3. Make replay validation thresholds configurable
+   - Current defaults: `xyError <= 1e-6m`, `thetaError <= 1e-4deg`.
+   - Larger real assemblies may need project-specific thresholds.
+4. Keep `demo/replay_validation_layout2d.json` ignored
+   - It is a runtime validation artifact and should not be committed.
+5. Run one more real SolidWorks validation
+   - Restart backend;
+   - run `Replay Layout` from the frontend;
+   - confirm `Replay Check` shows `matched` with near-zero errors.

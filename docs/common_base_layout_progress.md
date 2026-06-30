@@ -1665,3 +1665,49 @@ Conclusion:
 - The frontend JSON upload, component sync, batch face verification, Common Base, and Replay Layout loop passed in real SolidWorks.
 - The current version can drive A/B/C `x/y/theta` restoration from an uploaded layout JSON.
 - Some terminal/log output may still show mojibake for Chinese `底面` or degree symbols, but it did not affect this run.
+### 2026-06-30 - Engineering Stabilization Round 2: Health Check and Replay Error Report
+
+Goal:
+- Reduce the risk of operating on the wrong SolidWorks/MCP instance or active document.
+- Automatically produce a geometry recheck after Replay Layout, instead of relying only on a manual second capture.
+- Keep the change low-risk by enhancing backend orchestration rather than changing the underlying SolidWorks tools.
+
+Completed:
+- Added `GET /api/demo/mcp-health`:
+  - calls MCP `get_active_document`;
+  - returns the current SolidWorks active document;
+  - when `demo_state.json` has an `assemblyPath`, reports whether the active document matches it.
+- Added an active assembly consistency check before `Verify Faces`:
+  - when `assemblyPath` exists and MCP is not in dry-run mode, the backend checks the active document first;
+  - if the active assembly differs from `demo_state.json.assemblyPath`, the operation returns `blocked`.
+- Added automatic post-Replay validation:
+  - after successful replay, the backend calls `capture_common_base_layout_from_assembly`;
+  - writes `demo/replay_validation_layout2d.json`;
+  - compares captured `layout2d.x/y/theta` with the selected target layout JSON;
+  - stores per-component `xyError/thetaErrorDegrees` and max errors in `state.lastRun.replayValidation`.
+- Added frontend `Replay Check` display:
+  - max XY error;
+  - max theta error;
+  - per-component error and pass/fail status.
+
+Verification:
+
+```text
+python -m compileall apps\demo-backend\src
+cmd /c npm run build
+```
+
+Result:
+- Backend compilation passed.
+- Frontend TypeScript/Vite build passed.
+
+Service-level dry-run validation:
+- `mcp_health()` returns `dry-run`.
+- `list_layout_json_files()` lists layout JSON files.
+- `select_layout_json(demo/x_reference_layout2d_theta.json)` succeeds with 3 components.
+- `verify_face_mappings()` generates 6 planned calls in dry-run.
+- `_compare_layout_payloads(target, target)` returns `success=true` with zero max XY/theta error.
+
+Note:
+- This round does not change the C# MCP tool behavior, so it has low impact on the already validated Common Base / Replay core loop.
+- Real SolidWorks validation of `Replay Check` requires restarting the backend and running Replay Layout once from the frontend.
