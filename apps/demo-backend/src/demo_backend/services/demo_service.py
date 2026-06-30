@@ -14,7 +14,20 @@ from ..mcp_tools import (
     INITIALIZE_COMMON_BASE_ASSEMBLY_TOOL,
     MOVE_COMPONENTS_ON_COMMON_BASE_TOOL,
 )
-from ..models import ApplyLayoutRequest, Coordinate, DemoState, OperationResult, RecordSelectedFaceRequest, ToolCallPlan
+from ..models import (
+    ApplyLayoutRequest,
+    Coordinate,
+    DemoComponent,
+    DemoState,
+    Layout2d,
+    LayoutComponentSummary,
+    LayoutJsonInfo,
+    OperationResult,
+    RecordSelectedFaceRequest,
+    SelectLayoutJsonRequest,
+    ToolCallPlan,
+    UploadLayoutJsonRequest,
+)
 from ..state_store import DemoStateStore
 
 
@@ -36,6 +49,125 @@ class DemoService:
 
     def reset_state(self) -> DemoState:
         return self.store.reset()
+
+    def list_layout_json_files(self) -> list[LayoutJsonInfo]:
+        workspace = self._workspace()
+        candidates = [
+            *(workspace / "demo").glob("*.json"),
+            *(workspace / "demo" / "uploaded_layouts").glob("*.json"),
+        ]
+        results: list[LayoutJsonInfo] = []
+        for path in sorted({item.resolve() for item in candidates}):
+            if path.name.startswith("demo_state"):
+                continue
+            info = self._read_layout_info(path)
+            if info is not None:
+                results.append(info)
+        return results
+
+    def select_layout_json(self, request: SelectLayoutJsonRequest) -> OperationResult:
+        state = self.store.load()
+        self._normalize_state(state)
+
+        path = self._resolve_workspace_path(request.layout_json_path)
+        info = self._read_layout_info(path)
+        if info is None:
+            return OperationResult(
+                status="error",
+                message=f"Layout JSON is missing or invalid: {path}",
+                state=state,
+            )
+
+        state.layout_json_path = str(path)
+        state.layout_info = info
+        if request.sync_components:
+            self._sync_components_from_layout(state, info)
+        self.store.save(state)
+        return OperationResult(
+            status="ok",
+            message=f"Selected layout JSON: {path}",
+            state=state,
+            layoutInfo=info,
+        )
+
+    def upload_layout_json(self, request: UploadLayoutJsonRequest) -> OperationResult:
+        state = self.store.load()
+        self._normalize_state(state)
+
+        try:
+            parsed = json.loads(request.content)
+        except json.JSONDecodeError as exc:
+            return OperationResult(
+                status="error",
+                message=f"Uploaded layout JSON is not valid JSON: {exc}",
+                state=state,
+            )
+
+        safe_name = Path(request.file_name).name or "uploaded_layout.json"
+        if not safe_name.lower().endswith(".json"):
+            safe_name += ".json"
+        output_dir = self._workspace() / "demo" / "uploaded_layouts"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = output_dir / safe_name
+        output_path.write_text(json.dumps(parsed, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        return self.select_layout_json(
+            SelectLayoutJsonRequest(layoutJsonPath=str(output_path), syncComponents=request.sync_components)
+        )
+
+    async def verify_face_mappings(self) -> OperationResult:
+        state = self.store.load()
+        self._normalize_state(state)
+
+        missing = self.face_mappings.missing_bottom_mappings(state.components)
+        if missing:
+            result = OperationResult(
+                status="blocked",
+                message="Some components are missing bottom-face mappings. Record mappings before running Common Base or Replay Layout.",
+                missingFaceMappings=missing,
+                state=state,
+            )
+            state.last_run = {
+                "status": result.status,
+                "message": result.message,
+                "missingFaceMappings": missing,
+            }
+            self.store.save(state)
+            return result
+
+        plan: list[ToolCallPlan] = []
+        for component in state.components:
+            plan.extend(
+                [
+                    ToolCallPlan(
+                        tool="select_face_by_name",
+                        arguments={
+                            "componentName": component.component_name,
+                            "faceName": component.bottom_face_name,
+                            "append": False,
+                            "mark": 0,
+                        },
+                    ),
+                    ToolCallPlan(
+                        tool="get_selected_face_mapping_probe",
+                        arguments={
+                            "componentName": component.component_name,
+                            "faceName": component.bottom_face_name,
+                        },
+                    ),
+                ]
+            )
+
+        result = await self.mcp.run_plan(plan)
+        state.last_run = {
+            "status": result.status,
+            "message": result.message,
+            "toolResults": result.tool_results,
+            "missingFaceMappings": [],
+        }
+        self.store.save(state)
+        result.state = state
+        return result
 
     async def import_components(self) -> OperationResult:
         state = self.store.load()
@@ -406,11 +538,12 @@ class DemoService:
     @staticmethod
     def _apply_captured_layout_plan(state: DemoState) -> list[ToolCallPlan]:
         workspace = Path(__file__).resolve().parents[5]
+        layout_path = state.layout_json_path or str(workspace / "demo" / "captured_common_base_layout.json")
         return [
             ToolCallPlan(
                 tool=APPLY_CAPTURED_COMMON_BASE_LAYOUT_TOOL,
                 arguments={
-                    "layoutJsonPath": str(workspace / "demo" / "captured_common_base_layout.json"),
+                    "layoutJsonPath": layout_path,
                     "assemblyPath": state.assembly_path,
                     "screenshotPath": str(workspace / "demo" / "apply_captured_layout_result.png"),
                     "screenshotWidth": 1600,
@@ -459,6 +592,12 @@ class DemoService:
         last_tool = result.plan[-1].tool if result.plan else None
         if last_tool == INITIALIZE_COMMON_BASE_ASSEMBLY_TOOL:
             state.common_base_ready = False
+        if last_tool == CAPTURE_COMMON_BASE_LAYOUT_TOOL:
+            output_path = payload.get("outputPath")
+            if isinstance(output_path, str) and output_path.strip():
+                layout_path = self._resolve_workspace_path(output_path)
+                state.layout_json_path = str(layout_path)
+                state.layout_info = self._read_layout_info(layout_path)
 
         if not payload.get("success"):
             result.status = "error"
@@ -557,3 +696,80 @@ class DemoService:
         except (TypeError, json.JSONDecodeError):
             return None
         return payload if isinstance(payload, dict) else None
+
+    @staticmethod
+    def _workspace() -> Path:
+        return Path(__file__).resolve().parents[5]
+
+    @classmethod
+    def _resolve_workspace_path(cls, value: str | Path) -> Path:
+        path = Path(value)
+        return path if path.is_absolute() else cls._workspace() / path
+
+    def _read_layout_info(self, path: Path) -> LayoutJsonInfo | None:
+        if not path.exists() or path.suffix.lower() != ".json":
+            return None
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        if not isinstance(data, dict) or "components" not in data:
+            return None
+
+        components: list[LayoutComponentSummary] = []
+        for item in data.get("components", []):
+            if not isinstance(item, dict):
+                continue
+            component_name = item.get("componentName")
+            if not isinstance(component_name, str) or not component_name.strip():
+                continue
+            layout2d = item.get("layout2d") if isinstance(item.get("layout2d"), dict) else None
+            components.append(
+                LayoutComponentSummary(
+                    componentName=component_name,
+                    filePath=item.get("filePath") if isinstance(item.get("filePath"), str) else None,
+                    bottomFaceName=item.get("bottomFaceName") if isinstance(item.get("bottomFaceName"), str) else "\u5e95\u9762",
+                    layout2d=Layout2d.model_validate(layout2d) if layout2d else None,
+                    faceMappingFound=item.get("faceMappingFound") if isinstance(item.get("faceMappingFound"), bool) else None,
+                )
+            )
+
+        return LayoutJsonInfo(
+            path=str(path),
+            success=data.get("success") if isinstance(data.get("success"), bool) else None,
+            message=data.get("message") if isinstance(data.get("message"), str) else None,
+            baseComponentName=data.get("baseComponentName") if isinstance(data.get("baseComponentName"), str) else None,
+            componentCount=len(components),
+            components=components,
+        )
+
+    @staticmethod
+    def _component_id_from_name(component_name: str, index: int) -> str:
+        normalized = "".join(ch.lower() if ch.isalnum() else "-" for ch in component_name).strip("-")
+        return normalized or f"component-{index + 1}"
+
+    def _sync_components_from_layout(self, state: DemoState, info: LayoutJsonInfo) -> None:
+        existing = {component.component_name: component for component in state.components}
+        next_components: list[DemoComponent] = []
+        for index, item in enumerate(info.components):
+            existing_component = existing.get(item.component_name)
+            layout = item.layout2d
+            target = Coordinate(
+                x=layout.x if layout else existing_component.target.x if existing_component else 0,
+                y=layout.y if layout else existing_component.target.y if existing_component else 0,
+                z=existing_component.target.z if existing_component else 0,
+            )
+            file_path = item.file_path or (existing_component.file_path if existing_component else "")
+            next_components.append(
+                DemoComponent(
+                    id=existing_component.id if existing_component else self._component_id_from_name(item.component_name, index),
+                    displayName=existing_component.display_name if existing_component else item.component_name,
+                    componentName=item.component_name,
+                    filePath=file_path,
+                    bottomFaceName=item.bottom_face_name,
+                    current=existing_component.current if existing_component else Coordinate(),
+                    target=target,
+                )
+            )
+        if next_components:
+            state.components = next_components

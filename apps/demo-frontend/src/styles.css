@@ -18,7 +18,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -248,9 +249,83 @@ button:disabled {
   color: rgba(255, 255, 255, 0.9);
 }
 
+.layout-json-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-bottom: 1px solid #edf1f5;
+}
+
+.select-label,
+.upload-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+}
+
+.select-label svg,
+.upload-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.select-label select {
+  height: 36px;
+  min-width: 260px;
+  border: 1px solid #c8d1db;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1f2933;
+  padding: 0 10px;
+}
+
+.upload-button {
+  border: 1px solid #c8d1db;
+  border-radius: 8px;
+  padding: 0 12px;
+  background: #ffffff;
+  color: #1f2933;
+  cursor: pointer;
+}
+
+.upload-button input {
+  display: none;
+}
+
+.layout-path {
+  color: #66727f;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.layout-summary {
+  display: grid;
+  gap: 8px;
+  padding: 12px 16px;
+}
+
+.layout-summary-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) repeat(3, minmax(96px, auto));
+  gap: 10px;
+  align-items: center;
+  border: 1px solid #edf1f5;
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: #fbfcfe;
+  font-size: 13px;
+}
+
+.layout-summary-row span {
+  color: #36424f;
+}
+
 table {
   width: 100%;
-  min-width: 840px;
+  min-width: 1080px;
   border-collapse: collapse;
   table-layout: fixed;
 }

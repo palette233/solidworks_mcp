@@ -10,7 +10,15 @@ from .adapters.llm_client import LlmClient
 from .adapters.mcp_client import McpClient
 from .config import Settings, get_settings
 from .face_mappings import FaceMappingStore
-from .models import ApplyLayoutRequest, DemoState, OperationResult, RecordSelectedFaceRequest
+from .models import (
+    ApplyLayoutRequest,
+    DemoState,
+    LayoutJsonInfo,
+    OperationResult,
+    RecordSelectedFaceRequest,
+    SelectLayoutJsonRequest,
+    UploadLayoutJsonRequest,
+)
 from .services.demo_service import DemoService
 from .state_store import DemoStateStore
 
@@ -101,6 +109,32 @@ async def finalize_common_base(service: DemoService = Depends(get_service)) -> O
 @app.post("/api/demo/capture-common-base-layout", response_model=OperationResult)
 async def capture_common_base_layout(service: DemoService = Depends(get_service)) -> OperationResult:
     return await service.capture_common_base_layout()
+
+
+@app.get("/api/demo/layout-json-files", response_model=list[LayoutJsonInfo])
+def list_layout_json_files(service: DemoService = Depends(get_service)) -> list[LayoutJsonInfo]:
+    return service.list_layout_json_files()
+
+
+@app.post("/api/demo/select-layout-json", response_model=OperationResult)
+def select_layout_json(
+    request: SelectLayoutJsonRequest,
+    service: DemoService = Depends(get_service),
+) -> OperationResult:
+    return service.select_layout_json(request)
+
+
+@app.post("/api/demo/upload-layout-json", response_model=OperationResult)
+def upload_layout_json(
+    request: UploadLayoutJsonRequest,
+    service: DemoService = Depends(get_service),
+) -> OperationResult:
+    return service.upload_layout_json(request)
+
+
+@app.post("/api/demo/verify-face-mappings", response_model=OperationResult)
+async def verify_face_mappings(service: DemoService = Depends(get_service)) -> OperationResult:
+    return await service.verify_face_mappings()
 
 
 @app.post("/api/demo/record-selected-face", response_model=OperationResult)

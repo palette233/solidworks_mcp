@@ -13,6 +13,36 @@ class Coordinate(BaseModel):
     z: float = 0
 
 
+class Layout2d(BaseModel):
+    x: float
+    y: float
+    theta_degrees: float | None = Field(default=None, alias="thetaDegrees")
+    theta_axis: str | None = Field(default=None, alias="thetaAxis")
+
+    model_config = {"populate_by_name": True}
+
+
+class LayoutComponentSummary(BaseModel):
+    component_name: str = Field(alias="componentName")
+    file_path: str | None = Field(default=None, alias="filePath")
+    bottom_face_name: str = Field(default="\u5e95\u9762", alias="bottomFaceName")
+    layout2d: Layout2d | None = None
+    face_mapping_found: bool | None = Field(default=None, alias="faceMappingFound")
+
+    model_config = {"populate_by_name": True}
+
+
+class LayoutJsonInfo(BaseModel):
+    path: str
+    success: bool | None = None
+    message: str | None = None
+    base_component_name: str | None = Field(default=None, alias="baseComponentName")
+    component_count: int = Field(default=0, alias="componentCount")
+    components: list[LayoutComponentSummary] = Field(default_factory=list)
+
+    model_config = {"populate_by_name": True}
+
+
 class DemoComponent(BaseModel):
     id: str
     display_name: str = Field(alias="displayName")
@@ -28,6 +58,8 @@ class DemoComponent(BaseModel):
 class DemoState(BaseModel):
     assembly_path: str | None = Field(default=None, alias="assemblyPath")
     common_base_ready: bool = Field(default=False, alias="commonBaseReady")
+    layout_json_path: str | None = Field(default=None, alias="layoutJsonPath")
+    layout_info: LayoutJsonInfo | None = Field(default=None, alias="layoutInfo")
     components: list[DemoComponent]
     last_run: dict | None = Field(default=None, alias="lastRun")
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), alias="updatedAt")
@@ -60,6 +92,21 @@ class RecordSelectedFaceRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class SelectLayoutJsonRequest(BaseModel):
+    layout_json_path: str = Field(alias="layoutJsonPath")
+    sync_components: bool = Field(default=True, alias="syncComponents")
+
+    model_config = {"populate_by_name": True}
+
+
+class UploadLayoutJsonRequest(BaseModel):
+    file_name: str = Field(alias="fileName")
+    content: str
+    sync_components: bool = Field(default=True, alias="syncComponents")
+
+    model_config = {"populate_by_name": True}
+
+
 class ToolCallPlan(BaseModel):
     tool: str
     arguments: dict
@@ -72,6 +119,7 @@ class OperationResult(BaseModel):
     tool_results: list[dict] = Field(default_factory=list, alias="toolResults")
     state: DemoState | None = None
     missing_face_mappings: list[dict[str, str]] = Field(default_factory=list, alias="missingFaceMappings")
+    layout_info: LayoutJsonInfo | None = Field(default=None, alias="layoutInfo")
 
     model_config = {"populate_by_name": True}
 

@@ -1,6 +1,6 @@
 import React, { PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { CheckCircle2, Layers, Loader2, MapPinned, Move3D, Play, RefreshCw, RotateCcw, Save, XCircle } from "lucide-react";
+import { CheckCircle2, FileJson, Layers, Loader2, MapPinned, Move3D, Play, RefreshCw, RotateCcw, Save, Upload, XCircle } from "lucide-react";
 import {
   applyCapturedLayout,
   arrange,
@@ -10,12 +10,18 @@ import {
   finalizeCommonBase,
   getState,
   initializeCommonBase,
+  LayoutComponentSummary,
+  LayoutJsonInfo,
+  listLayoutJsonFiles,
   OperationResult,
   OrientationCheck,
   OrientationCorrection,
   parseArrangePayload,
   resetState,
-  saveState
+  saveState,
+  selectLayoutJson,
+  uploadLayoutJson,
+  verifyFaceMappings
 } from "./api";
 import "./styles.css";
 
@@ -47,8 +53,19 @@ const BLOCK_SPECS: Record<string, BlockSpec> = {
   c: { width: 0.13, height: 0.11, color: "#d97706" }
 };
 
+const BLOCK_COLORS = ["#2f80ed", "#10a37f", "#d97706", "#7c3aed", "#dc2626", "#0891b2", "#4d7c0f", "#be185d"];
+
 function blockSpec(component: DemoComponent): BlockSpec {
-  return BLOCK_SPECS[component.id] ?? { width: 0.14, height: 0.1, color: "#66727f" };
+  const fallbackIndex = Math.abs(hashText(component.id || component.componentName)) % BLOCK_COLORS.length;
+  return BLOCK_SPECS[component.id] ?? { width: 0.14, height: 0.1, color: BLOCK_COLORS[fallbackIndex] };
+}
+
+function hashText(value: string): number {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) | 0;
+  }
+  return hash;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -107,6 +124,17 @@ function formatVector(values?: number[] | null): string {
 
 function formatNumber(value?: number | null, digits = 4): string {
   return typeof value === "number" && Number.isFinite(value) ? value.toFixed(digits) : "n/a";
+}
+
+function shortPath(value?: string | null): string {
+  if (!value) return "No layout";
+  const normalized = value.replaceAll("\\", "/");
+  const parts = normalized.split("/");
+  return parts.slice(-2).join("/");
+}
+
+function layoutFor(component: DemoComponent, layoutInfo?: LayoutJsonInfo | null): LayoutComponentSummary | null {
+  return layoutInfo?.components.find((item) => item.componentName === component.componentName) ?? null;
 }
 
 function StatusIcon({ ok }: { ok?: boolean }) {
@@ -250,6 +278,7 @@ function LayoutCanvas({
 
 function App() {
   const [state, setState] = useState<DemoState | null>(null);
+  const [layoutFiles, setLayoutFiles] = useState<LayoutJsonInfo[]>([]);
   const [result, setResult] = useState<OperationResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -268,12 +297,18 @@ function App() {
     setBusy(true);
     setError(null);
     try {
-      setState(await getState());
+      const [nextState, nextLayoutFiles] = await Promise.all([getState(), listLayoutJsonFiles()]);
+      setState(nextState);
+      setLayoutFiles(nextLayoutFiles);
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : String(exc));
     } finally {
       setBusy(false);
     }
+  }
+
+  async function refreshLayouts() {
+    setLayoutFiles(await listLayoutJsonFiles());
   }
 
   useEffect(() => {
@@ -368,6 +403,62 @@ function App() {
       if (nextResult.state) {
         setState(nextResult.state);
       }
+      await refreshLayouts();
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSelectLayout(path: string) {
+    if (!path) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const nextResult = await selectLayoutJson(path, true);
+      setResult(nextResult);
+      if (nextResult.state) {
+        setState(nextResult.state);
+      }
+      await refreshLayouts();
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleUploadLayout(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const content = await file.text();
+      const nextResult = await uploadLayoutJson(file.name, content, true);
+      setResult(nextResult);
+      if (nextResult.state) {
+        setState(nextResult.state);
+      }
+      await refreshLayouts();
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleVerifyFaceMappings() {
+    setBusy(true);
+    setError(null);
+    try {
+      const nextResult = await verifyFaceMappings();
+      setResult(nextResult);
+      if (nextResult.state) {
+        setState(nextResult.state);
+      }
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : String(exc));
     } finally {
@@ -417,6 +508,10 @@ function App() {
             <Save aria-hidden="true" />
             Capture Layout
           </button>
+          <button className="secondary-button" type="button" onClick={handleVerifyFaceMappings} disabled={busy || !state}>
+            <CheckCircle2 aria-hidden="true" />
+            Verify Faces
+          </button>
           <button className="secondary-button" type="button" onClick={handleApplyCapturedLayout} disabled={busy || !state?.assemblyPath}>
             <MapPinned aria-hidden="true" />
             Replay Layout
@@ -440,6 +535,51 @@ function App() {
             />
           ) : null}
 
+          <div className="panel layout-json-panel">
+            <div className="panel-heading">
+              <h2>Layout JSON</h2>
+              <span>{state?.layoutInfo?.componentCount ?? 0} components</span>
+            </div>
+            <div className="layout-json-controls">
+              <label className="select-label">
+                <FileJson aria-hidden="true" />
+                <select
+                  value={state?.layoutJsonPath ?? ""}
+                  disabled={busy}
+                  onChange={(event) => void handleSelectLayout(event.target.value)}
+                  aria-label="Select layout JSON"
+                >
+                  <option value="">Select layout JSON</option>
+                  {layoutFiles.map((item) => (
+                    <option key={item.path} value={item.path}>
+                      {shortPath(item.path)} ({item.componentCount})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="upload-button">
+                <Upload aria-hidden="true" />
+                Upload JSON
+                <input type="file" accept="application/json,.json" disabled={busy} onChange={handleUploadLayout} />
+              </label>
+              <span className="layout-path">{shortPath(state?.layoutJsonPath)}</span>
+            </div>
+            {state?.layoutInfo?.components?.length ? (
+              <div className="layout-summary">
+                {state.layoutInfo.components.map((component) => (
+                  <div className="layout-summary-row" key={component.componentName}>
+                    <strong>{component.componentName}</strong>
+                    <span>x {formatNumber(component.layout2d?.x, 4)}</span>
+                    <span>y {formatNumber(component.layout2d?.y, 4)}</span>
+                    <span>
+                      theta {formatNumber(component.layout2d?.thetaDegrees, 2)} {component.layout2d?.thetaAxis ?? ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
           <div className="panel table-panel">
             <div className="panel-heading">
               <h2>Coordinates</h2>
@@ -456,43 +596,55 @@ function App() {
                     <th>Bottom X</th>
                     <th>Bottom Y</th>
                     <th>Bottom Z</th>
+                    <th>Layout X</th>
+                    <th>Layout Y</th>
+                    <th>Theta</th>
                     <th>Face</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {state?.components.map((component) => (
-                    <tr key={component.id}>
-                      <td>
-                        <strong>{component.componentName}</strong>
-                        <span>{component.displayName}</span>
-                      </td>
-                      <td>{component.current.x.toFixed(3)}</td>
-                      <td>{component.current.y.toFixed(3)}</td>
-                      <td>{component.current.z.toFixed(3)}</td>
-                      <td>
-                        <CoordinateInput
-                          component={component}
-                          axis="x"
-                          onChange={(value) => setState((current) => current && cloneWithTarget(current, component.id, "x", value))}
-                        />
-                      </td>
-                      <td>
-                        <CoordinateInput
-                          component={component}
-                          axis="y"
-                          onChange={(value) => setState((current) => current && cloneWithTarget(current, component.id, "y", value))}
-                        />
-                      </td>
-                      <td>
-                        <CoordinateInput
-                          component={component}
-                          axis="z"
-                          onChange={(value) => setState((current) => current && cloneWithTarget(current, component.id, "z", value))}
-                        />
-                      </td>
-                      <td>{component.bottomFaceName}</td>
-                    </tr>
-                  ))}
+                  {state?.components.map((component) => {
+                    const layout = layoutFor(component, state.layoutInfo);
+                    return (
+                      <tr key={component.id}>
+                        <td>
+                          <strong>{component.componentName}</strong>
+                          <span>{component.displayName}</span>
+                        </td>
+                        <td>{component.current.x.toFixed(3)}</td>
+                        <td>{component.current.y.toFixed(3)}</td>
+                        <td>{component.current.z.toFixed(3)}</td>
+                        <td>
+                          <CoordinateInput
+                            component={component}
+                            axis="x"
+                            onChange={(value) => setState((current) => current && cloneWithTarget(current, component.id, "x", value))}
+                          />
+                        </td>
+                        <td>
+                          <CoordinateInput
+                            component={component}
+                            axis="y"
+                            onChange={(value) => setState((current) => current && cloneWithTarget(current, component.id, "y", value))}
+                          />
+                        </td>
+                        <td>
+                          <CoordinateInput
+                            component={component}
+                            axis="z"
+                            onChange={(value) => setState((current) => current && cloneWithTarget(current, component.id, "z", value))}
+                          />
+                        </td>
+                        <td>{formatNumber(layout?.layout2d?.x, 4)}</td>
+                        <td>{formatNumber(layout?.layout2d?.y, 4)}</td>
+                        <td>
+                          {formatNumber(layout?.layout2d?.thetaDegrees, 2)}
+                          {layout?.layout2d?.thetaAxis ? ` ${layout.layout2d.thetaAxis}` : ""}
+                        </td>
+                        <td>{component.bottomFaceName}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -526,8 +678,15 @@ function App() {
                         ? component.bottomFaceCenter.center.map((value) => value.toFixed(4)).join(", ")
                         : "Not read"}
                     </dd>
+                    <dt>Theta</dt>
+                    <dd>
+                      target {formatNumber(component.targetThetaDegrees, 2)} / current {formatNumber(component.currentThetaDegrees, 2)} / delta{" "}
+                      {formatNumber(component.deltaThetaDegrees, 2)}
+                    </dd>
                     <dt>Move</dt>
                     <dd>{component.moveResult?.message ?? "Not run"}</dd>
+                    <dt>Rotate</dt>
+                    <dd>{component.rotationResult?.message ?? "Not run"}</dd>
                   </dl>
                 </div>
               ))}

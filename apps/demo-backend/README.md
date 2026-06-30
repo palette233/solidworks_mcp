@@ -49,6 +49,10 @@ POST /api/demo/reset
 POST /api/demo/initialize-common-base
 POST /api/demo/finalize-common-base
 POST /api/demo/capture-common-base-layout
+GET  /api/demo/layout-json-files
+POST /api/demo/select-layout-json
+POST /api/demo/upload-layout-json
+POST /api/demo/verify-face-mappings
 POST /api/demo/apply-captured-layout
 POST /api/demo/arrange
 GET  /api/demo/screenshot

@@ -7,6 +7,9 @@ The current demo flow supports:
 - initialize a target assembly with A/B/C;
 - finalize common-base mates;
 - capture layout2d from a reference assembly;
+- choose or upload captured layout JSON;
+- display each component's layout2d x/y/theta;
+- verify bottom-face mappings in batch;
 - replay captured layout2d position and in-plane theta.
 
 The 2D block center represents the SolidWorks bottom-face center:
@@ -51,6 +54,7 @@ For the current stable demo, use this order:
 Reset
 Initialize
 Common Base
+Verify Faces
 Capture Layout
 Replay Layout
 ```

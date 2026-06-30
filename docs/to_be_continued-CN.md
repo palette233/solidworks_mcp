@@ -1003,3 +1003,48 @@ C-1 xy_error=1.11e-16m, theta_error=0deg
 1. 当前完成的是“共底面平面内朝向”恢复，不是完整 3D `Transform2` 姿态恢复。
 2. 如果未来需要恢复任意 3D 姿态，应设计明确的 `SetComponentTransform2` 或“保存/恢复完整 Transform2”工具。
 3. `dotnet test` 目前被 Windows 应用控制策略阻止加载测试 DLL，需要后续解决测试运行环境或使用替代测试 runner。
+
+### 2026-06-30 追加：n 组件项目化能力的后续注意事项
+
+已完成第一轮：
+
+- 状态和前端不再强依赖固定 A/B/C，可由 layout JSON 中的 `components` 同步出 n 个组件。
+- 前端支持选择/上传 layout JSON，并显示每个组件的 `x/y/theta`。
+- 已加入批量面映射验证入口。
+
+仍待继续：
+
+1. 当前上传的是 layout JSON 内容，不上传 CAD 文件本体。
+   - 真实项目中，子装配体文件路径仍需要在 layout JSON 中可被本机访问。
+   - 后续若需要 Web 上传 CAD 文件，需要单独设计文件存储、路径映射和安全策略。
+2. 批量面映射真实验证依赖当前 SolidWorks 活动装配体。
+   - 如果打开的是错误 assembly，即使映射文件存在，`select_face_by_name` 仍可能失败。
+   - 后续可在验证前增加 active document / assemblyPath 一致性检查。
+3. 前端画布仍使用固定世界范围。
+   - n 组件或更大布局时，应根据 layout bounds 自动缩放。
+4. 当前 n 组件同步主要来自 captured layout JSON。
+   - 后续可增加“从原始装配体自动发现顶层组件并批量生成配置”的工具。
+### 2026-06-30 追加：前端真实闭环后续优化计划
+
+本次前端上传 `x_reference_layout2d_theta.json` 后，`Initialize -> Verify Faces -> Common Base -> Replay Layout` 已通过真实 SolidWorks 验证，并通过二次 capture 复核了 `x/y/theta` 误差。
+
+仍建议继续补齐：
+
+1. MCP / 后端健康检查稳定化
+   - `/api/health` 目前主要检查后端配置。
+   - 后续应增加 MCP Hub 可连接性、可用工具列表、SolidWorks active document 的轻量检查。
+2. Active assembly 一致性检查
+   - 在 `Verify Faces`、`Common Base`、`Replay Layout` 前检查当前 SolidWorks 活动装配体是否与 `demo_state.json.assemblyPath` 一致。
+   - 避免用户重启 SolidWorks 或切换窗口后，对错误 assembly 执行操作。
+3. 前端画布自动缩放
+   - 当前前端布局视图仍偏固定范围。
+   - n 个组件或大尺寸 layout 时，应根据 layout bounds 自动 fit。
+4. n 组件自动发现
+   - 当前 n 组件主要由 layout JSON 的 `components` 驱动。
+   - 后续应支持从原始装配体自动发现顶层子装配体，生成待记录/待验证清单。
+5. 编码显示问题
+   - PowerShell/日志中仍可能把 `底面`、角度符号等显示为乱码。
+   - 功能不受影响，但建议后续统一 CLI 输出编码和日志编码策略。
+6. Replay 后自动误差报告
+   - 当前已可手动二次 capture 并比较。
+   - 后续可在 `Replay Layout` 后自动 capture 当前布局，直接返回每个组件的 `xy_error/theta_error`。

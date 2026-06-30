@@ -977,3 +977,48 @@ Remaining work:
 1. This restores planar heading on the common base, not arbitrary full 3D `Transform2` pose.
 2. If full 3D pose restoration is needed later, add a dedicated `SetComponentTransform2` or complete Transform2 save/restore tool.
 3. `dotnet test` is currently blocked by Windows application control policy while loading the test DLL. The test environment or runner still needs to be stabilized.
+
+### 2026-06-30 Addendum: n-component productization follow-ups
+
+First pass completed:
+
+- State and frontend are no longer tied to fixed A/B/C. Components can be synced from a layout JSON `components` array.
+- The frontend can choose or upload layout JSON and display each component's `x/y/theta`.
+- Batch face-mapping verification has been added.
+
+Remaining work:
+
+1. Upload currently handles layout JSON content only, not CAD files.
+   - In real projects, child assembly file paths in the layout JSON must still be accessible on the local machine.
+   - CAD upload would need separate file storage, path mapping, and safety rules.
+2. Real batch face-mapping verification depends on the active SolidWorks assembly.
+   - If the wrong assembly is active, `select_face_by_name` may fail even when mappings exist.
+   - Add an active document / assemblyPath consistency check before verification.
+3. The frontend canvas still uses fixed world bounds.
+   - For n components or larger layouts, auto-fit based on layout bounds should be added.
+4. Current n-component sync is driven by captured layout JSON.
+   - A future tool can discover top-level components from the source assembly and generate the demo configuration automatically.
+### 2026-06-30 Addendum: Follow-ups After Real Frontend Loop
+
+The frontend upload of `x_reference_layout2d_theta.json` followed by `Initialize -> Verify Faces -> Common Base -> Replay Layout` has passed real SolidWorks validation. A second capture confirmed the replayed `x/y/theta` errors are effectively zero.
+
+Recommended follow-ups:
+
+1. Stabilize MCP/backend health checks
+   - `/api/health` currently mainly reports backend configuration.
+   - Add lightweight MCP Hub connectivity, tool-list, and SolidWorks active-document checks.
+2. Check active assembly consistency
+   - Before `Verify Faces`, `Common Base`, and `Replay Layout`, verify that the active SolidWorks assembly matches `demo_state.json.assemblyPath`.
+   - This prevents operations from running against the wrong assembly after SolidWorks restarts or window switches.
+3. Auto-fit the frontend canvas
+   - The current layout view still uses a fairly fixed world range.
+   - For n components or larger layouts, fit the viewport from layout bounds.
+4. Discover n components from a source assembly
+   - Current n-component sync is driven by the layout JSON `components` array.
+   - Add a source-assembly discovery tool that lists top-level child assemblies and produces a record/verify checklist.
+5. Clean up encoding display
+   - PowerShell/log output can still show mojibake for `底面` and degree symbols.
+   - Functionality is unaffected, but CLI/log encoding should be made consistent.
+6. Add automatic post-replay error reporting
+   - The current geometry recheck can be run manually by capturing the replayed assembly and comparing it with the target layout.
+   - Later, `Replay Layout` should optionally capture and return per-component `xy_error/theta_error`.

@@ -1569,3 +1569,107 @@ python -m compileall scripts\capture_common_base_layout.py scripts\apply_capture
 - 先本地 commit，不 push。
 - 提交源码、脚本、测试、文档、`.gitignore` 和两份最终 layout JSON 样例。
 - 不提交 CAD 二进制、截图、日志、runtime state 和缓存文件。
+
+### 2026-06-30 - 真实项目化能力第一轮补齐
+
+目标：
+
+- 支持 n 个子装配体，而不是把前后端逻辑固定为 A/B/C。
+- 前端支持选择/上传 layout JSON。
+- 前端展示 layout2d 的 `x/y/theta`。
+- 增加批量面映射验证，提前发现某个组件底面映射失效。
+
+完成内容：
+
+- 后端状态新增：
+  - `layoutJsonPath`
+  - `layoutInfo`
+- 后端新增 layout JSON 管理接口：
+  - `GET /api/demo/layout-json-files`
+  - `POST /api/demo/select-layout-json`
+  - `POST /api/demo/upload-layout-json`
+- 选择或上传 layout JSON 后，后端会解析 `components`，并可同步任意数量组件到当前 demo state。
+- `ApplyCapturedCommonBaseLayout` 现在优先使用 state 中选定的 `layoutJsonPath`。
+- 后端新增：
+  - `POST /api/demo/verify-face-mappings`
+- 批量验证逻辑：
+  1. 先检查 `face_mappings.json` 中是否存在每个组件的底面映射；
+  2. 若缺失，直接返回 blocked；
+  3. 若存在，则按组件生成 `select_face_by_name` + `get_selected_face_mapping_probe` 调用计划。
+- 前端新增：
+  - Layout JSON 选择下拉框。
+  - Layout JSON 上传按钮。
+  - layout2d 摘要列表。
+  - 坐标表中的 Layout X / Layout Y / Theta 列。
+  - `Verify Faces` 按钮。
+  - Replay 结果中的 theta target/current/delta 展示。
+- 前端组件颜色改为基于组件 id/name 的 fallback 调色，支持超过 A/B/C 的组件数量。
+
+验证：
+
+```text
+python -m compileall apps\demo-backend\src
+cmd /c npm run build
+dotnet build vendor\solidworks-mcp\app\SolidWorksMcpApp\SolidWorksMcpApp.csproj -c Release
+```
+
+结果：
+
+- 后端 Python 编译通过。
+- 前端 TypeScript/Vite build 通过。
+- MCP App build 通过。
+
+后端非 CAD 闭环测试：
+
+- `list_layout_json_files()` 能列出 captured layout JSON。
+- `select_layout_json(demo/x_reference_layout2d_theta.json)` 成功，并将 A/B/C 目标坐标同步为 layout2d x/y。
+- `upload_layout_json(uploaded_theta_test.json)` 成功保存到 `demo/uploaded_layouts/` 并同步组件。
+- `verify_face_mappings()` 在当前 dry-run 配置下生成 6 个计划调用，即 3 个组件 × select/probe。
+
+注意：
+
+- 批量面映射真实验证依赖当前 SolidWorks 活动装配体中存在对应组件实例。
+- 若要验证 n 个真实组件，需要先打开或初始化包含这些组件的目标 assembly。
+### 2026-06-30 - 前端上传 layout JSON 真实闭环验证通过
+
+目标：
+- 验证“真实项目化第一轮补齐”没有破坏已有 A/B/C 稳定演示链路。
+- 验证前端上传 `x_reference_layout2d_theta.json` 后，可以完成 `Initialize -> Verify Faces -> Common Base -> Replay Layout`。
+- 验证 replay 后的 SolidWorks 实际几何位置与上传 layout 的 `x/y/theta` 一致。
+
+实际测试顺序：
+
+```text
+Reset
+Upload demo\x_reference_layout2d_theta.json
+Initialize
+Verify Faces
+Common Base
+Replay Layout
+```
+
+后端日志结果：
+- `/api/demo/reset` 返回 200。
+- `/api/demo/upload-layout-json` 返回 200。
+- `/api/demo/initialize-common-base` 返回 200。
+- `/api/demo/verify-face-mappings` 返回 200。
+- `/api/demo/finalize-common-base` 返回 200。
+- `/api/demo/apply-captured-layout` 返回 200。
+
+Replay 状态：
+- `lastRun.status=ok`
+- `lastRun.toolSuccess=true`
+- `lastRun.toolMessage=ApplyCapturedCommonBaseLayout completed.`
+- `commonBaseReady=true`
+- 当前 `layoutJsonPath` 指向 `demo\uploaded_layouts\x_reference_layout2d_theta.json`。
+
+MCP 几何复核：
+- 对 replay 后的当前 `ABC_arrange_demo.SLDASM` 再次执行 layout capture，并与上传 layout 对比。
+- A-1: `xy_error=0.0m`, `theta_error=0.0deg`
+- B-1: `xy_error=1.72e-15m`, `theta_error=0.0deg`
+- C-1: `xy_error=1.78e-15m`, `theta_error=0.0deg`
+
+结论：
+- 前端 JSON 上传、组件同步、批量面验证、Common Base、Replay Layout 的真实闭环验证通过。
+- 当前版本已经可以用上传的 layout JSON 驱动 SolidWorks 中 A/B/C 的 `x/y/theta` 复原。
+- 终端/日志中仍可能出现中文 `底面` 或角度符号的编码显示问题，但本次功能调用未受影响。

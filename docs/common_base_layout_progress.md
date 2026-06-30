@@ -1561,3 +1561,107 @@ Current commit strategy:
 - Commit locally first, without pushing.
 - Commit source, scripts, tests, docs, `.gitignore`, and the two final layout JSON samples.
 - Do not commit CAD binaries, screenshots, logs, runtime state, or cache files.
+
+### 2026-06-30 - First Productization Pass
+
+Goal:
+
+- Support n subassemblies instead of hard-coding A/B/C into the frontend/backend workflow.
+- Let the frontend choose or upload layout JSON.
+- Display layout2d `x/y/theta` per component.
+- Add batch face-mapping verification to catch a bad component mapping before Common Base or Replay.
+
+Completed:
+
+- Backend state now includes:
+  - `layoutJsonPath`
+  - `layoutInfo`
+- Added layout JSON management APIs:
+  - `GET /api/demo/layout-json-files`
+  - `POST /api/demo/select-layout-json`
+  - `POST /api/demo/upload-layout-json`
+- Selecting or uploading a layout JSON parses its `components` array and can sync any number of components into the current demo state.
+- `ApplyCapturedCommonBaseLayout` now prefers the selected `layoutJsonPath` from state.
+- Added:
+  - `POST /api/demo/verify-face-mappings`
+- Batch verification behavior:
+  1. first checks whether each component bottom-face mapping exists in `face_mappings.json`;
+  2. returns `blocked` immediately when mappings are missing;
+  3. otherwise generates `select_face_by_name` + `get_selected_face_mapping_probe` calls for each component.
+- Frontend now includes:
+  - layout JSON selector;
+  - layout JSON upload button;
+  - layout2d summary;
+  - Layout X / Layout Y / Theta columns in the component table;
+  - `Verify Faces` button;
+  - theta target/current/delta in replay results.
+- Component color fallback now hashes component id/name, so the UI can display more than A/B/C.
+
+Verification:
+
+```text
+python -m compileall apps\demo-backend\src
+cmd /c npm run build
+dotnet build vendor\solidworks-mcp\app\SolidWorksMcpApp\SolidWorksMcpApp.csproj -c Release
+```
+
+Result:
+
+- Backend Python compilation passed.
+- Frontend TypeScript/Vite build passed.
+- MCP App build passed.
+
+Non-CAD backend loop:
+
+- `list_layout_json_files()` finds captured layout JSON files.
+- `select_layout_json(demo/x_reference_layout2d_theta.json)` succeeds and syncs A/B/C target x/y from layout2d.
+- `upload_layout_json(uploaded_theta_test.json)` saves under `demo/uploaded_layouts/` and syncs components.
+- `verify_face_mappings()` generated 6 planned calls under the current dry-run config: 3 components × select/probe.
+
+Note:
+
+- Real batch face-mapping verification depends on the active SolidWorks assembly containing the corresponding component instances.
+- For a real n-component validation, first open or initialize the target assembly containing those components.
+### 2026-06-30 - Frontend Uploaded Layout JSON Real Loop Passed
+
+Goal:
+- Verify that the first n-component productization pass did not break the stable A/B/C demo workflow.
+- Verify that the frontend can upload `x_reference_layout2d_theta.json`, then run `Initialize -> Verify Faces -> Common Base -> Replay Layout`.
+- Verify that the replayed SolidWorks geometry matches the uploaded layout `x/y/theta`.
+
+Actual test sequence:
+
+```text
+Reset
+Upload demo\x_reference_layout2d_theta.json
+Initialize
+Verify Faces
+Common Base
+Replay Layout
+```
+
+Backend log result:
+- `/api/demo/reset` returned 200.
+- `/api/demo/upload-layout-json` returned 200.
+- `/api/demo/initialize-common-base` returned 200.
+- `/api/demo/verify-face-mappings` returned 200.
+- `/api/demo/finalize-common-base` returned 200.
+- `/api/demo/apply-captured-layout` returned 200.
+
+Replay state:
+- `lastRun.status=ok`
+- `lastRun.toolSuccess=true`
+- `lastRun.toolMessage=ApplyCapturedCommonBaseLayout completed.`
+- `commonBaseReady=true`
+- Current `layoutJsonPath` points to `demo\uploaded_layouts\x_reference_layout2d_theta.json`.
+
+MCP geometry recheck:
+- Captured the current replayed `ABC_arrange_demo.SLDASM` layout again and compared it with the uploaded layout.
+- A-1: `xy_error=0.0m`, `theta_error=0.0deg`
+- B-1: `xy_error=1.72e-15m`, `theta_error=0.0deg`
+- C-1: `xy_error=1.78e-15m`, `theta_error=0.0deg`
+
+Conclusion:
+- The frontend JSON upload, component sync, batch face verification, Common Base, and Replay Layout loop passed in real SolidWorks.
+- The current version can drive A/B/C `x/y/theta` restoration from an uploaded layout JSON.
+- Some terminal/log output may still show mojibake for Chinese `底面` or degree symbols, but it did not affect this run.

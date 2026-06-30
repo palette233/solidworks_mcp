@@ -4,6 +4,30 @@ export type Coordinate = {
   z: number;
 };
 
+export type Layout2d = {
+  x: number;
+  y: number;
+  thetaDegrees?: number | null;
+  thetaAxis?: string | null;
+};
+
+export type LayoutComponentSummary = {
+  componentName: string;
+  filePath?: string | null;
+  bottomFaceName: string;
+  layout2d?: Layout2d | null;
+  faceMappingFound?: boolean | null;
+};
+
+export type LayoutJsonInfo = {
+  path: string;
+  success?: boolean | null;
+  message?: string | null;
+  baseComponentName?: string | null;
+  componentCount: number;
+  components: LayoutComponentSummary[];
+};
+
 export type DemoComponent = {
   id: string;
   displayName: string;
@@ -17,6 +41,8 @@ export type DemoComponent = {
 export type DemoState = {
   assemblyPath: string | null;
   commonBaseReady: boolean;
+  layoutJsonPath?: string | null;
+  layoutInfo?: LayoutJsonInfo | null;
   components: DemoComponent[];
   lastRun?: {
     status?: string;
@@ -44,13 +70,19 @@ export type OperationResult = {
   toolResults: Array<Record<string, unknown>>;
   state: DemoState | null;
   missingFaceMappings: Array<Record<string, string>>;
+  layoutInfo?: LayoutJsonInfo | null;
 };
 
 export type ArrangeComponentResult = {
   componentName: string;
+  layout2d?: Layout2d | null;
   faceSelection?: { success?: boolean; message?: string } | null;
   bottomMateResult?: { mateType?: string; errorName?: string; errorDescription?: string } | null;
   bottomFaceCenter?: { success?: boolean; center?: number[]; message?: string } | null;
+  rotationResult?: { success?: boolean; message?: string } | null;
+  currentThetaDegrees?: number | null;
+  targetThetaDegrees?: number | null;
+  deltaThetaDegrees?: number | null;
   moveResult?: { success?: boolean; message?: string } | null;
 };
 
@@ -174,6 +206,32 @@ export async function finalizeCommonBase(): Promise<OperationResult> {
 
 export async function captureCommonBaseLayout(): Promise<OperationResult> {
   return request<OperationResult>("/api/demo/capture-common-base-layout", {
+    method: "POST"
+  });
+}
+
+export async function listLayoutJsonFiles(): Promise<LayoutJsonInfo[]> {
+  return request<LayoutJsonInfo[]>("/api/demo/layout-json-files");
+}
+
+export async function selectLayoutJson(layoutJsonPath: string, syncComponents = true): Promise<OperationResult> {
+  return request<OperationResult>("/api/demo/select-layout-json", {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({ layoutJsonPath, syncComponents })
+  });
+}
+
+export async function uploadLayoutJson(fileName: string, content: string, syncComponents = true): Promise<OperationResult> {
+  return request<OperationResult>("/api/demo/upload-layout-json", {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({ fileName, content, syncComponents })
+  });
+}
+
+export async function verifyFaceMappings(): Promise<OperationResult> {
+  return request<OperationResult>("/api/demo/verify-face-mappings", {
     method: "POST"
   });
 }
