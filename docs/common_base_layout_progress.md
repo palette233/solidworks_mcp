@@ -1896,3 +1896,192 @@ Conclusion:
 - The frontend now has a better foundation for n-component layout visualization.
 - Replay Check now supports project-level validation tolerances.
 - This round did not change SolidWorks C# geometry tools, so it has low risk for the existing stable workflow.
+## 2026-07-06 15:17:34 Review fix: recursive discovery selection and duplicate-name guard
+
+- Reviewed the recent 10+ component projectization changes and fixed:
+  - The frontend discovery selection previously used only `componentName` as the key, which is unsafe for recursive discovery when repeated instance names exist.
+  - The frontend now uses `hierarchyPath + componentName` as the selection key.
+  - The backend `sync_discovered_components` now checks for duplicate `componentName` values.
+  - If recursive discovery returns repeated `componentName` values, sync returns `blocked` and asks the user to filter recursive results or use top-level discovery before syncing. This avoids ambiguous downstream SelectFace/Move calls.
+- Validation:
+  - `python -m compileall apps\demo-backend\src` passed.
+  - `dotnet build vendor\solidworks-mcp\app\SolidWorksMcpApp\SolidWorksMcpApp.csproj -c Release` passed.
+  - `npm.cmd run build` passed.
+  - Temporary backend closed-loop tests passed:
+    - 12 unique components can be synced and written to `project_config.json`.
+    - 2 recursive candidates with duplicate `componentName` values are safely blocked.
+
+Notes:
+
+- The code is ready for a real 10+ subassembly test using `Discover -> Sync Selected -> Verify Faces -> Generate Config`.
+- For recursive discovery, filter the result set first if repeated `componentName` values appear.
+
+## 2026-07-06 15:09:37 Progress: projectization improvements for 10+ subassemblies
+
+- Frontend Project Config improvements:
+  - `Discover` now supports `Top-level components` and `Recursive components`.
+  - Added `Include parts` so real projects can choose whether part files should be candidates.
+  - Added discovery-result filtering by component name, path, and hierarchy path.
+  - Added `Select Visible` and `Clear` for batch selection in 10+ component scenarios.
+- Added project config output:
+  - `Generate Config` now writes `project_config.json` in addition to the layout JSON.
+  - The config includes sourceAssemblyPath, targetAssemblyPath, baseComponentName, layoutJsonPath, faceMappingPath, replayTolerance, and the component list.
+  - This becomes the basis for a reusable real-project workflow configuration.
+- Batch face-mapping visualization:
+  - Added a `Face Mapping` matrix in the frontend side panel.
+  - Each component shows bottom face name, status, and recent tool-call count.
+  - Status currently distinguishes `Ready`, `Verified`, and `Missing`.
+- Validation:
+  - `python -m compileall apps\demo-backend\src` passed.
+  - `dotnet build vendor\solidworks-mcp\app\SolidWorksMcpApp\SolidWorksMcpApp.csproj -c Release` passed.
+  - `npm.cmd run build` passed.
+  - A temporary backend state with 12 subassemblies passed Sync Discovered Components and `project_config.json` write validation.
+
+Workflow position:
+
+- The project now has a first practical shape for `source assembly -> discover n candidates -> batch select -> sync demo state -> generate layout/project config`.
+- A real SolidWorks 10+ subassembly closed-loop test is still required, especially for recursive discovery policy, missing face mappings, and Common Base solver stability.
+
+## 2026-06-30 22:06:48 Progress: n-component discovery and project layout config entry point
+
+- Added MCP tool `DiscoverLayoutComponentsFromAssembly`:
+  - Reads component candidates from the active assembly or a provided `sourceAssemblyPath`.
+  - The first version discovers top-level resolved subassemblies by default and returns componentName, filePath, hierarchyPath, Transform2, translation, and axis data.
+  - It does not infer bottom faces. Each discovered component is assigned the default `bottomFaceName=底面`, and the existing face-mapping workflow remains required.
+- Added backend endpoints:
+  - `POST /api/demo/discover-components`: calls the MCP discovery tool.
+  - `POST /api/demo/sync-discovered-components`: syncs selected discovered components into `demo_state`.
+  - `POST /api/demo/capture-project-layout`: generates a project layout JSON from the current component list.
+- Added a frontend Project Config panel:
+  - Source assembly path input.
+  - Discover components.
+  - Sync Selected into the current workflow.
+  - Generate Config for layout JSON output.
+- Validation:
+  - `python -m compileall apps\demo-backend\src` passed.
+  - `dotnet build vendor\solidworks-mcp\app\SolidWorksMcpApp\SolidWorksMcpApp.csproj -c Release` passed.
+  - `npm.cmd run build` passed.
+  - Temporary backend `sync_discovered_components` state test passed.
+
+Workflow position:
+
+- This moves the demo from fixed A/B/C configuration toward a first usable version of "discover n candidate subassemblies from source assembly X and generate a project layout config".
+- It sits at the beginning of the full chain: `source assembly X -> discover components -> sync project config -> record/verify bottom faces -> capture layout2d -> replay in a new assembly`.
+- Automatic bottom-face inference and suppressed-component discovery are still not implemented.
+## 2026-07-06 15:32:27 Read-only discovery validation on real assembly test1.SLDASM
+
+- Test target: `demo\test1.SLDASM`, opened by the user in SolidWorks.
+- Ran the backend `/api/demo/discover-components` endpoint as a read-only test. `Sync Selected` was not executed, so the current component workflow list was not overwritten.
+- Results:
+  - `topLevelOnly + includeParts=false`: 15 top-level subassemblies discovered, all assemblies, no duplicate names observed.
+  - `recursive + includeParts=false`: 174 assembly candidates discovered, depths 0 through 5, no duplicate names observed.
+  - `recursive + includeParts=true`: 1870 candidates discovered, including 174 assemblies and 1696 parts, depths 0 through 6.
+- Conclusion:
+  - `n-component discovery` is able to read a real 10+ component assembly tree.
+  - For real project layout units, `Top-level components` should be tested first. `Recursive + Include parts` is too large for direct sync and is better used for inspection.
+- Note:
+  - The currently running backend process is still old and returns the default bottom face name as `??`.
+  - The code already contains default face-name normalization, but the backend must be restarted before continuing with `Sync Selected -> Verify Faces -> Generate Config`, otherwise `??` may be written into state.
+
+## 2026-07-06 15:32:27 test1.SLDASM top-level 15-component sync and batch face verification
+
+- Restarted the backend and confirmed:
+  - `/api/health` is healthy.
+  - `/api/demo/mcp-health` reports the active document as `demo\test1.SLDASM`.
+  - Backend and MCP both use `artifacts\solidworks-mcp\face_mappings.json`.
+- Re-ran `topLevelOnly + includeParts=false` discovery:
+  - 15 top-level subassemblies discovered.
+  - The default bottom face name is now normalized to `底面`, not `??`.
+- Ran `Sync Selected`:
+  - The 15 top-level components were written into `demo_state.json`.
+  - Every component now has `bottomFaceName=底面`.
+- Ran `Verify Faces`:
+  - Result is `blocked` because all 15 top-level components are missing bottom-face mappings.
+  - This is the expected next gate for a real projectized workflow; the user needs to select and record the true bottom faces in SolidWorks.
+- Did not continue to `Common Base` or `Generate Config`:
+  - Without bottom-face mappings, downstream geometry operations do not have reliable face references.
+
+## 2026-07-06 Recorded bottom face for FL9A项目号A100.001-1 and fixed Chinese-key repair
+
+- The user selected the bottom face of `FL9A项目号A100.001-1` in SolidWorks.
+- Recorded the mapping through backend `/api/demo/record-selected-face`.
+- Validation:
+  - `FL9A项目号A100.001-1 / 底面` is now written to `artifacts\solidworks-mcp\face_mappings.json`.
+  - The mapping includes `localNormal`, `worldNormal`, `persistentReferenceBase64`, and area data.
+  - Running `Verify Faces` again reduced missing mappings from 15 to 14.
+- Additional fix:
+  - When the Python/PowerShell/Runner chain degrades Chinese arguments, MCP may temporarily write keys such as `FL9A???A100.001-1 / ??`.
+  - Backend `_repair_mojibake_face_mapping_key` now repairs both component-name and face-name `?` degradation keys.
+  - The stale incorrect key produced during this test was cleaned up.
+
+## 2026-07-06 Auto-recorded arbitrary faces for low-priority components
+
+- Background:
+  - The remaining components are hard to locate in the SolidWorks UI, and the user confirmed that the semantic bottom face is not required for these low-priority items.
+- Added MCP tool:
+  - `record_first_face_mapping`
+  - Takes a component instance name and face name.
+  - Searches under the component tree for the first solid-body face and writes it into the face mapping file.
+  - Does not enumerate or return all faces, avoiding `list_entities` hangs on large assemblies.
+- Build validation:
+  - `dotnet build vendor\solidworks-mcp\app\SolidWorksMcpApp\SolidWorksMcpApp.csproj -c Release` passed.
+- Real test result:
+  - `FL9A项目号A001.001-1`: arbitrary face recorded successfully.
+  - `手动锁付工位-1`: arbitrary face recorded successfully.
+  - `螺丝枪组件DDC-1`: failed because MCP found no solid-body face under that component.
+- Current `Verify Faces`:
+  - `missingCount=1`
+  - only `螺丝枪组件DDC-1` remains.
+- Conclusion:
+  - 14 of the 15 top-level components now have face mappings.
+  - `螺丝枪组件DDC-1` should be handled later by skipping/excluding it, resolving/fixing its source geometry, or choosing a different layout unit.
+
+## 2026-07-06 test1 14-component source layout capture and target replay test
+
+- Temporarily excluded `螺丝枪组件DDC-1` from the 15 top-level components.
+- Test component count: 14.
+- `Verify Faces`:
+  - Passed.
+  - `missingCount=0`.
+- `Capture Project Layout`:
+  - Passed.
+  - Wrote `demo\test1_14_layout2d.json`.
+  - Wrote `demo\test1_14_project_config.json`.
+  - The layout JSON contains:
+    - `success=true`
+    - `componentCount=14`
+    - `missingFaceMappings=[]`
+    - `baseComponentName=FL9A项目号A400.001-1`
+    - all 14 components have `layout2d`.
+- Target assembly initialize test:
+  - Attempted to insert the 14 real subassemblies into `demo\test1_14_replay.SLDASM`.
+  - `initialize_common_base_assembly` did not return within 15 minutes and timed out.
+  - `test1_14_replay.SLDASM` and the initialize screenshot were not generated.
+  - The latest log shows the tool connected to SolidWorks but did not complete subsequent insertion steps.
+- Conclusion:
+  - `source assembly discovery -> face mapping verification -> layout2d/project config generation` is validated on 14 real components.
+  - `create a new target assembly and insert 14 real subassemblies in one shot` remains unstable and needs batching, progress logging, timeout protection, and failed-component isolation.
+## 2026-07-06 Addendum: 14-component batched initialization and instance-name consistency
+
+- Added the MCP tool `AppendComponentsToCommonBaseAssembly` to append one component batch to a target assembly and save progress immediately.
+- Backend Initialize now automatically uses batched mode when the component count is larger than `DEMO_INITIALIZE_BATCH_SIZE`:
+  - default batch size: 4;
+  - each batch is persisted in `lastRun.initializationBatches`;
+  - this avoids a single long 14-component insert call timing out.
+- Added `DEMO_TARGET_ASSEMBLY_PATH` so real project tests can use a fresh target assembly instead of a locked or stale `ABC_arrange_demo.SLDASM`.
+- Added post-insert component instance renaming:
+  - SolidWorks can assign target instance names that differ from the source layout `componentName`;
+  - inserted target instances are now renamed to the requested `componentName`;
+  - this keeps face mappings, Common Base, and Replay Layout aligned with the captured source layout.
+- Real validation completed:
+  - `demo/test1_14_replay_batched.SLDASM`: 14-component batched Initialize succeeded in 4 batches;
+  - `demo/test1_14_replay_batched_v2.SLDASM`: after the rename fix, 14-component batched Initialize succeeded again in 4 batches.
+- Common Base has also been split into batches:
+  - each batch uses the first component as the anchor and processes a small target subset;
+  - on the old v1 target, batched Common Base no longer timed out and instead returned a precise first-batch error around `FL9A项目号A600.001-2`.
+
+Current status:
+
+- The v2 target assembly has completed batched Initialize.
+- Discovery on the v2 target returned 14 top-level components.
+- The full v2 `Common Base -> Replay Layout` loop is not yet complete. Next, confirm target instance names match state/layout exactly, then rerun batched Common Base.

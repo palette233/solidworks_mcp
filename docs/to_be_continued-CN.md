@@ -1300,3 +1300,169 @@ Discover -> Verify Faces -> Capture Layout JSON -> Save Project Config
 注意：
 - Discovery 应先保持只读，不修改 SolidWorks 文档。
 - 第一轮不要自动推断底面，避免引入新的几何误判风险。
+## 2026-06-30 22:06:48 待继续：n 组件发现后的真实项目化补齐
+
+本轮已实现 `DiscoverLayoutComponentsFromAssembly`、后端同步接口和前端 Project Config 入口，但仍有以下限制：
+
+1. 发现范围第一版以顶层 resolved 子装配体为主。
+   - `recursive` 参数已预留，但真实项目中是否应包含嵌套子装配体，需要结合装配结构策略确认。
+   - suppressed / lightweight / hidden 组件暂未做稳定发现与恢复。
+2. 底面仍需人工记录或已有映射。
+   - 发现组件只会填入默认 `bottomFaceName=底面`。
+   - 后续需要自动建议底面候选，或提供批量面映射任务清单。
+3. 项目 layout JSON 生成依赖当前组件列表和 face mapping。
+   - 如果某个组件名称与映射不一致，Capture Project Layout 会被面映射校验阻断。
+   - 后续需要在 UI 中显示“发现组件 / 已映射 / 未映射 / 可捕获”的矩阵状态。
+4. 真实项目配置还缺少可复用配置文件。
+   - 建议后续生成 `project_config.json`，包含 sourceAssemblyPath、component list、bottomFaceName、baseComponentName、outputPath、replay tolerances。
+   - 前端可加载该配置，一键执行 discovery -> verify -> capture -> replay。
+## 2026-07-06 15:17:34 待继续：真实 Recursive 发现的组件唯一性策略
+
+- 已增加重复 `componentName` 阻断，避免递归发现后同步到不安全状态。
+- 但这只是保护机制，不是最终解决方案。
+- 后续如果必须支持递归层级中的同名组件，需要选择一种长期策略：
+  1. 让 MCP 工具支持使用 `hierarchyPath` 精确定位组件；
+  2. 或在同步时为递归组件生成稳定别名，并让后续 SelectFace/Move 支持该别名；
+  3. 或业务上规定 layout 单元只能选择顶层组件，递归结果只用于检查和辅助。
+- 下一步真实测试时，需要记录 10+ 装配体中是否存在重复实例名、嵌套同名组件、lightweight/suppressed 组件。
+
+## 2026-07-06 15:09:37 待继续：10+ 子装配体真实闭环验证
+
+本轮已补齐发现筛选、项目配置输出和面映射矩阵，但以下问题仍需要后续真实验证或继续实现：
+
+1. 递归发现策略需要项目规则。
+   - 已支持 `topLevelOnly` 与 `recursive` 参数。
+   - 但真实装配体中，哪些嵌套子装配体应作为布局单元，仍需要结合业务定义。
+2. suppressed / lightweight / hidden 组件仍不是稳定能力。
+   - 当前发现仍主要依赖 resolved 组件。
+   - 后续需要明确是否自动 resolve lightweight，以及是否报告 suppressed 组件。
+3. 面映射矩阵还是状态展示，不是自动修复。
+   - 已能显示 Missing/Ready/Verified。
+   - 后续应增加“按组件触发记录/重录底面”的前端流程，以及自动底面候选推荐。
+4. `project_config.json` 已生成，但还不能一键加载并驱动全流程。
+   - 后续应支持导入 project config，自动恢复 source path、component list、layout path、tolerance 等配置。
+5. Common Base 对 10+ 组件仍需重点压测。
+   - 需要验证分批执行、失败组件隔离、重复 mate 诊断等能力。
+## 2026-07-06 15:32:27 待继续：test1.SLDASM 后续项目化闭环
+
+- 已完成只读发现验证：
+  - 顶层发现 15 个子装配体。
+  - 递归装配体发现 174 个 assembly。
+  - 递归包含零件发现 1870 个候选。
+- 下一步需要在重启后端后继续验证：
+  1. 确认发现结果默认底面名从 `??` 归一化为 `底面`。
+  2. 使用 `Top-level components` 选择 15 个顶层子装配体并执行 `Sync Selected`。
+  3. 执行 `Verify Faces`，生成缺失底面映射清单。
+  4. 对缺失项分批记录底面，避免一次处理 15+ 个组件时难以定位错误。
+  5. 映射通过后执行 `Generate Config`，产出 `project_config.json` 和 layout JSON。
+- 风险：
+  - 真实装配体中 15 个顶层子装配体不一定全部都应作为布局恢复单元，需要结合业务含义筛选。
+  - 递归包含零件的 1870 个候选规模过大，当前不建议直接同步。
+  - 如果后续仍需支持递归布局单元，必须继续推进层级路径定位或稳定别名机制，避免同名组件歧义。
+
+### 当前阻塞点：15 个顶层组件缺少底面映射
+
+- `Sync Selected` 已完成，当前 demo state 已切换为 `test1.SLDASM` 的 15 个顶层子装配体。
+- `Verify Faces` 返回 `blocked`，15 个组件均缺少 `底面` 映射。
+- 下一步测试顺序：
+  1. 在 SolidWorks 当前 `test1.SLDASM` 中，逐个选择每个顶层子装配体的真实底面。
+  2. 对每个选中的面调用 `Record Selected Face` 或脚本记录：
+     `python scripts\face_mapping_record_probe.py --component "<componentName>" --face 底面`
+  3. 每记录 3 到 5 个组件后运行一次 `Verify Faces`，避免 15 个组件全部记录完才发现某个面选错。
+  4. 当 `Verify Faces` 对 15 个组件全部通过后，再继续 `Generate Config`。
+  5. 若计划测试新装配体复原，再进入 `Initialize -> Common Base -> Replay Layout`。
+
+### 2026-07-06 追加：无实体面的顶层组件处理
+
+- `螺丝枪组件DDC-1` 在当前测试中无法通过 `record_first_face_mapping` 自动记录：
+  - MCP 在该组件下未找到 solid-body face。
+  - 这通常意味着该组件未解析、外部引用缺失、组件本身不含实体体，或实体在当前装配上下文不可见/不可读。
+- 后续可选方案：
+  1. 在项目配置中排除该组件，不作为 layout recovery 单元。
+  2. 在 SolidWorks 中 resolve/open 该组件源文件，确认其实体体是否可见，再重新记录。
+  3. 实现 Partial Mode：Common Base / Replay Layout 只处理已映射组件，并明确列出跳过项。
+  4. 若业务上该组件必须参与布局，需补充“无实体组件”的替代锚点策略，例如使用参考面、坐标系或包围盒代理点。
+
+### 2026-07-06 追加：14 组件目标装配体一次性导入超时
+
+- 已验证 14 组件源侧链路：
+  - `Verify Faces` 通过。
+  - `test1_14_layout2d.json` 生成成功。
+  - `test1_14_project_config.json` 生成成功。
+- 但目标侧一次性 Initialize 失败：
+  - `initialize_common_base_assembly` 尝试导入 14 个真实子装配体超过 15 分钟未返回。
+  - 未生成 `demo\test1_14_replay.SLDASM`。
+- 后续建议：
+  1. 将 Initialize 拆成批处理：
+     - 新建空 assembly。
+     - 每次插入 1 到 3 个组件。
+     - 每步保存并返回进度。
+  2. 在 C# 侧增加插入进度日志：
+     - 当前第几个组件。
+     - 组件路径。
+     - 插入耗时。
+     - 失败原因。
+  3. 增加失败隔离：
+     - 某个组件插入失败或超时，不阻塞整个项目。
+     - 返回 skipped/failed 列表。
+  4. 对大装配体优先测试“已存在目标 assembly 的 replay”，再测试“从空白 assembly 批量插入”。
+  5. 前端增加大装配体模式：
+     - 分批 Initialize。
+     - 显示进度。
+     - 允许跳过失败组件。
+## 2026-07-06 追加：14 组件闭环测试下一步
+
+当前已解决：
+
+- 14 个组件一次性 Initialize 超时的问题，已通过批量追加导入缓解。
+- 目标装配体实例名与源 layout `componentName` 不一致的问题，已通过插入后重命名修复。
+- Common Base 一次性处理 14 个组件超时的问题，已改为批量处理；旧目标上已能返回具体失败批次，而不是直接超时。
+
+仍需继续验证：
+
+1. 在 `demo/test1_14_replay_batched_v2.SLDASM` 上重新执行目标实例名比对：
+   - 期望：目标装配体 14 个顶层组件名与 `demo_state.json` 中 14 个 `componentName` 完全一致。
+2. 执行批量 Common Base：
+   - 期望：不再出现 `component not found`；
+   - 如果失败，应根据 `commonBaseBatches` 和 `orientationChecks` 定位具体组件。
+3. 执行 Replay Layout：
+   - 期望：读取 `demo/test1_14_layout2d.json`，移动目标装配体 14 个组件。
+4. 执行 Replay Check：
+   - 期望：生成误差报告；
+   - 若误差过大，下一步再区分是底面映射问题、实例名问题，还是 theta/旋转恢复问题。
+## 2026-07-06 追加：14 组件测试暴露的真实底面映射问题
+
+本轮测试说明：
+
+- 批量 Initialize 和 Replay 调用链已经可以在 14 组件目标装配体上运行。
+- 但 Common Base 不能依赖“随便选一个面”作为底面：
+  - 任意面可能没有稳定 normal；
+  - 即使有 normal，也可能与真实底面方向无关；
+  - 会导致 Common Base orientation mismatch；
+  - 后续 Replay Check 会出现局部大误差。
+
+具体观察：
+
+- `FL9A项目号A300.001-1` 和 `FL9A项目号A900.001-2` 在刷新任意面映射后，可以 probe normal，但法向与基准不一致。
+- Replay Layout 的工具调用本身成功，但 `FL9A项目号A900.001-1` 出现约 `1.59m` 的 XY 误差。
+
+建议下一步：
+
+1. 增加“底面候选自动识别”能力：
+   - 遍历组件实体面；
+   - 过滤面积过小的面；
+   - 优先选择法向接近全局/common-base 方向的较大平面；
+   - 输出候选列表让用户确认。
+2. 前端增加批量面映射状态：
+   - Ready；
+   - Missing；
+   - Probe failed；
+   - Normal mismatch；
+   - Low confidence candidate。
+3. Common Base 前增加预检：
+   - 如果某个面是 `record_first_face_mapping` 低置信度补出来的，不应直接进入 Common Base；
+   - 应提示用户确认真实底面。
+4. 对重复实例名场景实现稳定 instance mapping：
+   - 源组件名与目标导入实例名可能不同；
+   - 当前临时方案是生成 `test1_14_layout2d_target_names.json`；
+   - 长期应在初始化结果中返回 sourceName -> targetName 映射，并自动更新 layout/state。

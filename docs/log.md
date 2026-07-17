@@ -1940,3 +1940,170 @@ git diff --check
 - 做 `DiscoverLayoutComponentsFromAssembly` 最小只读版本。
 - 后端新增 discovery endpoint。
 - 前端新增 discovered components 表格。
+## 2026-07-06 15:17:34 操作记录
+
+- 对上一轮 10+ 项目化改动进行 review。
+- 修复 Recursive 发现中的选择唯一性问题：
+  - 前端发现选择从 `componentName` 改为 `hierarchyPath + componentName`。
+  - 后端同步发现组件时增加重复 `componentName` 检查。
+  - 出现重复名时返回 `blocked`，避免后续 SelectFace/Move 歧义。
+- 验证记录：
+  - `python -m compileall apps\demo-backend\src` 通过。
+  - `dotnet build vendor\solidworks-mcp\app\SolidWorksMcpApp\SolidWorksMcpApp.csproj -c Release` 通过。
+  - `npm.cmd run build` 通过。
+  - 临时后端测试：
+    - 12 个唯一组件同步和 `project_config.json` 写出成功。
+    - 重复 `componentName` 的递归候选被正确阻断。
+- 未执行真实 SolidWorks 10+ 装配体闭环，因为当前对话中未提供装配体路径，也无法确认该装配体是否作为活动文档打开。
+
+## 2026-07-06 15:09:37 操作记录
+
+- 面向 10+ 子装配体场景增强了 Project Config 链路：
+  - 前端 Discover 增加顶层/递归发现范围。
+  - 增加 Include parts 开关。
+  - 增加发现结果过滤、Select Visible、Clear。
+  - Generate Config 增加 `project_config.json` 输出。
+  - 侧栏新增 Face Mapping 状态矩阵。
+- 后端新增 `project_config.json` 写出逻辑：
+  - 包含 sourceAssemblyPath、targetAssemblyPath、baseComponentName、layoutJsonPath、faceMappingPath、replayTolerance、components。
+- 验证记录：
+  - `python -m compileall apps\demo-backend\src` 通过。
+  - `dotnet build vendor\solidworks-mcp\app\SolidWorksMcpApp\SolidWorksMcpApp.csproj -c Release` 通过。
+  - `npm.cmd run build` 通过。
+  - 使用临时后端状态模拟 12 个子装配体，验证同步组件和写出 `project_config.json` 成功。
+- 未做真实 SolidWorks 10+ 装配体验证；后续需要用真实装配体测试 recursive discovery、批量面映射、Common Base 与 Replay。
+
+## 2026-06-30 22:06:48 操作记录
+
+- 实现 `n 个子装配体自动发现` 第一版：
+  - 在 `DemoTools.cs` 中新增 `DiscoverLayoutComponentsFromAssembly` MCP 工具。
+  - 工具读取顶层 resolved 子装配体，返回路径、层级、Transform2、坐标轴等信息。
+- 实现 `layout JSON 自动生成项目配置` 的入口：
+  - 后端新增发现、同步发现结果、生成项目 layout JSON 的接口。
+  - 前端新增 Project Config 区域，可 Discover、Sync Selected、Generate Config。
+- 验证记录：
+  - `python -m compileall apps\demo-backend\src` 通过。
+  - `dotnet build vendor\solidworks-mcp\app\SolidWorksMcpApp\SolidWorksMcpApp.csproj -c Release` 通过。
+  - `npm.cmd run build` 通过。
+  - 临时后端状态中调用 `sync_discovered_components`，确认可将发现组件写入 demo state。
+- 注意：
+  - `npm run build` 在 PowerShell 下被执行策略拦截，改用 `npm.cmd run build` 后通过。
+  - 当前发现工具不自动识别底面，不处理 suppressed component。
+## 2026-07-06 15:32:27 操作记录：test1.SLDASM 只读发现测试
+
+- 用户已在 SolidWorks 中打开 `demo\test1.SLDASM`。
+- 检查后端 `/api/health` 正常，MCP bridge 模式可用。
+- 通过后端 discovery 接口执行三组只读测试：
+  - `topLevelOnly + includeParts=false`：15 个顶层子装配体。
+  - `recursive + includeParts=false`：174 个装配体候选。
+  - `recursive + includeParts=true`：1870 个候选，其中包含 1696 个零件。
+- 未执行 `Sync Selected`：
+  - 原因是当前运行中的后端仍是旧进程，返回默认底面名 `??`。
+  - 继续同步会把 `??` 写入状态，影响后续 Verify Faces。
+- 已将结果和下一步计划记录到中英文进展文档与待办文档。
+
+## 2026-07-06 15:32:27 操作记录：test1.SLDASM 顶层组件同步与 Verify Faces
+
+- 使用 `scripts\start_demo_backend.cmd` 启动新版后端。
+- `/api/demo/mcp-health` 确认：
+  - 当前 SolidWorks 活动文档为 `demo\test1.SLDASM`。
+  - backend/MCP face mapping 路径一致。
+- 重新执行顶层发现：
+  - 15 个顶层子装配体。
+  - 默认底面名为 `底面`。
+- 执行 `Sync Selected`：
+  - 15 个组件已同步到 `demo_state.json`。
+- 执行 `Verify Faces`：
+  - 返回 `blocked`。
+  - 15 个组件均缺少 `底面` 映射。
+- 暂停后续 Common Base / Generate Config，等待用户在 SolidWorks 中逐个选择真实底面并记录。
+
+## 2026-07-06 操作记录：记录 FL9A项目号A100.001-1 底面
+
+- 用户已在 SolidWorks 中选中 `FL9A项目号A100.001` 的底面。
+- 按当前 demo state 的实例名使用 `FL9A项目号A100.001-1` 记录。
+- 首次用独立脚本调用时，MCP runner 连接失败：`server shut down unexpectedly`。
+- 改用后端 `/api/demo/record-selected-face` 后成功记录。
+- 发现中文参数在部分命令链路中可能退化为 `?`，导致临时生成错误 key：
+  - `FL9A???A100.001-1 / ??`
+- 已补强后端 `_repair_mojibake_face_mapping_key`：
+  - 可将退化组件名和退化面名搬回真实 `componentName / faceName`。
+- 已清理本次错误 key。
+- 再次 `Verify Faces`：
+  - 缺失映射数量从 15 降为 14。
+  - `FL9A项目号A100.001-1` 不再在缺失清单中。
+
+## 2026-07-06 操作记录：记录 FL9A项目号A200.001-1 底面
+
+- 用户已在 SolidWorks 中选中 `FL9A项目号A200.001` 的底面。
+- 按当前 demo state 的实例名使用 `FL9A项目号A200.001-1` 记录。
+- 中途发现一次命令层 Unicode escape 写法错误，会导致传入字面量 `\u9879...` 而不是中文；该次调用未形成有效映射。
+- 重新使用 JSON escape 方式传参后记录成功：
+  - `record_face_mapping` 返回 `Success=true`。
+  - `get_selected_face_mapping_probe` 返回 leaf 为 `FL5A项目号A200101.01-1`。
+  - `face_mappings.json` 中已存在 `FL9A项目号A200.001-1 / 底面`。
+- 再次 `Verify Faces`：
+  - 缺失映射数量从 14 降为 13。
+  - `FL9A项目号A200.001-1` 不再在缺失清单中。
+
+## 2026-07-06 操作记录：自动记录剩余低优先级组件任意面
+
+- 用户说明剩余 3 个组件不要求准确底面，只需要各自有一个可记录的面。
+- 尝试通过 `list_entities` 枚举面时，大装配体环境下出现卡顿和超时。
+- 新增并编译通过 MCP 工具 `record_first_face_mapping`：
+  - 不枚举全部 face。
+  - 直接在目标组件树下寻找第一个 solid-body face。
+  - 找到后写入指定 face mapping。
+- 执行结果：
+  - `FL9A项目号A001.001-1` 成功。
+  - `手动锁付工位-1` 成功。
+  - `螺丝枪组件DDC-1` 失败：未找到 solid-body face。
+- 重新启动后端并执行 `Verify Faces`：
+  - `missingCount=1`
+  - 剩余缺失：`螺丝枪组件DDC-1`。
+
+
+## 2026-07-06 17:58:49 操作记录：排除无实体面组件后进行 14 组件链路测试
+
+- 按用户要求，暂时排除 `螺丝枪组件DDC-1`，因为该组件在当前装配体上下文中没有找到可读取的 solid-body face。
+- 将 `demo_state.json` 中的组件集调整为剩余 14 个顶层子装配体。
+- 执行 `/api/demo/verify-face-mappings`：
+  - `status=ok`
+  - `missingCount=0`
+  - 14 个组件的底面映射均已满足当前验证要求。
+- 执行 `/api/demo/capture-project-layout`：
+  - 成功生成 `demo/test1_14_layout2d.json`。
+  - 成功生成 `demo/test1_14_project_config.json`。
+  - layout 中包含 14 个组件，`missingFaceMappings=[]`，没有空 layout2d。
+- 尝试目标侧闭环：新建 `demo/test1_14_replay.SLDASM` 并一次性导入 14 个组件。
+  - 调用 `initialize_common_base_assembly` 后约 15 分钟超时。
+  - 未生成目标装配体和初始化截图。
+  - MCP 日志显示已进入 `InitializeCommonBaseAssembly started`，但未在超时前完成。
+- 结论：源装配体的 14 组件发现、验证、layout/config 生成链路已通过；目标侧“一次性导入 14 个真实子装配体”仍不稳定，下一步需要做批量初始化、进度保存和失败隔离。
+## 2026-07-06 操作记录：批量初始化与组件实例名修复
+
+- 新增并构建 `AppendComponentsToCommonBaseAssembly`。
+- 后端 Initialize 增加批量模式：
+  - `DEMO_INITIALIZE_BATCH_SIZE=4`；
+  - 14 个组件拆为 4 批执行；
+  - 每批结果写入 `lastRun.initializationBatches`。
+- 新增 `DEMO_TARGET_ASSEMBLY_PATH`，用于指定本轮测试目标文件。
+- 首轮目标文件：
+  - `demo/test1_14_replay_batched.SLDASM`
+  - 14 组件批量 Initialize 成功。
+- 在旧目标上执行批量 Common Base：
+  - 不再 420 秒超时；
+  - 第 1 批明确失败；
+  - `orientationChecks` 指向 `FL9A项目号A600.001-2`；
+  - 进一步 discovery 发现目标装配体实际实例名与源 layout 名不一致。
+- 修复方式：
+  - `AssemblyService` 新增 `RenameComponent(currentName, newName)`；
+  - `DemoTools.PrepareComponent` 插入组件后，如果 SolidWorks 自动实例名和请求的 `componentName` 不一致，就立即重命名。
+- 重新构建后进行 v2 测试：
+  - 目标文件：`demo/test1_14_replay_batched_v2.SLDASM`
+  - 14 组件批量 Initialize 再次成功；
+  - 文件已生成，大小约 84MB；
+  - v2 discovery 已完成并返回 14 个顶层组件。
+- 用户在我进行精确 expected/actual 名称比对时要求先分析日志，因此本轮暂停在：
+  - v2 已 Initialize；
+  - v2 尚未完成 Common Base 和 Replay Layout。

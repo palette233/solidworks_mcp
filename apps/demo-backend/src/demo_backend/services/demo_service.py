@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 from ..adapters.llm_client import LlmClient
 from ..adapters.mcp_client import McpClient
 from ..face_mappings import FaceMappingStore
 from ..mcp_tools import (
+    APPEND_COMPONENTS_TO_COMMON_BASE_ASSEMBLY_TOOL,
     ARRANGE_COMPONENTS_ON_COMMON_BASE_TOOL,
     APPLY_CAPTURED_COMMON_BASE_LAYOUT_TOOL,
     CAPTURE_COMMON_BASE_LAYOUT_TOOL,
+    DISCOVER_LAYOUT_COMPONENTS_TOOL,
     FINALIZE_COMMON_BASE_ASSEMBLY_TOOL,
     INITIALIZE_COMMON_BASE_ASSEMBLY_TOOL,
     MOVE_COMPONENTS_ON_COMMON_BASE_TOOL,
@@ -17,9 +20,12 @@ from ..mcp_tools import (
 from ..models import (
     ApplyCapturedLayoutRequest,
     ApplyLayoutRequest,
+    CaptureProjectLayoutRequest,
     Coordinate,
     DemoComponent,
     DemoState,
+    DiscoverComponentsRequest,
+    DiscoveryResult,
     Layout2d,
     LayoutComponentSummary,
     LayoutJsonInfo,
@@ -27,6 +33,7 @@ from ..models import (
     OperationResult,
     RecordSelectedFaceRequest,
     SelectLayoutJsonRequest,
+    SyncDiscoveredComponentsRequest,
     ToolCallPlan,
     UploadLayoutJsonRequest,
 )
@@ -42,6 +49,8 @@ class DemoService:
         mcp: McpClient,
         replay_xy_tolerance_meters: float = 1e-6,
         replay_theta_tolerance_degrees: float = 1e-4,
+        initialize_batch_size: int = 4,
+        target_assembly_path: Path | str | None = None,
     ):
         self.store = store
         self.face_mappings = face_mappings
@@ -49,6 +58,12 @@ class DemoService:
         self.mcp = mcp
         self.replay_xy_tolerance_meters = replay_xy_tolerance_meters
         self.replay_theta_tolerance_degrees = replay_theta_tolerance_degrees
+        self.initialize_batch_size = max(1, initialize_batch_size)
+        self.target_assembly_path = (
+            Path(target_assembly_path)
+            if target_assembly_path is not None
+            else self._workspace() / "demo" / "ABC_arrange_demo.SLDASM"
+        )
 
     def get_state(self) -> DemoState:
         state = self.store.load()
@@ -156,6 +171,10 @@ class DemoService:
         )
 
     async def verify_face_mappings(self) -> OperationResult:
+        # 前端 Verify Faces 的后端入口。
+        # 先做本地 face_mappings.json 缺失检查，再确认 SolidWorks 活动装配体与 state.assembly_path 一致；
+        # 通过后，对每个组件依次调用 select_face_by_name + get_selected_face_mapping_probe。
+        # 这一步不修改装配体，只验证“记录的底面能否被选回，以及选回后是否能读取中心/法向”。
         state = self.store.load()
         self._normalize_state(state)
 
@@ -253,6 +272,9 @@ class DemoService:
                 state=state,
             )
 
+        if len(state.components) > self.initialize_batch_size:
+            return await self._initialize_common_base_batched(state)
+
         plan = self._initialize_plan(state, align_bottom=False)
         result = await self.mcp.run_plan(plan)
         self._apply_arrange_outcome(result, state)
@@ -289,6 +311,147 @@ class DemoService:
         plan = self._capture_common_base_layout_plan(state)
         result = await self.mcp.run_plan(plan)
         self._apply_arrange_outcome(result, state, promote_targets=False)
+        result.state = state
+        return result
+
+    async def discover_components(self, request: DiscoverComponentsRequest) -> OperationResult:
+        state = self.store.load()
+        self._normalize_state(state)
+        default_bottom_face_name = self._normalize_face_name(request.default_bottom_face_name)
+        plan = [
+            ToolCallPlan(
+                tool=DISCOVER_LAYOUT_COMPONENTS_TOOL,
+                arguments={
+                    "sourceAssemblyPath": request.source_assembly_path,
+                    "scope": request.scope,
+                    "includeParts": request.include_parts,
+                    "includeSuppressed": request.include_suppressed,
+                    "defaultBottomFaceName": default_bottom_face_name,
+                },
+            )
+        ]
+        result = await self.mcp.run_plan(plan)
+        payload = self._arrange_payload(result)
+        discovery = None
+        if isinstance(payload, dict):
+            try:
+                discovery = DiscoveryResult.model_validate(payload)
+            except ValueError:
+                discovery = None
+        if result.status == "ok" and discovery is None:
+            result.status = "error"
+            result.message = "MCP tool did not return a parseable discovery result."
+        result.discovery = discovery
+        result.state = state
+        state.last_run = {
+            "status": result.status,
+            "message": result.message,
+            "discovery": payload,
+        }
+        self.store.save(state)
+        return result
+
+    def sync_discovered_components(self, request: SyncDiscoveredComponentsRequest) -> OperationResult:
+        state = self.store.load()
+        duplicate_names = self._duplicate_component_names([item.component_name for item in request.components])
+        if duplicate_names:
+            state.last_run = {
+                "status": "blocked",
+                "message": "Discovered components contain duplicate componentName values.",
+                "duplicateComponentNames": duplicate_names,
+            }
+            self.store.save(state)
+            return OperationResult(
+                status="blocked",
+                message=(
+                    "Discovered components contain duplicate componentName values. "
+                    "Filter the recursive discovery result or use top-level discovery before syncing. "
+                    f"Duplicates: {', '.join(duplicate_names)}"
+                ),
+                state=state,
+            )
+
+        components: list[DemoComponent] = []
+        seen_ids: set[str] = set()
+        for index, item in enumerate(request.components, start=1):
+            component_id = self._component_id(item.component_name, index, seen_ids)
+            bottom_face_name = self._normalize_face_name(item.default_bottom_face_name)
+            components.append(
+                DemoComponent(
+                    id=component_id,
+                    displayName=item.display_name or item.component_name,
+                    componentName=item.component_name,
+                    filePath=item.file_path,
+                    bottomFaceName=bottom_face_name,
+                    current=Coordinate(),
+                    target=Coordinate(),
+                )
+            )
+
+        state.components = components
+        state.common_base_ready = False
+        state.last_run = {
+            "status": "ok",
+            "message": f"Synced {len(components)} discovered components into demo state.",
+        }
+        self.store.save(state)
+        return OperationResult(
+            status="ok",
+            message=f"Synced {len(components)} discovered components into demo state.",
+            state=state,
+        )
+
+    async def capture_project_layout(self, request: CaptureProjectLayoutRequest) -> OperationResult:
+        state = self.store.load()
+        self._normalize_state(state)
+
+        missing = self.face_mappings.missing_bottom_mappings(state.components)
+        if missing:
+            return OperationResult(
+                status="blocked",
+                message="Please record bottom face mappings before generating a project layout JSON.",
+                missingFaceMappings=missing,
+                state=state,
+            )
+
+        workspace = self._workspace()
+        output_path = request.output_path or str(workspace / "demo" / "project_layout2d.json")
+        project_config_path = request.project_config_path or str(workspace / "demo" / "project_config.json")
+        plan = [
+            ToolCallPlan(
+                tool=CAPTURE_COMMON_BASE_LAYOUT_TOOL,
+                arguments={
+                    "sourceAssemblyPath": request.source_assembly_path or state.assembly_path,
+                    "baseComponentName": request.base_component_name
+                    or (state.components[0].component_name if state.components else None),
+                    "outputPath": output_path,
+                    "components": [
+                        {
+                            "componentName": component.component_name,
+                            "bottomFaceName": component.bottom_face_name,
+                        }
+                        for component in state.components
+                    ],
+                },
+            )
+        ]
+        result = await self.mcp.run_plan(plan)
+        self._apply_arrange_outcome(result, state, promote_targets=False)
+        if result.status == "ok":
+            self._write_project_config(
+                state=self.store.load(),
+                source_assembly_path=request.source_assembly_path or state.assembly_path,
+                base_component_name=request.base_component_name
+                or (state.components[0].component_name if state.components else None),
+                layout_json_path=output_path,
+                project_config_path=project_config_path,
+            )
+            state = self.store.load()
+            self._normalize_state(state)
+            last_run = state.last_run if isinstance(state.last_run, dict) else {}
+            last_run["projectConfigPath"] = str(self._resolve_workspace_path(project_config_path))
+            state.last_run = last_run
+            self.store.save(state)
         result.state = state
         return result
 
@@ -361,18 +524,40 @@ class DemoService:
 
         path = self.face_mappings.mapping_path
         mappings = self.face_mappings.load()
-        component_entry = mappings.get(component_name)
-        if not isinstance(component_entry, dict):
+        target_component_entry = mappings.setdefault(component_name, {})
+        if not isinstance(target_component_entry, dict):
             return
 
-        mojibake_entry = component_entry.get("??")
-        if not isinstance(mojibake_entry, dict):
+        repaired = False
+        mojibake_component_name = self._ascii_lossy_key(component_name)
+        source_component_keys = [component_name]
+        if mojibake_component_name != component_name:
+            source_component_keys.append(mojibake_component_name)
+
+        for source_component_key in source_component_keys:
+            component_entry = mappings.get(source_component_key)
+            if not isinstance(component_entry, dict):
+                continue
+
+            mojibake_entry = component_entry.get("??")
+            if not isinstance(mojibake_entry, dict):
+                continue
+
+            target_component_entry[face_name] = mojibake_entry
+            component_entry.pop("??", None)
+            if source_component_key != component_name and not component_entry:
+                mappings.pop(source_component_key, None)
+            repaired = True
+
+        if not repaired:
             return
 
-        component_entry[face_name] = mojibake_entry
-        component_entry.pop("??", None)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(mappings, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    @staticmethod
+    def _ascii_lossy_key(value: str) -> str:
+        return "".join(char if ord(char) < 128 else "?" for char in value)
 
     async def apply_layout(self, request: ApplyLayoutRequest) -> OperationResult:
         if not request.use_llm:
@@ -471,17 +656,15 @@ class DemoService:
 
         return state
 
-    @staticmethod
-    def _arrange_plan(state: DemoState, align_bottom: bool) -> list[ToolCallPlan]:
+    def _arrange_plan(self, state: DemoState, align_bottom: bool) -> list[ToolCallPlan]:
         if state.assembly_path:
             return DemoService._move_existing_plan(state)
-        return DemoService._initialize_plan(state, align_bottom)
+        return self._initialize_plan(state, align_bottom)
 
-    @staticmethod
-    def _initialize_plan(state: DemoState, align_bottom: bool) -> list[ToolCallPlan]:
+    def _initialize_plan(self, state: DemoState, align_bottom: bool) -> list[ToolCallPlan]:
         workspace = Path(__file__).resolve().parents[5]
         arguments = {
-            "outputAssemblyPath": str(workspace / "demo" / "ABC_arrange_demo.SLDASM"),
+            "outputAssemblyPath": str(self.target_assembly_path),
             "basePlaneName": "Front Plane",
             "basePlaneSelectionType": "PLANE",
             "screenshotPath": str(workspace / "demo" / "arrange_result_frontend.png"),
@@ -510,6 +693,120 @@ class DemoService:
                 arguments=arguments,
             )
         ]
+
+    async def _initialize_common_base_batched(self, state: DemoState) -> OperationResult:
+        workspace = Path(__file__).resolve().parents[5]
+        output_assembly_path = str(self.target_assembly_path)
+        screenshot_path = str(workspace / "demo" / "arrange_result_frontend.png")
+        batches = [
+            state.components[index : index + self.initialize_batch_size]
+            for index in range(0, len(state.components), self.initialize_batch_size)
+        ]
+        batch_records: list[dict] = []
+        all_tool_results: list[dict] = []
+        inserted_components: list[dict] = []
+        final_payload: dict | None = None
+
+        for batch_index, batch in enumerate(batches, start=1):
+            is_final_batch = batch_index == len(batches)
+            plan = [
+                ToolCallPlan(
+                    tool=APPEND_COMPONENTS_TO_COMMON_BASE_ASSEMBLY_TOOL,
+                    arguments={
+                        "components": [
+                            self._component_initialize_argument(component)
+                            for component in batch
+                        ],
+                        "outputAssemblyPath": output_assembly_path,
+                        "basePlaneName": "Front Plane",
+                        "basePlaneSelectionType": "PLANE",
+                        "screenshotPath": screenshot_path if is_final_batch else None,
+                        "screenshotWidth": 1600,
+                        "screenshotHeight": 900,
+                        "includeScreenshotBase64Data": False,
+                    },
+                )
+            ]
+            result = await self.mcp.run_plan(plan)
+            all_tool_results.extend(result.tool_results)
+            payload = self._arrange_payload(result)
+            final_payload = payload or final_payload
+            if payload:
+                self._apply_assembly_path_from_payload(state, payload)
+                inserted_components.extend(payload.get("components", []) if isinstance(payload.get("components"), list) else [])
+
+            batch_record = {
+                "batchIndex": batch_index,
+                "batchCount": len(batches),
+                "componentCount": len(batch),
+                "components": [component.component_name for component in batch],
+                "status": result.status,
+                "message": result.message,
+                "toolSuccess": payload.get("success") if isinstance(payload, dict) else None,
+                "toolMessage": payload.get("message") if isinstance(payload, dict) else None,
+            }
+            batch_records.append(batch_record)
+            state.last_run = {
+                "status": result.status,
+                "message": result.message,
+                "assemblyPath": state.assembly_path,
+                "initializationMode": "batched",
+                "initializeBatchSize": self.initialize_batch_size,
+                "initializationBatches": batch_records,
+            }
+            self.store.save(state)
+
+            if result.status != "ok" or not payload or not payload.get("success"):
+                return OperationResult(
+                    status=result.status if result.status != "ok" else "error",
+                    message=(
+                        f"Batch initialization stopped at batch {batch_index}/{len(batches)}: "
+                        f"{payload.get('message') if isinstance(payload, dict) else result.message}"
+                    ),
+                    toolResults=all_tool_results,
+                    state=state,
+                )
+
+        state.common_base_ready = False
+        state.last_run = {
+            "status": "ok",
+            "message": f"Batched InitializeCommonBaseAssembly completed in {len(batches)} batches.",
+            "toolSuccess": True,
+            "toolMessage": final_payload.get("message") if isinstance(final_payload, dict) else None,
+            "assemblyPath": state.assembly_path or output_assembly_path,
+            "screenshotPath": (
+                final_payload.get("screenshot", {}).get("outputPath")
+                if isinstance(final_payload, dict) and isinstance(final_payload.get("screenshot"), dict)
+                else None
+            ),
+            "components": inserted_components,
+            "initializationMode": "batched",
+            "initializeBatchSize": self.initialize_batch_size,
+            "initializationBatches": batch_records,
+        }
+        if not state.assembly_path:
+            state.assembly_path = output_assembly_path
+        self.store.save(state)
+        return OperationResult(
+            status="ok",
+            message=f"Batched InitializeCommonBaseAssembly completed in {len(batches)} batches.",
+            toolResults=all_tool_results,
+            state=state,
+        )
+
+    @staticmethod
+    def _component_initialize_argument(component: DemoComponent) -> dict:
+        return {
+            "componentName": component.component_name,
+            "filePath": component.file_path,
+            "x": component.target.x,
+            "y": component.target.y,
+            "z": component.target.z,
+            "bottomFaceName": component.bottom_face_name,
+            "currentX": component.current.x,
+            "currentY": component.current.y,
+            "currentZ": component.current.z,
+        }
 
     @staticmethod
     def _move_existing_plan(state: DemoState) -> list[ToolCallPlan]:
@@ -544,11 +841,19 @@ class DemoService:
         ]
 
     @staticmethod
-    def _finalize_common_base_plan(state: DemoState) -> list[ToolCallPlan]:
+    def _finalize_common_base_plan(
+        state: DemoState,
+        components: list[DemoComponent] | None = None,
+        include_screenshot: bool = True,
+    ) -> list[ToolCallPlan]:
+        # Common Base 的 MCP 调用计划。
+        # 后端只把组件名、底面名、当前/目标坐标和 assemblyPath 传给 MCP；
+        # 真正的选面、mate、法向检查都在 DemoTools.FinalizeCommonBaseAssembly 中完成。
         workspace = Path(__file__).resolve().parents[5]
+        selected_components = components or state.components
         arguments = {
             "assemblyPath": state.assembly_path,
-            "screenshotPath": str(workspace / "demo" / "arrange_result_frontend.png"),
+            "screenshotPath": str(workspace / "demo" / "arrange_result_frontend.png") if include_screenshot else None,
             "screenshotWidth": 1600,
             "screenshotHeight": 900,
             "includeScreenshotBase64Data": False,
@@ -563,7 +868,7 @@ class DemoService:
                     "currentY": component.current.y,
                     "currentZ": component.current.z,
                 }
-                for component in state.components
+                for component in selected_components
             ],
         }
 
@@ -597,6 +902,9 @@ class DemoService:
 
     @staticmethod
     def _apply_captured_layout_plan(state: DemoState) -> list[ToolCallPlan]:
+        # Replay Layout 的 MCP 调用计划。
+        # layout JSON 中保存了每个组件相对共同底平面的 x/y/theta；
+        # MCP 会再次选回底面并 probe 当前中心，再用 MoveComponent/RotateComponent 恢复到 layout2d 指定位置。
         workspace = Path(__file__).resolve().parents[5]
         layout_path = state.layout_json_path or str(workspace / "demo" / "captured_common_base_layout.json")
         return [
@@ -616,8 +924,13 @@ class DemoService:
     @staticmethod
     def _normalize_state(state: DemoState) -> None:
         for component in state.components:
-            if component.bottom_face_name in {"\u6434\u66df\u6f70", "\u6434\u66e2\u6f70", "\u4e45\u4e2d"}:
-                component.bottom_face_name = "\u5e95\u9762"
+            component.bottom_face_name = DemoService._normalize_face_name(component.bottom_face_name)
+
+    @staticmethod
+    def _normalize_face_name(face_name: str | None) -> str:
+        if not face_name or face_name in {"??", "\u6434\u66df\u6f70", "\u6434\u66e2\u6f70", "\u4e45\u4e2d", "\u6401\u66e6\u6f70"}:
+            return "\u5e95\u9762"
+        return face_name
 
     @staticmethod
     def _promote_targets_to_current(state: DemoState) -> None:
@@ -688,6 +1001,9 @@ class DemoService:
                 state=state,
             )
 
+        if len(state.components) > self.initialize_batch_size:
+            return await self._ensure_common_base_ready_batched(state)
+
         plan = self._finalize_common_base_plan(state)
         result = await self.mcp.run_plan(plan)
         if result.status != "ok":
@@ -718,6 +1034,112 @@ class DemoService:
         state.last_run = self._last_run_from_payload(result, payload)
         self.store.save(state)
         return result
+
+    async def _ensure_common_base_ready_batched(self, state: DemoState) -> OperationResult:
+        # 10+ 组件场景下的分批 Common Base。
+        # 每批都带上第一个组件作为 anchor，只把一部分 target 与 anchor 做共底面，
+        # 这样可以降低单次 SolidWorks mate/重建的耗时和卡顿风险。
+        # 需要注意：如果某一批的面映射选错或法向异常，后续批次会停止，前端会保留该批的诊断信息。
+        anchor = state.components[0]
+        target_batch_size = max(1, self.initialize_batch_size - 1)
+        targets = state.components[1:]
+        batches = [
+            targets[index : index + target_batch_size]
+            for index in range(0, len(targets), target_batch_size)
+        ]
+        batch_records: list[dict] = []
+        all_tool_results: list[dict] = []
+        all_components: list[dict] = []
+        all_corrections: list[dict] = []
+        all_checks: list[dict] = []
+        final_payload: dict | None = None
+
+        for batch_index, target_batch in enumerate(batches, start=1):
+            is_final_batch = batch_index == len(batches)
+            batch_components = [anchor, *target_batch]
+            plan = self._finalize_common_base_plan(
+                state,
+                components=batch_components,
+                include_screenshot=is_final_batch,
+            )
+            result = await self.mcp.run_plan(plan)
+            all_tool_results.extend(result.tool_results)
+            payload = self._arrange_payload(result)
+            final_payload = payload or final_payload
+            if isinstance(payload, dict):
+                all_components.extend(payload.get("components", []) if isinstance(payload.get("components"), list) else [])
+                all_corrections.extend(
+                    payload.get("orientationCorrections", [])
+                    if isinstance(payload.get("orientationCorrections"), list)
+                    else []
+                )
+                all_checks.extend(
+                    payload.get("orientationChecks", [])
+                    if isinstance(payload.get("orientationChecks"), list)
+                    else []
+                )
+                self._apply_assembly_path_from_payload(state, payload)
+
+            batch_record = {
+                "batchIndex": batch_index,
+                "batchCount": len(batches),
+                "anchorComponent": anchor.component_name,
+                "targetComponents": [component.component_name for component in target_batch],
+                "status": result.status,
+                "message": result.message,
+                "toolSuccess": payload.get("success") if isinstance(payload, dict) else None,
+                "toolMessage": payload.get("message") if isinstance(payload, dict) else None,
+            }
+            batch_records.append(batch_record)
+            state.last_run = {
+                "status": result.status,
+                "message": result.message,
+                "assemblyPath": state.assembly_path,
+                "commonBaseMode": "batched",
+                "commonBaseBatchSize": self.initialize_batch_size,
+                "commonBaseBatches": batch_records,
+                "orientationCorrections": all_corrections,
+                "orientationChecks": all_checks,
+            }
+            self.store.save(state)
+
+            if result.status != "ok" or not payload or not payload.get("success"):
+                return OperationResult(
+                    status=result.status if result.status != "ok" else "error",
+                    message=(
+                        f"Batched common-base stopped at batch {batch_index}/{len(batches)}: "
+                        f"{payload.get('message') if isinstance(payload, dict) else result.message}"
+                    ),
+                    toolResults=all_tool_results,
+                    state=state,
+                )
+
+        state.common_base_ready = True
+        state.last_run = {
+            "status": "ok",
+            "message": f"Batched FinalizeCommonBaseAssembly completed in {len(batches)} batches.",
+            "toolSuccess": True,
+            "toolMessage": final_payload.get("message") if isinstance(final_payload, dict) else None,
+            "assemblyPath": state.assembly_path,
+            "screenshotPath": (
+                final_payload.get("screenshot", {}).get("outputPath")
+                if isinstance(final_payload, dict) and isinstance(final_payload.get("screenshot"), dict)
+                else None
+            ),
+            "components": all_components,
+            "commonBaseMode": "batched",
+            "commonBaseBatchSize": self.initialize_batch_size,
+            "commonBaseBatches": batch_records,
+            "orientationCorrections": all_corrections,
+            "orientationChecks": all_checks,
+        }
+        self.store.save(state)
+        return OperationResult(
+            status="ok",
+            message=f"Batched FinalizeCommonBaseAssembly completed in {len(batches)} batches.",
+            toolResults=all_tool_results,
+            state=state,
+        )
 
     async def _check_active_assembly_matches_state(self, state: DemoState) -> OperationResult | None:
         if not state.assembly_path or self.mcp.mode == "dry-run":
@@ -984,6 +1406,32 @@ class DemoService:
         return 180.0 if normalized == -180.0 else normalized
 
     @staticmethod
+    def _component_id(component_name: str, index: int, seen: set[str]) -> str:
+        candidate = "".join(ch.lower() if ch.isalnum() else "-" for ch in component_name).strip("-")
+        if not candidate:
+            candidate = f"component-{index}"
+        base = candidate
+        suffix = 2
+        while candidate in seen:
+            candidate = f"{base}-{suffix}"
+            suffix += 1
+        seen.add(candidate)
+        return candidate
+
+    @staticmethod
+    def _duplicate_component_names(names: list[str]) -> list[str]:
+        seen: set[str] = set()
+        duplicates: set[str] = set()
+        for name in names:
+            key = name.strip().lower()
+            if not key:
+                continue
+            if key in seen:
+                duplicates.add(name)
+            seen.add(key)
+        return sorted(duplicates, key=str.lower)
+
+    @staticmethod
     def _apply_assembly_path_from_payload(state: DemoState, payload: dict) -> None:
         assembly_path = payload.get("assemblyPath")
         if isinstance(assembly_path, str) and assembly_path.strip():
@@ -1029,6 +1477,43 @@ class DemoService:
     def _resolve_workspace_path(cls, value: str | Path) -> Path:
         path = Path(value)
         return path if path.is_absolute() else cls._workspace() / path
+
+    def _write_project_config(
+        self,
+        state: DemoState,
+        source_assembly_path: str | None,
+        base_component_name: str | None,
+        layout_json_path: str,
+        project_config_path: str,
+    ) -> None:
+        output = self._resolve_workspace_path(project_config_path)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        layout_path = self._resolve_workspace_path(layout_json_path)
+        payload = {
+            "schemaVersion": 1,
+            "generatedAt": datetime.now(timezone.utc).isoformat(),
+            "sourceAssemblyPath": source_assembly_path,
+            "targetAssemblyPath": state.assembly_path,
+            "baseComponentName": base_component_name,
+            "layoutJsonPath": str(layout_path),
+            "faceMappingPath": str(self.face_mappings.mapping_path),
+            "replayTolerance": {
+                "xyMeters": self.replay_xy_tolerance_meters,
+                "thetaDegrees": self.replay_theta_tolerance_degrees,
+            },
+            "components": [
+                {
+                    "id": component.id,
+                    "displayName": component.display_name,
+                    "componentName": component.component_name,
+                    "filePath": component.file_path,
+                    "bottomFaceName": component.bottom_face_name,
+                    "enabled": True,
+                }
+                for component in state.components
+            ],
+        }
+        output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def _read_layout_info(self, path: Path) -> LayoutJsonInfo | None:
         if not path.exists() or path.suffix.lower() != ".json":

@@ -12,13 +12,16 @@ from .config import Settings, get_settings
 from .face_mappings import FaceMappingStore
 from .models import (
     ApplyLayoutRequest,
+    CaptureProjectLayoutRequest,
     DemoState,
+    DiscoverComponentsRequest,
     LayoutJsonInfo,
     McpHealthResult,
     OperationResult,
     ApplyCapturedLayoutRequest,
     RecordSelectedFaceRequest,
     SelectLayoutJsonRequest,
+    SyncDiscoveredComponentsRequest,
     UploadLayoutJsonRequest,
 )
 from .services.demo_service import DemoService
@@ -44,6 +47,8 @@ def create_service(settings: Settings) -> DemoService:
         mcp,
         replay_xy_tolerance_meters=settings.replay_xy_tolerance_meters,
         replay_theta_tolerance_degrees=settings.replay_theta_tolerance_degrees,
+        initialize_batch_size=settings.initialize_batch_size,
+        target_assembly_path=settings.resolved_target_assembly_path,
     )
 
 
@@ -74,6 +79,8 @@ def health(settings: Settings = Depends(get_settings)) -> dict:
         "mcpCommand": settings.mcp_command,
         "mcpCwd": str(settings.resolved_mcp_cwd) if settings.resolved_mcp_cwd else None,
         "mcpPipeName": settings.mcp_pipe_name,
+        "initializeBatchSize": settings.initialize_batch_size,
+        "targetAssemblyPath": str(settings.resolved_target_assembly_path),
     }
 
 
@@ -123,6 +130,30 @@ async def finalize_common_base(service: DemoService = Depends(get_service)) -> O
 @app.post("/api/demo/capture-common-base-layout", response_model=OperationResult)
 async def capture_common_base_layout(service: DemoService = Depends(get_service)) -> OperationResult:
     return await service.capture_common_base_layout()
+
+
+@app.post("/api/demo/discover-components", response_model=OperationResult)
+async def discover_components(
+    request: DiscoverComponentsRequest,
+    service: DemoService = Depends(get_service),
+) -> OperationResult:
+    return await service.discover_components(request)
+
+
+@app.post("/api/demo/sync-discovered-components", response_model=OperationResult)
+def sync_discovered_components(
+    request: SyncDiscoveredComponentsRequest,
+    service: DemoService = Depends(get_service),
+) -> OperationResult:
+    return service.sync_discovered_components(request)
+
+
+@app.post("/api/demo/capture-project-layout", response_model=OperationResult)
+async def capture_project_layout(
+    request: CaptureProjectLayoutRequest,
+    service: DemoService = Depends(get_service),
+) -> OperationResult:
+    return await service.capture_project_layout(request)
 
 
 @app.get("/api/demo/layout-json-files", response_model=list[LayoutJsonInfo])

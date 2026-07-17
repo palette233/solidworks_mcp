@@ -114,6 +114,64 @@ class ApplyCapturedLayoutRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class DiscoverComponentsRequest(BaseModel):
+    source_assembly_path: str | None = Field(default=None, alias="sourceAssemblyPath")
+    scope: str = "topLevelOnly"
+    include_parts: bool = Field(default=False, alias="includeParts")
+    include_suppressed: bool = Field(default=False, alias="includeSuppressed")
+    default_bottom_face_name: str = Field(default="\u5e95\u9762", alias="defaultBottomFaceName")
+
+    model_config = {"populate_by_name": True}
+
+
+class DiscoveredComponent(BaseModel):
+    component_name: str = Field(alias="componentName")
+    display_name: str = Field(alias="displayName")
+    file_path: str = Field(alias="filePath")
+    hierarchy_path: str = Field(default="", alias="hierarchyPath")
+    depth: int = 0
+    is_assembly: bool = Field(default=False, alias="isAssembly")
+    is_part: bool = Field(default=False, alias="isPart")
+    is_suppressed: bool = Field(default=False, alias="isSuppressed")
+    is_hidden: bool = Field(default=False, alias="isHidden")
+    transform: list[float] | None = None
+    translation: list[float] | None = None
+    x_axis: list[float] | None = Field(default=None, alias="xAxis")
+    y_axis: list[float] | None = Field(default=None, alias="yAxis")
+    z_axis: list[float] | None = Field(default=None, alias="zAxis")
+    default_bottom_face_name: str = Field(default="\u5e95\u9762", alias="defaultBottomFaceName")
+
+    model_config = {"populate_by_name": True}
+
+
+class DiscoveryResult(BaseModel):
+    success: bool
+    message: str
+    source_assembly_path: str | None = Field(default=None, alias="sourceAssemblyPath")
+    scope: str = "topLevelOnly"
+    include_parts: bool = Field(default=False, alias="includeParts")
+    include_suppressed: bool = Field(default=False, alias="includeSuppressed")
+    component_count: int = Field(default=0, alias="componentCount")
+    components: list[DiscoveredComponent] = Field(default_factory=list)
+
+    model_config = {"populate_by_name": True}
+
+
+class SyncDiscoveredComponentsRequest(BaseModel):
+    components: list[DiscoveredComponent]
+
+    model_config = {"populate_by_name": True}
+
+
+class CaptureProjectLayoutRequest(BaseModel):
+    source_assembly_path: str | None = Field(default=None, alias="sourceAssemblyPath")
+    base_component_name: str | None = Field(default=None, alias="baseComponentName")
+    output_path: str | None = Field(default=None, alias="outputPath")
+    project_config_path: str | None = Field(default=None, alias="projectConfigPath")
+
+    model_config = {"populate_by_name": True}
+
+
 class ToolCallPlan(BaseModel):
     tool: str
     arguments: dict
@@ -127,6 +185,7 @@ class OperationResult(BaseModel):
     state: DemoState | None = None
     missing_face_mappings: list[dict[str, str]] = Field(default_factory=list, alias="missingFaceMappings")
     layout_info: LayoutJsonInfo | None = Field(default=None, alias="layoutInfo")
+    discovery: DiscoveryResult | None = None
 
     model_config = {"populate_by_name": True}
 

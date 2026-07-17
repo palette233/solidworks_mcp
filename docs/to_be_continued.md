@@ -1276,3 +1276,125 @@ Recommended next:
 Notes:
 - Discovery should be read-only first.
 - The first version should avoid automatic bottom-face inference to reduce geometry false positives.
+## 2026-06-30 22:06:48 To Continue: projectization gaps after n-component discovery
+
+This round added `DiscoverLayoutComponentsFromAssembly`, backend sync endpoints, and a frontend Project Config entry point. Remaining limits:
+
+1. Discovery is currently centered on top-level resolved subassemblies.
+   - A `recursive` scope is available, but real projects still need a clear policy for whether nested subassemblies should be layout units.
+   - Suppressed / lightweight / hidden components are not yet handled robustly.
+2. Bottom faces still require manual recording or existing mappings.
+   - Discovery only assigns the default `bottomFaceName=底面`.
+   - Later work should suggest bottom-face candidates automatically or generate a batch face-mapping task list.
+3. Project layout JSON generation depends on the current component list and face mappings.
+   - If component names do not match mapping keys, Capture Project Layout will be blocked by mapping validation.
+   - The UI should later show a matrix of discovered / mapped / unmapped / capturable components.
+4. A reusable project config file is still missing.
+   - Recommended next artifact: `project_config.json` with sourceAssemblyPath, component list, bottomFaceName, baseComponentName, outputPath, and replay tolerances.
+   - The frontend can load that config and run discovery -> verify -> capture -> replay as a guided workflow.
+## 2026-07-06 15:17:34 To Continue: component identity strategy for real recursive discovery
+
+- Duplicate `componentName` blocking has been added to avoid syncing an unsafe recursive result set.
+- This is a guardrail, not the final solution.
+- If recursive layouts must support repeated instance names, choose one long-term strategy:
+  1. Let MCP tools target components by `hierarchyPath`;
+  2. Or generate stable aliases during sync and teach downstream SelectFace/Move tools to use them;
+  3. Or define layout units as top-level components only, using recursive discovery for inspection and diagnostics.
+- During the next real 10+ assembly test, record whether the assembly contains duplicate instance names, nested repeated components, lightweight components, or suppressed components.
+
+## 2026-07-06 15:09:37 To Continue: real 10+ subassembly closed-loop validation
+
+This round added discovery filters, project config output, and a face-mapping matrix. Remaining work:
+
+1. Recursive discovery still needs project rules.
+   - `topLevelOnly` and `recursive` are now available.
+   - Real assemblies still need a business rule for which nested subassemblies should become layout units.
+2. Suppressed / lightweight / hidden components are not yet stable capabilities.
+   - Discovery still focuses on resolved components.
+   - Later work should decide whether to auto-resolve lightweight components and how to report suppressed components.
+3. The face-mapping matrix is status visualization, not automatic repair.
+   - It now shows Missing/Ready/Verified.
+   - Later work should add per-component record/remap flows and automatic bottom-face candidate suggestions.
+4. `project_config.json` is generated but cannot yet be loaded as a full workflow driver.
+   - Later work should support importing project config and restoring source path, component list, layout path, tolerances, and related settings.
+5. Common Base still needs stress testing for 10+ components.
+   - Batch execution, per-component failure isolation, and duplicate mate diagnostics remain important next steps.
+## 2026-07-06 15:32:27 To continue: projectized closed-loop test for test1.SLDASM
+
+- Read-only discovery validation is complete:
+  - 15 top-level subassemblies discovered.
+  - 174 recursive assembly candidates discovered.
+  - 1870 recursive candidates discovered when parts are included.
+- Next validation steps after restarting the backend:
+  1. Confirm the default discovered bottom face name is normalized from `??` to `底面`.
+  2. Use `Top-level components`, select the 15 top-level subassemblies, and run `Sync Selected`.
+  3. Run `Verify Faces` to produce the missing bottom-face mapping list.
+  4. Record missing bottom faces in batches so mapping mistakes are easy to isolate.
+  5. After mappings pass, run `Generate Config` to produce `project_config.json` and the layout JSON.
+- Risks:
+  - Not every top-level subassembly in the real assembly is necessarily a layout recovery unit; the set may need business filtering.
+  - The 1870 recursive candidates with parts included are too large for direct sync in the current workflow.
+  - If recursive layout units are required, hierarchy-path addressing or stable aliases must be implemented to avoid same-name ambiguity.
+
+### Current blocker: missing bottom-face mappings for 15 top-level components
+
+- `Sync Selected` has completed. The current demo state now contains the 15 top-level subassemblies from `test1.SLDASM`.
+- `Verify Faces` returned `blocked` because all 15 components are missing the `底面` mapping.
+- Next validation sequence:
+  1. In the active SolidWorks `test1.SLDASM`, select the real bottom face for each top-level subassembly.
+  2. For each selected face, run `Record Selected Face` or:
+     `python scripts\face_mapping_record_probe.py --component "<componentName>" --face 底面`
+  3. Run `Verify Faces` after every 3 to 5 recorded components so incorrect selections are caught early.
+  4. After all 15 components pass `Verify Faces`, continue with `Generate Config`.
+  5. For reconstruction testing, then proceed to `Initialize -> Common Base -> Replay Layout`.
+
+### 2026-07-06 Addendum: top-level components without solid-body faces
+
+- `螺丝枪组件DDC-1` could not be auto-recorded with `record_first_face_mapping`:
+  - MCP found no solid-body face under that component.
+  - This usually means the component is unresolved, has missing external references, contains no solid bodies, or its geometry is not visible/readable in the current assembly context.
+- Follow-up options:
+  1. Exclude this component from the project config and do not treat it as a layout recovery unit.
+  2. Resolve/open the component source file in SolidWorks and confirm its solid bodies are visible, then record again.
+  3. Implement Partial Mode so Common Base / Replay Layout process only mapped components and report skipped items explicitly.
+  4. If this component must participate, add an alternative anchor strategy for no-solid-body components, such as reference planes, coordinate systems, or bounding-box proxy anchors.
+
+
+## 2026-07-06 17:58:49 To Continue: 14-component target initialize timeout
+
+- For `demo/test1.SLDASM`, the workflow was continued by excluding `螺丝枪组件DDC-1`, which has no readable solid-body face in the current assembly context.
+- The remaining 14 top-level components passed face-mapping verification.
+- Source-side capture succeeded:
+  - `demo/test1_14_layout2d.json`
+  - `demo/test1_14_project_config.json`
+- Target-side reconstruction is currently blocked by one-shot initialization performance/stability:
+  - `initialize_common_base_assembly` was invoked for all 14 components into `demo/test1_14_replay.SLDASM`.
+  - The call timed out after roughly 15 minutes.
+  - No target assembly or initialize screenshot was produced.
+- This is not currently a face-mapping blocker. It is a large-assembly insertion / MCP progress / SolidWorks responsiveness blocker.
+
+Recommended next steps:
+
+1. Split target initialization into batches, for example 3 to 5 components per call.
+2. Persist progress after every inserted component so a timeout does not lose all work.
+3. Return per-component insert status, elapsed time, and failure details.
+4. Add a smaller smoke test path that replays 3 to 5 selected components before retrying the full 14-component workflow.
+5. Keep `螺丝枪组件DDC-1` excluded until a no-solid-body anchor strategy is implemented.
+## 2026-07-06 Addendum: next validation for the 14-component closed loop
+
+Resolved in this round:
+
+- The 14-component one-shot Initialize timeout is mitigated by batched append/insert.
+- Target instance names drifting away from source layout `componentName` is addressed by renaming inserted instances to the requested component name.
+- Common Base is also batched now. On the old target it no longer timed out and instead returned a precise first-batch failure.
+
+Remaining validation:
+
+1. Re-run exact instance-name comparison on `demo/test1_14_replay_batched_v2.SLDASM`.
+   - Expected: the 14 top-level target instance names match the 14 `componentName` values in `demo_state.json`.
+2. Run batched Common Base.
+   - Expected: no more `component not found` for renamed instances.
+   - If it fails, use `commonBaseBatches` and `orientationChecks` to identify the component.
+3. Run Replay Layout using `demo/test1_14_layout2d.json`.
+4. Run Replay Check.
+   - If errors remain, classify them as face mapping, instance naming, theta/orientation replay, or mate/common-base issues.

@@ -392,6 +392,12 @@ public interface ISelectionService
     FaceMappingResult RecordFaceMapping(string faceName, string componentName);
 
     /// <summary>
+    /// Record the first solid-body face found under a component. This is a demo fallback for
+    /// components where any stable face is acceptable.
+    /// </summary>
+    FaceMappingResult RecordFirstFaceMapping(string faceName, string componentName);
+
+    /// <summary>
     /// Select a face previously recorded with <see cref="RecordFaceMapping"/> by its name.
     /// Matching is done in component-local coordinates, so the selection is stable
     /// across move/rotate/mate operations.
@@ -1918,6 +1924,17 @@ public class SelectionService : ISelectionService
                 yield return body;
     }
 
+    private static IEnumerable<(IBody2 Body, IComponent2 Component)> GetBodyContextsDeep(IComponent2 component)
+    {
+        foreach (var body in GetBodies(component))
+            yield return (body, component);
+
+        var children = (object[]?)component.GetChildren() ?? [];
+        foreach (var child in children.OfType<IComponent2>())
+            foreach (var context in GetBodyContextsDeep(child))
+                yield return context;
+    }
+
     private static double[]? GetBox(IFace2 face)
         => ToDoubleArray(face.GetBox());
 
@@ -2905,6 +2922,11 @@ public class SelectionService : ISelectionService
 
     public FaceMappingProbeResult GetSelectedFaceMappingProbe(string? faceName = null, string? componentName = null)
     {
+        // 读取 SolidWorks 当前选择集中的第一个面，并返回“当前状态下”的几何探针数据。
+        // 该函数不会主动寻找面，只验证已经选中的面；因此常用于：
+        // 1. 手动选面后确认记录内容；
+        // 2. SelectFaceByName 自动选回面后，检查是否仍是同一个几何面；
+        // 3. Common Base / Replay 前读取底面中心和法向，作为移动或朝向校验依据。
         _cm.EnsureConnected();
         var selMgr = GetActiveModelDoc().ISelectionManager;
         int count = selMgr.GetSelectedObjectCount2(-1);
@@ -2962,6 +2984,10 @@ public class SelectionService : ISelectionService
 
     public FaceMappingResult RecordFaceMapping(string faceName, string componentName)
     {
+        // 手动记录路径：用户先在 SolidWorks UI 里选中一个真实面，
+        // MCP 再把该面的 leaf component、局部中心、面积、法向、Persistent Reference 等写入 face_mappings.json。
+        // 注意：这里不判断“这个面是否真的是底面”，只忠实记录当前选择。
+        // 因此真实装配体里底面不明显时，记录质量直接决定后续 SelectFaceByName、Common Base、Replay 的稳定性。
         _cm.EnsureConnected();
         var selMgr = GetActiveModelDoc().ISelectionManager;
         int count = selMgr.GetSelectedObjectCount2(-1);
@@ -2983,6 +3009,37 @@ public class SelectionService : ISelectionService
         if (face == null)
             return new FaceMappingResult(false, "Selected entity is not a face.", faceName, componentName);
 
+        return SaveFaceMapping(face, leafComponent, faceName, componentName);
+    }
+
+    public FaceMappingResult RecordFirstFaceMapping(string faceName, string componentName)
+    {
+        // 自动兜底记录路径：遍历目标组件下的实体并记录遇到的第一个面。
+        // 这只能用于快速诊断或非关键组件占位；它没有“识别真实底面”的语义。
+        // 如果后续要做精确共底面，应优先使用 RecordFaceMapping 手动记录，或实现更可靠的底面自动识别策略。
+        _cm.EnsureConnected();
+
+        var component = FindComponent(componentName);
+        if (component == null)
+            return new FaceMappingResult(false, $"Component '{componentName}' was not found.", faceName, componentName);
+
+        foreach (var (body, leafComponent) in GetBodyContextsDeep(component))
+        {
+            foreach (var face in ((object[]?)body.GetFaces() ?? Array.Empty<object>()).OfType<IFace2>())
+            {
+                return SaveFaceMapping(face, leafComponent, faceName, componentName);
+            }
+        }
+
+        return new FaceMappingResult(false, $"No solid-body face found under component '{componentName}'.", faceName, componentName);
+    }
+
+    private FaceMappingResult SaveFaceMapping(IFace2 face, IComponent2? leafComponent, string faceName, string componentName)
+    {
+        // face_mappings.json 的核心结构由这里生成。
+        // 保存 leafComponentFullName + localCenter 的原因是：组件整体移动/旋转后，
+        // 面在 leaf component 坐标系下的位置通常不变，便于在新姿态下重新找回同一个面。
+        // 但如果重新导入后组件实例名变化，或同类面很多且 localCenter/area/normal 不够区分，仍可能选错面。
         var box = ToDoubleArray(face.GetBox());
         if (box == null || box.Length < 6)
             return new FaceMappingResult(false, "Could not read face bounding box.", faceName, componentName);
@@ -3026,6 +3083,12 @@ public class SelectionService : ISelectionService
 
     public FaceMappingResult SelectFaceByName(string faceName, string componentName, bool append = false, int mark = 0)
     {
+        // 自动选回路径：
+        // 1. 从 face_mappings.json 读取记录；
+        // 2. 优先用 SolidWorks Persistent Reference 找回 IFace2；
+        // 3. Persistent Reference 失败时，按 leaf component + localCenter + area + localNormal 扫描候选面；
+        // 4. 选中分数最好的候选面。
+        // 这一步是后续“操作底面”的入口：mate、probe、move/replay 都依赖它先选中正确底面。
         _cm.EnsureConnected();
         var root = LoadMappings();
         if (root[componentName] is not System.Text.Json.Nodes.JsonObject compNode || compNode[faceName] is not System.Text.Json.Nodes.JsonNode entryNode)
@@ -3066,6 +3129,8 @@ public class SelectionService : ISelectionService
 
         if (!string.IsNullOrWhiteSpace(persistentReferenceBase64))
         {
+            // Persistent Reference 是当前最稳定的选面方式，但它可能受文档另存、重新导入实例、
+            // 组件替换等因素影响；失败后会自动降级到几何匹配。
             var persistentResult = TrySelectFaceByPersistentReference(
                 persistentReferenceBase64,
                 faceName,
@@ -3079,6 +3144,8 @@ public class SelectionService : ISelectionService
         }
 
         // Locate the leaf component directly — O(N_components), not O(N_faces).
+        // 先定位记录时的 leaf component，再只扫描该叶组件内的面，避免在整个装配体内 O(N_faces) 盲扫。
+        // 对 10+ 子装配体场景，这一步能明显减少误选和耗时；但实例名变化时 leafFullName 可能失效。
         var leaf = !string.IsNullOrWhiteSpace(leafFullName)
             ? FindComponent(leafFullName)
             : leafName != null ? FindComponent(leafName) : FindComponent(componentName);

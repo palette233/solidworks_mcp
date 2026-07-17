@@ -1904,3 +1904,232 @@ git diff --check
 - 前端已具备更适合 n 组件展示的自适应画布基础。
 - Replay Check 已具备项目级误差阈值配置能力。
 - 本轮没有修改 SolidWorks C# 几何核心工具，对现有稳定链路影响较低。
+## 2026-07-06 15:17:34 Review 修复：Recursive 发现选择与重复名保护
+
+- 对上一轮 10+ 组件项目化改动做了 review，发现并修复：
+  - 前端发现结果选择原先只用 `componentName` 作为 key；Recursive 场景下可能有重复实例名。
+  - 已改为使用 `hierarchyPath + componentName` 作为前端选择 key。
+  - 后端 `sync_discovered_components` 增加重复 `componentName` 检查。
+  - 如果递归发现结果中存在重复 `componentName`，同步会返回 `blocked`，提示先过滤递归结果或使用顶层发现，避免后续 SelectFace/Move 选错组件。
+- 验证：
+  - `python -m compileall apps\demo-backend\src` 通过。
+  - `dotnet build vendor\solidworks-mcp\app\SolidWorksMcpApp\SolidWorksMcpApp.csproj -c Release` 通过。
+  - `npm.cmd run build` 通过。
+  - 临时后端闭环测试通过：
+    - 12 个唯一组件可同步并写出 `project_config.json`。
+    - 2 个重复 `componentName` 的递归候选会被安全阻断。
+
+说明：
+
+- 当前代码已适合继续用真实 10+ 子装配体装配体做 `Discover -> Sync Selected -> Verify Faces -> Generate Config` 验证。
+- 若真实装配体需要 Recursive 发现，建议先用过滤器缩小范围，避免重复 `componentName`。
+
+## 2026-07-06 15:09:37 进展：面向 10+ 子装配体的项目化增强
+
+- 前端 Project Config 增强：
+  - `Discover` 支持 `Top-level components` / `Recursive components` 两种发现范围。
+  - 支持 `Include parts`，可在真实项目中选择是否把零件也纳入候选。
+  - 增加发现结果过滤框，支持按组件名、路径、层级路径过滤。
+  - 增加 `Select Visible` 和 `Clear`，便于 10+ 组件批量选择。
+- 新增项目配置输出：
+  - `Generate Config` 除 layout JSON 外，还会写出 `project_config.json`。
+  - 配置内容包含 sourceAssemblyPath、targetAssemblyPath、baseComponentName、layoutJsonPath、faceMappingPath、replayTolerance 和组件清单。
+  - 该配置用于后续把真实项目流程固化成可复用项目文件。
+- 批量面映射可视化：
+  - 前端侧栏新增 `Face Mapping` 矩阵。
+  - 对每个组件显示底面名、状态和最近工具调用计数。
+  - 当前状态区分 `Ready`、`Verified`、`Missing`，用于大组件数场景快速定位缺失映射。
+- 验证：
+  - `python -m compileall apps\demo-backend\src` 通过。
+  - `dotnet build vendor\solidworks-mcp\app\SolidWorksMcpApp\SolidWorksMcpApp.csproj -c Release` 通过。
+  - `npm.cmd run build` 通过。
+  - 使用临时后端状态模拟 12 个子装配体，完成 Sync Discovered Components 与 `project_config.json` 写出测试。
+
+阶段定位：
+
+- 当前已经具备“从源装配体发现 n 个候选组件 -> 批量选择 -> 同步 demo 状态 -> 生成 layout/project config”的项目化雏形。
+- 仍需用真实 10+ 子装配体装配体做 SolidWorks 闭环验证，尤其关注递归发现策略、底面映射缺失和 Common Base 求解稳定性。
+
+## 2026-06-30 22:06:48 进展：n 个子装配体自动发现与项目 Layout 配置入口
+
+- 新增 MCP 工具 `DiscoverLayoutComponentsFromAssembly`：
+  - 可从当前活动装配体或指定 `sourceAssemblyPath` 读取组件列表。
+  - 第一版默认发现顶层 resolved 子装配体，返回 componentName、filePath、hierarchyPath、Transform2、translation、axis 等信息。
+  - 当前不自动推断底面，默认给每个发现组件配置 `bottomFaceName=底面`，仍依赖已有面映射流程。
+- 新增后端接口：
+  - `POST /api/demo/discover-components`：调用 MCP 发现组件。
+  - `POST /api/demo/sync-discovered-components`：将选中的发现结果同步为当前 demo_state 的组件列表。
+  - `POST /api/demo/capture-project-layout`：基于当前组件列表生成项目 layout JSON。
+- 前端新增 Project Config 区域：
+  - 输入源装配体路径。
+  - Discover 发现组件。
+  - Sync Selected 将选中组件写入当前工作流。
+  - Generate Config 生成 layout JSON。
+- 验证：
+  - `python -m compileall apps\demo-backend\src` 通过。
+  - `dotnet build vendor\solidworks-mcp\app\SolidWorksMcpApp\SolidWorksMcpApp.csproj -c Release` 通过。
+  - `npm.cmd run build` 通过。
+  - 后端 `sync_discovered_components` 临时状态测试通过。
+
+阶段定位：
+
+- 已把原先固定 A/B/C 的配置方式，推进到“可从源装配体发现 n 个候选子装配体并生成项目配置”的第一版。
+- 这一步位于完整链路的最前端：`原始装配体 X -> 自动发现组件 -> 同步项目配置 -> 记录/验证底面 -> 捕获 layout2d -> 新装配体 replay`。
+- 仍未实现自动底面识别和 suppressed component 发现。
+## 2026-07-06 15:32:27 真实装配体 test1.SLDASM 发现链路只读验证
+
+- 测试对象：`demo\test1.SLDASM`，用户已在 SolidWorks 中打开。
+- 通过后端 `/api/demo/discover-components` 执行只读发现测试，未执行 `Sync Selected`，因此没有覆盖当前组件工作列表。
+- 结果：
+  - `topLevelOnly + includeParts=false`：发现 15 个顶层子装配体，均为 assembly，未发现重复名。
+  - `recursive + includeParts=false`：发现 174 个装配体候选，层级深度覆盖 0 到 5，未发现重复名。
+  - `recursive + includeParts=true`：发现 1870 个候选，其中 174 个 assembly、1696 个 part，层级深度覆盖 0 到 6。
+- 结论：
+  - `n 个子装配体自动发现` 在真实 10+ 装配体上已能读到顶层和递归组件树。
+  - 当前真实项目建议先用 `Top-level components` 做布局单元；`Recursive + Include parts` 规模过大，更适合排查，不适合直接全量同步。
+- 注意：
+  - 当前运行中的后端仍是旧进程，发现结果中的默认底面名显示为 `??`。
+  - 代码层已加入默认底面名归一化，需重启后端后再继续 `Sync Selected -> Verify Faces -> Generate Config`，避免把 `??` 写入状态。
+
+## 2026-07-06 15:32:27 test1.SLDASM 顶层 15 组件同步与批量面映射验证
+
+- 已重启后端并确认：
+  - `/api/health` 正常。
+  - `/api/demo/mcp-health` 显示当前活动文档为 `demo\test1.SLDASM`。
+  - backend 与 MCP 的 `face_mappings.json` 路径一致，均为 `artifacts\solidworks-mcp\face_mappings.json`。
+- 重新执行 `topLevelOnly + includeParts=false` 发现：
+  - 发现 15 个顶层子装配体。
+  - 默认底面名已正确归一化为 `底面`，不再是 `??`。
+- 已执行 `Sync Selected`：
+  - 15 个顶层组件已写入 `demo_state.json`。
+  - 所有组件的 `bottomFaceName` 均为 `底面`。
+- 已执行 `Verify Faces`：
+  - 返回 `blocked`，原因是 15 个顶层组件均缺少 `底面` 映射。
+  - 这是符合预期的真实项目化下一关；后续需要在 SolidWorks 中逐个或分批选中真实底面并记录。
+- 本次未继续执行 `Common Base` 或 `Generate Config`：
+  - 在缺少面映射的情况下继续执行会导致后续几何操作无可靠底面依据。
+
+## 2026-07-06 记录 FL9A项目号A100.001-1 底面并修复中文 key 后处理
+
+- 用户在 SolidWorks 中选中 `FL9A项目号A100.001-1` 的底面。
+- 通过后端 `/api/demo/record-selected-face` 记录底面映射。
+- 验证结果：
+  - `FL9A项目号A100.001-1 / 底面` 已写入 `artifacts\solidworks-mcp\face_mappings.json`。
+  - 记录包含 `localNormal`、`worldNormal`、`persistentReferenceBase64`、面积等信息。
+  - 再次执行 `Verify Faces` 后，缺失映射数量从 15 降为 14。
+- 同时发现并修复：
+  - 当 Python/PowerShell/Runner 链路发生中文参数退化时，MCP 可能临时写出 `FL9A???A100.001-1 / ??`。
+  - 后端 `_repair_mojibake_face_mapping_key` 已补强为同时修复组件名和面名的 `?` 退化 key。
+  - 已清理本次测试留下的错误 key。
+
+## 2026-07-06 自动记录低优先级组件任意面
+
+- 背景：
+  - 剩余组件在 SolidWorks UI 中不明显，用户确认不要求语义上的准确底面，只需要每个组件有一个可用面映射。
+- 新增 MCP 工具：
+  - `record_first_face_mapping`
+  - 输入顶层组件名和面名。
+  - 在组件树下直接寻找第一个 solid-body face 并写入 face mapping。
+  - 不再返回或枚举全部 face，避免大装配体上 `list_entities` 卡顿。
+- 编译验证：
+  - `dotnet build vendor\solidworks-mcp\app\SolidWorksMcpApp\SolidWorksMcpApp.csproj -c Release` 通过。
+- 实测结果：
+  - `FL9A项目号A001.001-1`：成功记录任意面。
+  - `手动锁付工位-1`：成功记录任意面。
+  - `螺丝枪组件DDC-1`：失败，MCP 返回该组件下没有 solid-body face。
+- 当前 `Verify Faces`：
+  - `missingCount=1`
+  - 仅剩 `螺丝枪组件DDC-1`。
+- 结论：
+  - 15 个顶层组件中已有 14 个具备面映射。
+  - `螺丝枪组件DDC-1` 需要后续按“跳过该组件 / 排除出布局单元 / resolve 或修复源文件后再记录”处理。
+
+## 2026-07-06 test1 14 组件源布局捕获与目标装配体重放测试
+
+- 已从当前 15 个顶层组件中临时排除 `螺丝枪组件DDC-1`。
+- 当前参与测试组件数：14。
+- `Verify Faces`：
+  - 通过。
+  - `missingCount=0`。
+- `Capture Project Layout`：
+  - 通过。
+  - 输出 `demo\test1_14_layout2d.json`。
+  - 输出 `demo\test1_14_project_config.json`。
+  - layout JSON 中：
+    - `success=true`
+    - `componentCount=14`
+    - `missingFaceMappings=[]`
+    - `baseComponentName=FL9A项目号A400.001-1`
+    - 所有 14 个组件均有 `layout2d`。
+- 目标新装配体 Initialize 测试：
+  - 尝试将 14 个真实子装配体导入 `demo\test1_14_replay.SLDASM`。
+  - 调用 `initialize_common_base_assembly` 超过 15 分钟未返回，最终超时。
+  - 未生成 `test1_14_replay.SLDASM` 或截图。
+  - 最新日志显示工具在连接 SolidWorks 后没有完成后续插入步骤。
+- 结论：
+  - “源装配体发现 -> 面映射验证 -> layout2d/project config 生成”链路已在 14 个真实组件上通过。
+  - “14 个真实子装配体一次性新建目标装配体并导入”仍不稳定，需要后续分批导入、进度日志、超时保护和失败组件隔离。
+## 2026-07-06 追加：14 组件批量初始化与实例名一致性修复
+
+- 新增 `AppendComponentsToCommonBaseAssembly` MCP 工具，用于向目标装配体追加一批组件并立即保存。
+- 后端 Initialize 对超过 `DEMO_INITIALIZE_BATCH_SIZE` 的组件集自动走批量模式：
+  - 默认批次大小：4；
+  - 每批完成后写入 `lastRun.initializationBatches`；
+  - 避免 14 个真实子装配体一次性导入导致 MCP 长时间超时。
+- 新增 `DEMO_TARGET_ASSEMBLY_PATH`，用于指定目标重建装配体路径，避免被旧的 `ABC_arrange_demo.SLDASM` 锁定影响测试。
+- 新增组件插入后重命名逻辑：
+  - SolidWorks 自动分配的实例名可能与源装配体 layout 中的 `componentName` 不一致；
+  - 现在导入后会将目标实例重命名为请求的 `componentName`；
+  - 这样面映射、Common Base 和 Replay Layout 可以继续使用源 layout 的组件名。
+- 已完成真实测试：
+  - `demo/test1_14_replay_batched.SLDASM`：14 组件批量 Initialize 成功，4 批完成；
+  - `demo/test1_14_replay_batched_v2.SLDASM`：在加入插入后重命名后，14 组件批量 Initialize 再次成功，4 批完成。
+- Common Base 也已改为批量执行：
+  - 每批使用第一个组件作为 anchor，再处理若干目标组件；
+  - 旧 v1 目标上验证时，Common Base 不再超时，而是在第 1 批返回明确错误，定位到 `FL9A项目号A600.001-2` 组件名/面映射问题。
+
+当前状态：
+
+- v2 目标装配体已经完成批量 Initialize。
+- v2 上的 discovery 已返回 14 个顶层组件。
+- 尚未完成 v2 上的完整 `Common Base -> Replay Layout` 闭环；下一步应先确认目标实例名与 state/layout 完全一致，再执行批量 Common Base。
+## 2026-07-06 追加：重启后 v2 目标装配体恢复测试
+
+- 用户重启电脑后重新打开 SolidWorks 与 `demo/test1_14_replay_batched_v2.SLDASM`。
+- 后端 Health 通过：
+  - active document 与 `demo_state.json` 的 `assemblyPath` 一致；
+  - backend/MCP face mapping path 一致；
+  - `targetAssemblyPath` 指向 v2 目标文件。
+- 初次 Verify Faces：
+  - 28 个工具调用中有 3 个失败；
+  - 失败原因是目标实例名与源 layout 名不一致：
+    - `A600.001-2 -> A600.001-1`
+    - `A700.001-2 -> A700.001-1`
+    - `A900.001-4 -> A900.001-1`
+- 已生成目标实例名适配版 layout：
+  - `demo/test1_14_layout2d_target_names.json`
+  - 同步更新 `demo_state.json` 中对应的 3 个组件名。
+- 再次 Verify Faces 后仍有 2 个 leaf mapping 失效：
+  - `FL9A项目号A600.001-1`
+  - `FL9A项目号A700.001-1`
+- 使用 `record_first_face_mapping` 刷新这两个组件映射后，Verify Faces 全部通过：
+  - 28 个工具结果；
+  - 0 个失败。
+- 批量 Common Base：
+  - 第 1 批已成功；
+  - 第 2 批失败，但不再是 component not found；
+  - 当前失败原因是任意面映射导致的法向不一致：
+    - `FL9A项目号A300.001-1`
+    - `FL9A项目号A900.001-2`
+- Replay Layout smoke test：
+  - 14 个组件移动/旋转调用均成功；
+  - Replay validation 未通过；
+  - `maxXyError=1.5928473368154257m`；
+  - `maxThetaErrorDegrees=90.0deg`；
+  - 主要误差集中在 `FL9A项目号A900.001-1`。
+
+阶段结论：
+
+- 14 组件目标装配体上的“移动/Replay 调用链”可以执行。
+- 但完整 Common Base 仍依赖真实底面映射；用任意面补映射会导致法向不一致和 replay 误差。
+- 下一步应优先解决真实项目中“底面候选自动识别/半自动确认”，而不是继续用任意面推进几何闭环。

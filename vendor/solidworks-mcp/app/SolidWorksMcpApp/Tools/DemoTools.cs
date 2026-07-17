@@ -98,6 +98,33 @@ public record DemoLayoutCaptureComponent(
     string? ComponentName,
     string BottomFaceName = "\u5e95\u9762");
 
+public record DemoDiscoveredLayoutComponent(
+    string ComponentName,
+    string DisplayName,
+    string FilePath,
+    string HierarchyPath,
+    int Depth,
+    bool IsAssembly,
+    bool IsPart,
+    bool IsSuppressed,
+    bool IsHidden,
+    double[]? Transform,
+    double[]? Translation,
+    double[]? XAxis,
+    double[]? YAxis,
+    double[]? ZAxis,
+    string DefaultBottomFaceName);
+
+public record DemoLayoutComponentDiscoveryResult(
+    bool Success,
+    string Message,
+    string? SourceAssemblyPath,
+    string Scope,
+    bool IncludeParts,
+    bool IncludeSuppressed,
+    int ComponentCount,
+    IReadOnlyList<DemoDiscoveredLayoutComponent> Components);
+
 public record DemoCapturedLayoutComponent(
     string ComponentName,
     string FilePath,
@@ -186,6 +213,44 @@ public class DemoTools(
             nameof(InitializeCommonBaseAssembly),
             new { components, outputAssemblyPath, templatePath, basePlaneName, basePlaneSelectionType, screenshotPath, screenshotWidth, screenshotHeight, includeScreenshotBase64Data },
             () => InitializeCore(
+                components,
+                outputAssemblyPath,
+                templatePath,
+                basePlaneName,
+                basePlaneSelectionType,
+                screenshotPath,
+                screenshotWidth,
+                screenshotHeight,
+                includeScreenshotBase64Data));
+
+        return JsonSerializer.Serialize(result, JsonOptions);
+    }
+
+    [McpServerTool, Description("Append one batch of components to an initialized common-base assembly target. Opens an existing assembly or creates it when missing, inserts only the supplied batch, saves progress, and optionally exports a screenshot. This is intended for large assemblies where one-shot initialize can time out.")]
+    public async Task<string> AppendComponentsToCommonBaseAssembly(
+        [Description("Component batch to insert. Each component must provide filePath, componentName, x/y/z, and bottomFaceName.")]
+        DemoComponentLayout[] components,
+        [Description("Output assembly path to create or append to.")]
+        string outputAssemblyPath,
+        [Description("Optional assembly template path used when creating the new assembly.")]
+        string? templatePath = null,
+        [Description("Reference movement plane used to interpret later 2D moves. For XY movement use Front Plane.")]
+        string basePlaneName = "Front Plane",
+        [Description("Reserved for future reference-plane mate support. Not used by the current entity-face mate workflow.")]
+        string basePlaneSelectionType = "PLANE",
+        [Description("Optional output PNG path. Leave empty to skip screenshot export.")]
+        string? screenshotPath = null,
+        [Description("Screenshot width in pixels.")]
+        int screenshotWidth = 1600,
+        [Description("Screenshot height in pixels.")]
+        int screenshotHeight = 900,
+        [Description("When true, includes base64 PNG data in the result.")]
+        bool includeScreenshotBase64Data = false)
+    {
+        var result = await sta.InvokeLoggedAsync(
+            nameof(AppendComponentsToCommonBaseAssembly),
+            new { components, outputAssemblyPath, templatePath, basePlaneName, basePlaneSelectionType, screenshotPath, screenshotWidth, screenshotHeight, includeScreenshotBase64Data },
+            () => AppendComponentsCore(
                 components,
                 outputAssemblyPath,
                 templatePath,
@@ -330,6 +395,32 @@ public class DemoTools(
         return JsonSerializer.Serialize(result, JsonOptions);
     }
 
+    [McpServerTool, Description("Discover candidate layout components from a source assembly. This is read-only and returns resolved component names, file paths, hierarchy paths, and Transform2 data. It does not infer bottom faces.")]
+    public async Task<string> DiscoverLayoutComponentsFromAssembly(
+        [Description("Optional source assembly path. Leave empty to use the active assembly.")]
+        string? sourceAssemblyPath = null,
+        [Description("Discovery scope. Use topLevelOnly for direct child components, or recursive for all resolved descendants.")]
+        string scope = "topLevelOnly",
+        [Description("Whether to include part files. False keeps only subassemblies.")]
+        bool includeParts = false,
+        [Description("Reserved for a future suppressed-component implementation. Current version discovers resolved components only.")]
+        bool includeSuppressed = false,
+        [Description("Bottom face name assigned to each discovered component in the generated project config.")]
+        string defaultBottomFaceName = "\u5e95\u9762")
+    {
+        var result = await sta.InvokeLoggedAsync(
+            nameof(DiscoverLayoutComponentsFromAssembly),
+            new { sourceAssemblyPath, scope, includeParts, includeSuppressed, defaultBottomFaceName },
+            () => DiscoverLayoutComponentsFromAssemblyCore(
+                sourceAssemblyPath,
+                scope,
+                includeParts,
+                includeSuppressed,
+                defaultBottomFaceName));
+
+        return JsonSerializer.Serialize(result, JsonOptions);
+    }
+
     [McpServerTool, Description("Apply a previously captured common-base layout JSON to the active or specified assembly. Moves each component so its recorded bottom-face center reaches the captured layout2d position in the captured base frame. This does not create mates or fix orientation.")]
     public async Task<string> ApplyCapturedCommonBaseLayout(
         [Description("Path to a JSON file produced by CaptureCommonBaseLayoutFromAssembly.")]
@@ -357,6 +448,72 @@ public class DemoTools(
                 includeScreenshotBase64Data));
 
         return JsonSerializer.Serialize(result, JsonOptions);
+    }
+
+    private DemoLayoutComponentDiscoveryResult DiscoverLayoutComponentsFromAssemblyCore(
+        string? sourceAssemblyPath,
+        string scope,
+        bool includeParts,
+        bool includeSuppressed,
+        string defaultBottomFaceName)
+    {
+        SwOpenResult? openedDocument = null;
+        if (!string.IsNullOrWhiteSpace(sourceAssemblyPath))
+        {
+            openedDocument = docs.OpenDocument(Path.GetFullPath(sourceAssemblyPath));
+        }
+
+        var normalizedScope = string.Equals(scope, "recursive", StringComparison.OrdinalIgnoreCase)
+            ? "recursive"
+            : "topLevelOnly";
+        var recursive = string.Equals(normalizedScope, "recursive", StringComparison.OrdinalIgnoreCase);
+        var bottomName = string.IsNullOrWhiteSpace(defaultBottomFaceName) ? "\u5e95\u9762" : defaultBottomFaceName;
+        var discovered = assembly.ListComponentPoses(topLevelOnly: !recursive)
+            .Select(pose =>
+            {
+                var extension = Path.GetExtension(pose.Path);
+                var isAssembly = string.Equals(extension, ".SLDASM", StringComparison.OrdinalIgnoreCase);
+                var isPart = string.Equals(extension, ".SLDPRT", StringComparison.OrdinalIgnoreCase);
+                return new
+                {
+                    Pose = pose,
+                    IsAssembly = isAssembly,
+                    IsPart = isPart,
+                };
+            })
+            .Where(item => includeParts || item.IsAssembly)
+            .Select(item => new DemoDiscoveredLayoutComponent(
+                item.Pose.Name,
+                item.Pose.Name,
+                item.Pose.Path,
+                item.Pose.HierarchyPath,
+                item.Pose.Depth,
+                item.IsAssembly,
+                item.IsPart,
+                false,
+                false,
+                item.Pose.Transform,
+                item.Pose.Translation,
+                item.Pose.XAxis,
+                item.Pose.YAxis,
+                item.Pose.ZAxis,
+                bottomName))
+            .ToList()
+            .AsReadOnly();
+
+        var message = includeSuppressed
+            ? "DiscoverLayoutComponentsFromAssembly completed for resolved components. Suppressed components are not included in this version."
+            : "DiscoverLayoutComponentsFromAssembly completed.";
+
+        return new DemoLayoutComponentDiscoveryResult(
+            true,
+            message,
+            sourceAssemblyPath ?? openedDocument?.Document.Path,
+            normalizedScope,
+            includeParts,
+            includeSuppressed,
+            discovered.Count,
+            discovered);
     }
 
     private DemoCapturedLayoutDocument CaptureCommonBaseLayoutCore(
@@ -555,6 +712,13 @@ public class DemoTools(
         int screenshotHeight,
         bool includeScreenshotBase64Data)
     {
+        // Replay Layout 主流程：
+        // 1. 读取 Capture 阶段生成的 layout2d；
+        // 2. 将 layout2d 反算成共同底平面上的目标世界坐标；
+        // 3. 如有 theta，则先绕共同底面法向做平面内旋转；
+        // 4. 通过 SelectFaceByName 选回当前组件底面，并 probe 当前底面中心；
+        // 5. 用 MoveComponent 按“目标底面中心 - 当前底面中心”的差值移动组件。
+        // 因此 replay 精度依赖两件事：layout2d 本身正确，以及 SelectFaceByName 能选回真实底面。
         if (string.IsNullOrWhiteSpace(layoutJsonPath))
         {
             throw new ArgumentException("layoutJsonPath must not be empty.", nameof(layoutJsonPath));
@@ -758,6 +922,95 @@ public class DemoTools(
             results.AsReadOnly());
     }
 
+    private DemoInitializationResult AppendComponentsCore(
+        DemoComponentLayout[] components,
+        string outputAssemblyPath,
+        string? templatePath,
+        string basePlaneName,
+        string basePlaneSelectionType,
+        string? screenshotPath,
+        int screenshotWidth,
+        int screenshotHeight,
+        bool includeScreenshotBase64Data)
+    {
+        if (components == null || components.Length == 0)
+        {
+            throw new ArgumentException("components must contain at least one component.", nameof(components));
+        }
+
+        if (string.IsNullOrWhiteSpace(outputAssemblyPath))
+        {
+            throw new ArgumentException("outputAssemblyPath must not be empty.", nameof(outputAssemblyPath));
+        }
+
+        var normalizedAssemblyPath = Path.GetFullPath(outputAssemblyPath);
+        var outputDirectory = Path.GetDirectoryName(normalizedAssemblyPath);
+        if (!string.IsNullOrWhiteSpace(outputDirectory))
+        {
+            Directory.CreateDirectory(outputDirectory);
+        }
+
+        SwDocumentInfo? createdDocument = null;
+        SwOpenResult? openedDocument = null;
+        if (File.Exists(normalizedAssemblyPath))
+        {
+            openedDocument = docs.OpenDocument(normalizedAssemblyPath);
+        }
+        else
+        {
+            createdDocument = docs.NewDocument(SwDocType.Assembly, templatePath);
+        }
+
+        var prepared = components.Select(component => PrepareComponent(component, baseZ: 0, alignBottom: false)).ToList();
+        var arranged = prepared
+            .Select(component => new DemoComponentArrangementResult(
+                RequestedComponentName: component.Source.ComponentName ?? "",
+                ComponentName: component.ComponentName,
+                FilePath: component.Source.FilePath,
+                BottomFaceName: component.Source.BottomFaceName,
+                Inserted: component.Inserted,
+                FaceMappingFound: false,
+                FaceSelection: null,
+                BottomMateResult: null,
+                BottomFaceCenter: null,
+                MoveResult: null))
+            .ToList();
+
+        var rebuild = docs.ForceRebuildActiveDocument(topOnly: false);
+        SwImageExportResult? screenshot = null;
+        if (!string.IsNullOrWhiteSpace(screenshotPath))
+        {
+            screenshot = docs.ExportCurrentViewPng(
+                screenshotPath,
+                screenshotWidth,
+                screenshotHeight,
+                includeScreenshotBase64Data);
+        }
+
+        var saveResult = docs.SaveDocumentAs(normalizedAssemblyPath, sourcePath: null, saveAsCopy: false);
+        var success = arranged.All(component => component.Inserted);
+        var message = success
+            ? "AppendComponentsToCommonBaseAssembly completed."
+            : "AppendComponentsToCommonBaseAssembly completed with errors. Check component insert results.";
+        if (openedDocument != null)
+        {
+            message += " Opened existing assembly before appending this batch.";
+        }
+
+        return new DemoInitializationResult(
+            Success: success,
+            Message: message,
+            AssemblyPath: normalizedAssemblyPath,
+            BasePlaneName: basePlaneName,
+            BasePlaneSelectionType: basePlaneSelectionType,
+            CreatedDocument: createdDocument,
+            SaveResult: saveResult,
+            Rebuild: rebuild,
+            Screenshot: screenshot,
+            Components: arranged.AsReadOnly(),
+            MissingFaceMappings: Array.Empty<string>());
+    }
+
     private DemoInitializationResult InitializeCore(
         DemoComponentLayout[] components,
         string outputAssemblyPath,
@@ -885,6 +1138,12 @@ public class DemoTools(
         int screenshotHeight,
         bool includeScreenshotBase64Data)
     {
+        // Common Base 主流程：
+        // 1. 打开目标装配体并确认每个组件都有底面映射；
+        // 2. 可选：mate 前根据底面法向做一次姿态预修正；
+        // 3. 以第一个组件为 anchor，对其它组件执行“anchor 底面 + target 底面”的 Coincident mate；
+        // 4. 重建、保存，并再次 probe 每个底面的 worldNormal，检查朝向是否与 anchor 一致。
+        // 这里的“操作底面”不是直接传 IFace2，而是每次通过 SelectFaceByName 从映射中重新选回面。
         if (components == null || components.Length == 0)
         {
             throw new ArgumentException("components must contain at least one component.", nameof(components));
@@ -1227,8 +1486,13 @@ public class DemoTools(
         {
             var insertZ = alignBottom ? baseZ + source.Z : source.Z;
             var info = assembly.InsertComponent(filePath, source.X, source.Y, insertZ);
+            if (!string.IsNullOrWhiteSpace(requestedName)
+                && !string.Equals(info.Name, requestedName, StringComparison.OrdinalIgnoreCase))
+            {
+                info = assembly.RenameComponent(info.Name, requestedName);
+            }
             inserted = true;
-            componentName = string.IsNullOrWhiteSpace(requestedName) ? info.Name : requestedName;
+            componentName = info.Name;
             currentX = source.X;
             currentY = source.Y;
             currentZ = insertZ;
@@ -1466,6 +1730,9 @@ public class DemoTools(
         PreparedComponent target,
         IDictionary<string, FaceMappingResult> faceSelections)
     {
+        // 单个 target 的共底面配合：
+        // 先选 anchor 记录的底面，再 append 选 target 记录的底面，最后创建 Coincident mate。
+        // 如果任意一侧 SelectFaceByName 选错或选不到，mate 就会失败或把错误的面配合到一起。
         selection.ClearSelection();
 
         var anchorSelection = selection.SelectFaceByName(
@@ -1506,6 +1773,10 @@ public class DemoTools(
         double normalDotThreshold,
         string stage)
     {
+        // 底面朝向修正入口。
+        // 当前策略以第一个组件的底面 normal 为基准，逐个检查其它组件 normal 是否同向；
+        // 如不同向，则尝试在 mate 前通过组件变换旋转姿态。该功能对面映射质量非常敏感，
+        // 如果 SelectFaceByName probe 到的不是目标底面，修正方向也会随之错误。
         var corrections = new List<DemoBottomOrientationCorrection>();
         if (prepared.Count < 2)
         {
@@ -1752,6 +2023,9 @@ public class DemoTools(
 
     private BottomFaceProbe ProbeBottomFace(PreparedComponent component)
     {
+        // 将“面映射”转成可操作的几何状态：
+        // SelectFaceByName 负责选回面，GetSelectedFaceMappingProbe 负责读取当前 center/normal。
+        // Common Base 用 normal 判断朝向，用 center 在旋转后恢复位置；Replay 用 center 计算 MoveComponent 偏移。
         selection.ClearSelection();
         var faceSelection = selection.SelectFaceByName(
             component.Source.BottomFaceName,
@@ -1792,6 +2066,8 @@ public class DemoTools(
         IReadOnlyList<PreparedComponent> prepared,
         double normalDotThreshold)
     {
+        // mate 完成后的验收：重新选回每个组件底面，读取 worldNormal，并和 anchor 的 worldNormal 做 dot product。
+        // 该检查只能证明“当前被选回的面”的朝向一致；如果面映射本身选错，检查结果也会失真。
         var checks = new List<DemoBottomOrientationCheck>();
         double[]? baseNormal = null;
 

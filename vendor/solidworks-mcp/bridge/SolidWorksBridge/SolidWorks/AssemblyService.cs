@@ -182,6 +182,12 @@ public interface IAssemblyService
     ComponentInfo InsertComponent(string filePath, double x = 0, double y = 0, double z = 0);
 
     /// <summary>
+    /// Rename one component instance in the active assembly.
+    /// 重命名当前装配体中的一个组件实例；用于在导入后保持目标装配体实例名与源 layout/componentName 一致。
+    /// </summary>
+    ComponentInfo RenameComponent(string currentName, string newName);
+
+    /// <summary>
     /// Add a Coincident mate between the two currently-selected entities.
     /// 瀵瑰綋鍓嶅凡缁忛€変腑鐨勪袱涓疄浣撴坊鍔犻噸鍚堥厤鍚堬紱甯哥敤浜庝袱涓钩闈?闈㈠叡闈紝鎴栬搴曢潰璐村悎鍩哄噯闈€?    /// </summary>
     MateOperationResult AddMateCoincident(MateAlign align = MateAlign.Closest);
@@ -323,6 +329,27 @@ public class AssemblyService : IAssemblyService
         }
 
         return new ComponentInfo(comp.Name2, comp.GetPathName());
+    }
+
+    public ComponentInfo RenameComponent(string currentName, string newName)
+    {
+        if (string.IsNullOrWhiteSpace(currentName))
+            throw new ArgumentException("currentName must not be empty", nameof(currentName));
+        if (string.IsNullOrWhiteSpace(newName))
+            throw new ArgumentException("newName must not be empty", nameof(newName));
+
+        _cm.EnsureConnected();
+        var assy = GetAssemblyDoc();
+        var instances = EnumerateComponentInstances(assy);
+        var target = instances.FirstOrDefault(i =>
+            string.Equals(i.Info.Name, currentName, StringComparison.OrdinalIgnoreCase));
+        if (target == null)
+        {
+            throw new InvalidOperationException($"Component '{currentName}' not found");
+        }
+
+        target.Component.Name2 = newName.Trim();
+        return new ComponentInfo(target.Component.Name2, target.Component.GetPathName());
     }
 
 

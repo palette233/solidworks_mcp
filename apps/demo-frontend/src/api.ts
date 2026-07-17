@@ -55,6 +55,7 @@ export type DemoState = {
     orientationChecks?: OrientationCheck[];
     missingFaceMappings?: string[];
     replayValidation?: ReplayValidation;
+    toolResults?: Array<Record<string, unknown>>;
   } | null;
   updatedAt: string;
 };
@@ -72,6 +73,7 @@ export type OperationResult = {
   state: DemoState | null;
   missingFaceMappings: Array<Record<string, string>>;
   layoutInfo?: LayoutJsonInfo | null;
+  discovery?: DiscoveryResult | null;
 };
 
 export type McpHealthResult = {
@@ -168,6 +170,35 @@ export type ReplayValidation = {
   components?: ReplayValidationComponent[];
 };
 
+export type DiscoveredComponent = {
+  componentName: string;
+  displayName: string;
+  filePath: string;
+  hierarchyPath: string;
+  depth: number;
+  isAssembly: boolean;
+  isPart: boolean;
+  isSuppressed: boolean;
+  isHidden: boolean;
+  transform?: number[] | null;
+  translation?: number[] | null;
+  xAxis?: number[] | null;
+  yAxis?: number[] | null;
+  zAxis?: number[] | null;
+  defaultBottomFaceName: string;
+};
+
+export type DiscoveryResult = {
+  success: boolean;
+  message: string;
+  sourceAssemblyPath?: string | null;
+  scope: string;
+  includeParts: boolean;
+  includeSuppressed: boolean;
+  componentCount: number;
+  components: DiscoveredComponent[];
+};
+
 const jsonHeaders = {
   "Content-Type": "application/json"
 };
@@ -248,6 +279,52 @@ export async function finalizeCommonBase(): Promise<OperationResult> {
 export async function captureCommonBaseLayout(): Promise<OperationResult> {
   return request<OperationResult>("/api/demo/capture-common-base-layout", {
     method: "POST"
+  });
+}
+
+export async function discoverComponents(
+  sourceAssemblyPath: string,
+  scope = "topLevelOnly",
+  includeParts = false,
+  includeSuppressed = false,
+  defaultBottomFaceName = "底面"
+): Promise<OperationResult> {
+  return request<OperationResult>("/api/demo/discover-components", {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({
+      sourceAssemblyPath: sourceAssemblyPath || null,
+      scope,
+      includeParts,
+      includeSuppressed,
+      defaultBottomFaceName
+    })
+  });
+}
+
+export async function syncDiscoveredComponents(components: DiscoveredComponent[]): Promise<OperationResult> {
+  return request<OperationResult>("/api/demo/sync-discovered-components", {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({ components })
+  });
+}
+
+export async function captureProjectLayout(
+  sourceAssemblyPath: string,
+  baseComponentName: string | null,
+  outputPath: string,
+  projectConfigPath: string
+): Promise<OperationResult> {
+  return request<OperationResult>("/api/demo/capture-project-layout", {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({
+      sourceAssemblyPath: sourceAssemblyPath || null,
+      baseComponentName,
+      outputPath: outputPath || null,
+      projectConfigPath: projectConfigPath || null
+    })
   });
 }
 

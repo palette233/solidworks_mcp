@@ -5,8 +5,12 @@ import {
   applyCapturedLayout,
   arrange,
   captureCommonBaseLayout,
+  captureProjectLayout,
   DemoComponent,
   DemoState,
+  discoverComponents,
+  DiscoveredComponent,
+  DiscoveryResult,
   finalizeCommonBase,
   getMcpHealth,
   getState,
@@ -22,6 +26,7 @@ import {
   resetState,
   saveState,
   selectLayoutJson,
+  syncDiscoveredComponents,
   uploadLayoutJson,
   verifyFaceMappings
 } from "./api";
@@ -179,6 +184,10 @@ function shortPath(value?: string | null): string {
   return parts.slice(-2).join("/");
 }
 
+function discoveryKey(component: DiscoveredComponent): string {
+  return `${component.hierarchyPath || component.componentName}::${component.componentName}`;
+}
+
 function layoutFor(component: DemoComponent, layoutInfo?: LayoutJsonInfo | null): LayoutComponentSummary | null {
   return layoutInfo?.components.find((item) => item.componentName === component.componentName) ?? null;
 }
@@ -330,6 +339,14 @@ function App() {
   const [layoutFiles, setLayoutFiles] = useState<LayoutJsonInfo[]>([]);
   const [result, setResult] = useState<OperationResult | null>(null);
   const [mcpHealth, setMcpHealth] = useState<McpHealthResult | null>(null);
+  const [sourceAssemblyPath, setSourceAssemblyPath] = useState("");
+  const [projectLayoutOutputPath, setProjectLayoutOutputPath] = useState("demo/project_layout2d.json");
+  const [projectConfigOutputPath, setProjectConfigOutputPath] = useState("demo/project_config.json");
+  const [discoveryScope, setDiscoveryScope] = useState("topLevelOnly");
+  const [discoveryIncludeParts, setDiscoveryIncludeParts] = useState(false);
+  const [discoveryFilter, setDiscoveryFilter] = useState("");
+  const [discovery, setDiscovery] = useState<DiscoveryResult | null>(null);
+  const [selectedDiscoveryKeys, setSelectedDiscoveryKeys] = useState<Set<string>>(new Set());
   const [xyToleranceMeters, setXyToleranceMeters] = useState(0.000001);
   const [thetaToleranceDegrees, setThetaToleranceDegrees] = useState(0.0001);
   const [busy, setBusy] = useState(false);
@@ -346,6 +363,36 @@ function App() {
     ? `/api/demo/screenshot?t=${encodeURIComponent(state?.updatedAt ?? String(Date.now()))}`
     : null;
   const worldBounds = useMemo(() => computeWorldBounds(state), [state]);
+  const missingMappingNames = useMemo(() => {
+    const rows = result?.missingFaceMappings ?? [];
+    return new Set(
+      rows
+        .map((row) => row.componentName)
+        .filter((value): value is string => typeof value === "string" && value.length > 0)
+    );
+  }, [result]);
+  const mappingRows = useMemo(() => {
+    const toolResults = state?.lastRun && Array.isArray((state.lastRun as Record<string, unknown>).toolResults)
+      ? ((state.lastRun as Record<string, unknown>).toolResults as Array<Record<string, unknown>>)
+      : [];
+    const verified = result?.status === "ok" && result.plan.some((item) => item.tool === "select_face_by_name");
+    return (state?.components ?? []).map((component) => ({
+      component,
+      status: missingMappingNames.has(component.componentName) ? "missing" : verified ? "verified" : "ready",
+      toolCount: toolResults.filter((item) => item.arguments && (item.arguments as Record<string, unknown>).componentName === component.componentName).length,
+    }));
+  }, [missingMappingNames, result, state]);
+  const filteredDiscoveryComponents = useMemo(() => {
+    const query = discoveryFilter.trim().toLowerCase();
+    const components = discovery?.components ?? [];
+    if (!query) {
+      return components;
+    }
+    return components.filter((component) =>
+      [component.componentName, component.hierarchyPath, component.filePath]
+        .some((value) => value.toLowerCase().includes(query))
+    );
+  }, [discovery, discoveryFilter]);
 
   async function load() {
     setBusy(true);
@@ -463,6 +510,92 @@ function App() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleDiscoverComponents() {
+    setBusy(true);
+    setError(null);
+    try {
+      const nextResult = await discoverComponents(
+        sourceAssemblyPath,
+        discoveryScope,
+        discoveryIncludeParts,
+        false,
+        "底面"
+      );
+      setResult(nextResult);
+      if (nextResult.state) {
+        setState(nextResult.state);
+      }
+      const nextDiscovery = nextResult.discovery ?? null;
+      setDiscovery(nextDiscovery);
+      setSelectedDiscoveryKeys(new Set(nextDiscovery?.components.map(discoveryKey) ?? []));
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSyncDiscoveredComponents() {
+    if (!discovery) return;
+    const selected = discovery.components.filter((component) => selectedDiscoveryKeys.has(discoveryKey(component)));
+    setBusy(true);
+    setError(null);
+    try {
+      const nextResult = await syncDiscoveredComponents(selected);
+      setResult(nextResult);
+      if (nextResult.state) {
+        setState(nextResult.state);
+      }
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleCaptureProjectLayout() {
+    setBusy(true);
+    setError(null);
+    try {
+      const nextResult = await captureProjectLayout(
+        sourceAssemblyPath,
+        state?.components?.[0]?.componentName ?? null,
+        projectLayoutOutputPath,
+        projectConfigOutputPath
+      );
+      setResult(nextResult);
+      if (nextResult.state) {
+        setState(nextResult.state);
+      }
+      await refreshLayouts();
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function handleToggleDiscovered(component: DiscoveredComponent) {
+    setSelectedDiscoveryKeys((current) => {
+      const next = new Set(current);
+      const key = discoveryKey(component);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }
+
+  function handleSelectVisibleDiscovered() {
+    setSelectedDiscoveryKeys(new Set(filteredDiscoveryComponents.map(discoveryKey)));
+  }
+
+  function handleClearDiscoveredSelection() {
+    setSelectedDiscoveryKeys(new Set());
   }
 
   async function handleSelectLayout(path: string) {
@@ -635,6 +768,128 @@ function App() {
               </label>
               <span className="layout-path">{shortPath(state?.layoutJsonPath)}</span>
             </div>
+            <div className="project-config-panel">
+              <div className="project-config-row">
+                <label>
+                  Source assembly
+                  <input
+                    type="text"
+                    value={sourceAssemblyPath}
+                    disabled={busy}
+                    placeholder="Use active SolidWorks assembly when empty"
+                    onChange={(event) => setSourceAssemblyPath(event.target.value)}
+                  />
+                </label>
+                <label>
+                  Output layout
+                  <input
+                    type="text"
+                    value={projectLayoutOutputPath}
+                    disabled={busy}
+                    onChange={(event) => setProjectLayoutOutputPath(event.target.value)}
+                  />
+                </label>
+                <label>
+                  Project config
+                  <input
+                    type="text"
+                    value={projectConfigOutputPath}
+                    disabled={busy}
+                    onChange={(event) => setProjectConfigOutputPath(event.target.value)}
+                  />
+                </label>
+              </div>
+              <div className="project-config-row compact">
+                <label>
+                  Discovery scope
+                  <select value={discoveryScope} disabled={busy} onChange={(event) => setDiscoveryScope(event.target.value)}>
+                    <option value="topLevelOnly">Top-level components</option>
+                    <option value="recursive">Recursive components</option>
+                  </select>
+                </label>
+                <label>
+                  Filter
+                  <input
+                    type="search"
+                    value={discoveryFilter}
+                    disabled={busy}
+                    placeholder="Component, path, hierarchy"
+                    onChange={(event) => setDiscoveryFilter(event.target.value)}
+                  />
+                </label>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={discoveryIncludeParts}
+                    disabled={busy}
+                    onChange={(event) => setDiscoveryIncludeParts(event.target.checked)}
+                  />
+                  Include parts
+                </label>
+              </div>
+              <div className="project-config-actions">
+                <button className="secondary-button" type="button" onClick={handleDiscoverComponents} disabled={busy}>
+                  Discover
+                </button>
+                <button className="secondary-button" type="button" onClick={handleSelectVisibleDiscovered} disabled={busy || filteredDiscoveryComponents.length === 0}>
+                  Select Visible
+                </button>
+                <button className="secondary-button" type="button" onClick={handleClearDiscoveredSelection} disabled={busy || selectedDiscoveryKeys.size === 0}>
+                  Clear
+                </button>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={handleSyncDiscoveredComponents}
+                  disabled={busy || !discovery || selectedDiscoveryKeys.size === 0}
+                >
+                  Sync Selected
+                </button>
+                <button className="secondary-button" type="button" onClick={handleCaptureProjectLayout} disabled={busy || !state?.components.length}>
+                  Generate Config
+                </button>
+              </div>
+              {discovery ? (
+                <div className="discovery-summary">
+                  <div className="discovery-message">
+                    <strong>{discovery.componentCount}</strong> components · {filteredDiscoveryComponents.length} visible · {discovery.message}
+                  </div>
+                  <div className="discovery-table">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Use</th>
+                          <th>Component</th>
+                          <th>Type</th>
+                          <th>Path</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredDiscoveryComponents.map((component) => (
+                          <tr key={`${component.hierarchyPath}-${component.componentName}`}>
+                            <td>
+                              <input
+                                type="checkbox"
+                                checked={selectedDiscoveryKeys.has(discoveryKey(component))}
+                                disabled={busy}
+                                onChange={() => handleToggleDiscovered(component)}
+                                aria-label={`Use ${component.componentName}`}
+                              />
+                            </td>
+                            <td>
+                              <strong>{component.componentName}</strong>
+                              <span>{component.hierarchyPath}</span>
+                            </td>
+                            <td>{component.isAssembly ? "ASM" : component.isPart ? "PRT" : "Other"}</td>
+                            <td>{shortPath(component.filePath)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : null}
+            </div>
             <div className="replay-settings">
               <label>
                 XY tol
@@ -768,6 +1023,29 @@ function App() {
                 <dt>MCP map</dt>
                 <dd>{shortPath(mcpHealth.mcpFaceMappingPath)}</dd>
               </dl>
+            </div>
+          ) : null}
+
+          {mappingRows.length > 0 ? (
+            <div className="panel mapping-panel">
+              <div className="panel-heading">
+                <h2>Face Mapping</h2>
+                <span>{mappingRows.filter((row) => row.status === "missing").length} missing</span>
+              </div>
+              <div className="mapping-list">
+                {mappingRows.map(({ component, status, toolCount }) => (
+                  <div className="mapping-row" key={component.id}>
+                    <div>
+                      <strong>{component.componentName}</strong>
+                      <span>{component.bottomFaceName}</span>
+                    </div>
+                    <span className={`mapping-status ${status}`}>
+                      {status === "missing" ? "Missing" : status === "verified" ? "Verified" : "Ready"}
+                    </span>
+                    <span className="mapping-count">{toolCount ? `${toolCount} calls` : "not run"}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : null}
 

@@ -146,6 +146,16 @@ public class SelectionTools(StaDispatcher sta, ISelectionService selection)
         return JsonSerializer.Serialize(result);
     }
 
+    [McpServerTool, Description("Record the first solid-body face found under a component as a face mapping. This is a demo fallback when any stable face is acceptable and the user cannot easily locate the component in the UI.")]
+    public async Task<string> RecordFirstFaceMapping(
+        [Description("Human-readable name for this face, e.g. '底面' or 'top_face'")] string faceName,
+        [Description("Component instance name to search under, e.g. 'Part1-1'")] string componentName)
+    {
+        var result = await sta.InvokeLoggedAsync(nameof(RecordFirstFaceMapping), new { faceName, componentName },
+            () => selection.RecordFirstFaceMapping(faceName, componentName));
+        return JsonSerializer.Serialize(result);
+    }
+
     [McpServerTool, Description("Select a face that was previously recorded with record_face_mapping, by its human-readable name. Matching uses component-local coordinates and is stable across move/rotate/mate operations.")]
     public async Task<string> SelectFaceByName(
         [Description("Human-readable name of the face, e.g. '底面'")] string faceName,
