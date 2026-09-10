@@ -70,7 +70,7 @@ static string[] ReadStringArray(JsonObject? root, string name, string[] fallback
         .ToArray();
 }
 
-var input = await Console.In.ReadToEndAsync();
+var input = (await Console.In.ReadToEndAsync()).TrimStart('\uFEFF', '\u200B', '\r', '\n', '\t', ' ');
 var root = JsonNode.Parse(input)?.AsObject()
     ?? throw new InvalidOperationException("Expected a JSON object on stdin.");
 
