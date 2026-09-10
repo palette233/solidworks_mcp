@@ -4,6 +4,20 @@ This workspace starts with a crawler for SOLIDWORKS 2025 API Web Help pages.
 
 It now also contains a SolidWorks MCP server base from [just1step/solidworks-mcp](https://github.com/just1step/solidworks-mcp), with a local RAG-backed knowledge tool added on top.
 
+## Layout Constraint Record
+
+The authoritative record for the current FL9A spatial constraints, solver ordering, deterministic biases, overlap exceptions, post-Replay validation, and known gaps is:
+
+- `docs/layout_constraints_and_solver_principles-CN.md`
+
+Any change to layout constraints or solver principles must update that document and its change log in the same change set.
+
+The Project 02 source-independent solve/preview loop is documented in:
+
+- `docs/layout_solution_preview-CN.md`
+
+The demo page can run this solve offline and display the expected module footprints, directions, process points, constraint results, and review warnings before any SolidWorks Replay.
+
 ## Crawl
 
 ```powershell

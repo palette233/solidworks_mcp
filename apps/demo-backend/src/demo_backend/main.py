@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import Body, Depends, FastAPI, HTTPException
+from fastapi import Body, Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
@@ -10,20 +10,47 @@ from .adapters.llm_client import LlmClient
 from .adapters.mcp_client import McpClient
 from .config import Settings, get_settings
 from .face_mappings import FaceMappingStore
+from .layout_preview import (
+    LayoutPreviewError,
+    approve_case_preview,
+    load_case_preview,
+    load_case_verification_plan,
+    solve_case_preview,
+)
+from .project02_ablation import load_dependency_ablation_bundle
 from .models import (
     ApplyLayoutRequest,
     CaptureProjectLayoutRequest,
     DemoState,
+    GenerateConstraintLayoutRequest,
     DiscoverComponentsRequest,
     LayoutJsonInfo,
     McpHealthResult,
     OperationResult,
     ApplyCapturedLayoutRequest,
     RecordSelectedFaceRequest,
+    ProjectModuleConfirmationRequest,
+    ProjectRequirementRequest,
     SelectLayoutJsonRequest,
     SyncDiscoveredComponentsRequest,
     UploadLayoutJsonRequest,
+    HighlightFaceEndpointRequest,
+    FaceMatePatchApplyRequest,
+    FaceMatePatchPreviewRequest,
 )
+from .mate_face_workbench import (
+    MateFaceWorkbenchError,
+    build_face_mate_patch_preview,
+    finalize_face_mate_patch_application,
+    load_face_endpoint_workbench,
+    prepare_face_mate_patch_application,
+)
+from .project02_requirements import confirm_project02_modules, recommend_project02_modules
+from .project_migration import (
+    load_project01_migration_readiness,
+    load_project03_migration_readiness,
+)
+from .project05_migration import load_project05_migration_readiness
 from .services.demo_service import DemoService
 from .state_store import DemoStateStore
 
@@ -84,9 +111,169 @@ def health(settings: Settings = Depends(get_settings)) -> dict:
     }
 
 
+@app.post("/api/demo/cases/{case_id}/solve-preview")
+def solve_layout_case_preview(case_id: str, profile: str = "calibrated") -> dict:
+    """Run an offline, source-independent layout solve and return display-ready geometry."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return solve_case_preview(workspace, case_id, profile=profile)
+    except (LayoutPreviewError, OSError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/api/demo/cases/{case_id}/recommend-modules")
+def recommend_case_modules(case_id: str, request: ProjectRequirementRequest) -> dict:
+    """Convert a project02 natural-language requirement into an auditable module recommendation."""
+    if case_id != "project02":
+        raise HTTPException(status_code=404, detail=f"Module recommendation is not implemented for '{case_id}'.")
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return recommend_project02_modules(request.requirement, workspace=workspace, persist=True)
+    except (OSError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/api/demo/cases/{case_id}/confirm-modules")
+def confirm_case_modules(case_id: str, request: ProjectModuleConfirmationRequest) -> dict:
+    """Validate the user's module selection and gate entry into the fixed project02 layout case."""
+    if case_id != "project02":
+        raise HTTPException(status_code=404, detail=f"Module confirmation is not implemented for '{case_id}'.")
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        recommendation = recommend_project02_modules(request.requirement, persist=False)
+        return confirm_project02_modules(
+            recommendation,
+            request.selected_module_codes,
+            workspace=workspace,
+            persist=True,
+        )
+    except (OSError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/api/demo/cases/{case_id}/approve-preview")
+def approve_layout_case_preview(
+    case_id: str,
+    payload: dict = Body(default_factory=dict),
+) -> dict:
+    """Confirm a displayed Top-K candidate before any SolidWorks/B-rep work starts."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        solution_rank = int(payload.get("solutionRank", 0))
+        reviewer_note = payload.get("reviewerNote")
+        return approve_case_preview(
+            workspace,
+            case_id,
+            solution_rank,
+            reviewer_note=str(reviewer_note) if reviewer_note else None,
+        )
+    except (LayoutPreviewError, OSError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/cases/{case_id}/verification-plan")
+def get_layout_case_verification_plan(case_id: str) -> dict:
+    """Return the latest visual/CAD verification state without re-solving."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return load_case_verification_plan(workspace, case_id)
+    except (LayoutPreviewError, OSError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/cases/{case_id}/preview")
+def get_layout_case_preview(case_id: str) -> dict:
+    """Return the last persisted preview without launching a new solve."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return load_case_preview(workspace, case_id)
+    except (LayoutPreviewError, OSError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/cases/project02/dependency-ablation")
+def get_project02_dependency_ablation() -> dict:
+    """Return read-only B/C no-v42 candidates without changing the selected preview."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return load_dependency_ablation_bundle(workspace)
+    except (OSError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/cases/{case_id}/migration-readiness")
+def get_case_migration_readiness(case_id: str) -> dict:
+    """Expose cross-case parameter/evidence readiness without starting SolidWorks."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        if case_id == "project01":
+            return load_project01_migration_readiness(workspace)
+        if case_id == "project03":
+            return load_project03_migration_readiness(workspace)
+        if case_id == "project05":
+            return load_project05_migration_readiness(workspace)
+        raise HTTPException(status_code=404, detail=f"Migration readiness is not implemented for '{case_id}'.")
+    except (OSError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
 @app.get("/api/demo/mcp-health", response_model=McpHealthResult)
 async def demo_mcp_health(service: DemoService = Depends(get_service)) -> McpHealthResult:
     return await service.mcp_health()
+
+
+@app.get("/api/demo/mate-face-catalog")
+def get_mate_face_catalog(
+    catalog_path: str | None = Query(default=None, alias="catalogPath"),
+) -> dict:
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return load_face_endpoint_workbench(workspace, catalog_path)
+    except (MateFaceWorkbenchError, OSError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/api/demo/mate-face-catalog/highlight", response_model=OperationResult)
+async def highlight_mate_face_endpoint(
+    request: HighlightFaceEndpointRequest,
+    service: DemoService = Depends(get_service),
+) -> OperationResult:
+    return await service.highlight_face_endpoint(request)
+
+
+@app.post("/api/demo/mate-face-catalog/patch-preview")
+def preview_mate_face_patch(request: FaceMatePatchPreviewRequest) -> dict:
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return build_face_mate_patch_preview(
+            workspace,
+            request.model_dump(by_alias=True, exclude_none=True),
+        )
+    except (MateFaceWorkbenchError, OSError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/api/demo/mate-face-catalog/apply")
+async def apply_mate_face_patch(
+    request: FaceMatePatchApplyRequest,
+    service: DemoService = Depends(get_service),
+) -> dict:
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        prepared = prepare_face_mate_patch_application(
+            workspace,
+            request.model_dump(by_alias=True, exclude_none=True),
+        )
+        operation = await service.rebuild_effective_mate_graph(
+            Path(prepared["effectiveGraphPath"]),
+            Path(prepared["outputAssemblyPath"]),
+        )
+        return finalize_face_mate_patch_application(
+            prepared,
+            operation.model_dump(by_alias=True),
+        )
+    except (MateFaceWorkbenchError, OSError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.get("/api/demo/state", response_model=DemoState)
@@ -154,6 +341,14 @@ async def capture_project_layout(
     service: DemoService = Depends(get_service),
 ) -> OperationResult:
     return await service.capture_project_layout(request)
+
+
+@app.post("/api/demo/generate-constraint-layout", response_model=OperationResult)
+async def generate_constraint_layout(
+    request: GenerateConstraintLayoutRequest,
+    service: DemoService = Depends(get_service),
+) -> OperationResult:
+    return await service.generate_constraint_layout(request)
 
 
 @app.get("/api/demo/layout-json-files", response_model=list[LayoutJsonInfo])

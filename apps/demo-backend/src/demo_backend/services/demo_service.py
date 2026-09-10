@@ -6,6 +6,11 @@ from pathlib import Path
 
 from ..adapters.llm_client import LlmClient
 from ..adapters.mcp_client import McpClient
+from ..constraint_layout import (
+    ConstraintLayoutError,
+    ConstraintLayoutOptions,
+    generate_constraint_layout,
+)
 from ..face_mappings import FaceMappingStore
 from ..mcp_tools import (
     APPEND_COMPONENTS_TO_COMMON_BASE_ASSEMBLY_TOOL,
@@ -29,9 +34,11 @@ from ..models import (
     Layout2d,
     LayoutComponentSummary,
     LayoutJsonInfo,
+    GenerateConstraintLayoutRequest,
     McpHealthResult,
     OperationResult,
     RecordSelectedFaceRequest,
+    HighlightFaceEndpointRequest,
     SelectLayoutJsonRequest,
     SyncDiscoveredComponentsRequest,
     ToolCallPlan,
@@ -103,6 +110,77 @@ class DemoService:
             faceMappingPathsMatch=mapping_matches,
             mcpFaceMappingInfo=mcp_mapping_info if isinstance(mcp_mapping_info, dict) else None,
             toolResults=result.tool_results,
+        )
+
+    async def highlight_face_endpoint(self, request: HighlightFaceEndpointRequest) -> OperationResult:
+        catalog_path = self._resolve_workspace_path(
+            request.catalog_path
+            or "demo/mate_graph_edit/face_catalog/project02_A500_A700_seed_plus_A720009_leaf_v1.json"
+        ).resolve()
+        workspace = self._workspace().resolve()
+        try:
+            catalog_path.relative_to(workspace)
+        except ValueError:
+            return OperationResult(
+                status="blocked",
+                message="Face endpoint catalog must remain inside the workspace.",
+            )
+        if not catalog_path.is_file():
+            return OperationResult(
+                status="error",
+                message=f"Face endpoint catalog was not found: {catalog_path}",
+            )
+        return await self.mcp.run_plan(
+            [
+                ToolCallPlan(
+                    # McpToolRunner calls the published MCP name verbatim.  The
+                    # SDK exposes C# method names as snake_case tool names.
+                    tool="select_face_endpoint_from_catalog",
+                    arguments={
+                        "catalogPath": str(catalog_path),
+                        "endpointId": request.endpoint_id,
+                        "zoomToSelection": request.zoom_to_selection,
+                    },
+                )
+            ]
+        )
+
+    async def rebuild_effective_mate_graph(
+        self,
+        effective_graph_path: Path,
+        output_assembly_path: Path,
+    ) -> OperationResult:
+        workspace = self._workspace().resolve()
+        effective_graph_path = effective_graph_path.resolve()
+        output_assembly_path = output_assembly_path.resolve()
+        try:
+            effective_graph_path.relative_to(workspace)
+            output_assembly_path.relative_to(workspace)
+        except ValueError:
+            return OperationResult(
+                status="blocked",
+                message="Mate graph rebuild paths must remain inside the workspace.",
+            )
+        if not effective_graph_path.is_file():
+            return OperationResult(
+                status="error",
+                message=f"Effective mate graph was not found: {effective_graph_path}",
+            )
+        if output_assembly_path.exists():
+            return OperationResult(
+                status="blocked",
+                message=f"Refusing to overwrite existing assembly: {output_assembly_path}",
+            )
+        return await self.mcp.run_plan(
+            [
+                ToolCallPlan(
+                    tool="rebuild_assembly_from_mate_graph",
+                    arguments={
+                        "effectiveMateGraphPath": str(effective_graph_path),
+                        "outputAssemblyPath": str(output_assembly_path),
+                    },
+                )
+            ]
         )
 
     def list_layout_json_files(self) -> list[LayoutJsonInfo]:
@@ -404,6 +482,8 @@ class DemoService:
     async def capture_project_layout(self, request: CaptureProjectLayoutRequest) -> OperationResult:
         state = self.store.load()
         self._normalize_state(state)
+        previous_layout_json_path = state.layout_json_path
+        previous_layout_info = state.layout_info
 
         missing = self.face_mappings.missing_bottom_mappings(state.components)
         if missing:
@@ -415,8 +495,14 @@ class DemoService:
             )
 
         workspace = self._workspace()
-        output_path = request.output_path or str(workspace / "demo" / "project_layout2d.json")
-        project_config_path = request.project_config_path or str(workspace / "demo" / "project_config.json")
+        output_path = self._resolve_workspace_path(
+            request.output_path or workspace / "demo" / "project_layout2d.json"
+        ).resolve()
+        project_config_path = self._resolve_workspace_path(
+            request.project_config_path or workspace / "demo" / "project_config.json"
+        ).resolve()
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        project_config_path.parent.mkdir(parents=True, exist_ok=True)
         plan = [
             ToolCallPlan(
                 tool=CAPTURE_COMMON_BASE_LAYOUT_TOOL,
@@ -424,7 +510,9 @@ class DemoService:
                     "sourceAssemblyPath": request.source_assembly_path or state.assembly_path,
                     "baseComponentName": request.base_component_name
                     or (state.components[0].component_name if state.components else None),
-                    "outputPath": output_path,
+                    # MCP may run with a different working directory from the backend.
+                    # Always pass an absolute path so both processes refer to the same file.
+                    "outputPath": str(output_path),
                     "components": [
                         {
                             "componentName": component.component_name,
@@ -437,23 +525,185 @@ class DemoService:
         ]
         result = await self.mcp.run_plan(plan)
         self._apply_arrange_outcome(result, state, promote_targets=False)
-        if result.status == "ok":
+        if result.status == "ok" and not output_path.is_file():
+            result.status = "error"
+            result.message = (
+                "MCP reported a successful layout capture, but the expected output file "
+                f"was not created: {output_path}"
+            )
+            state = self.store.load()
+            self._normalize_state(state)
+            state.layout_json_path = previous_layout_json_path
+            state.layout_info = previous_layout_info
+            state.last_run = {
+                "status": result.status,
+                "message": result.message,
+                "layoutJsonPath": str(output_path),
+            }
+            self.store.save(state)
+        elif result.status == "ok":
             self._write_project_config(
                 state=self.store.load(),
                 source_assembly_path=request.source_assembly_path or state.assembly_path,
                 base_component_name=request.base_component_name
                 or (state.components[0].component_name if state.components else None),
-                layout_json_path=output_path,
-                project_config_path=project_config_path,
+                layout_json_path=str(output_path),
+                project_config_path=str(project_config_path),
             )
             state = self.store.load()
             self._normalize_state(state)
             last_run = state.last_run if isinstance(state.last_run, dict) else {}
-            last_run["projectConfigPath"] = str(self._resolve_workspace_path(project_config_path))
+            last_run["layoutJsonPath"] = str(output_path)
+            last_run["projectConfigPath"] = str(project_config_path)
             state.last_run = last_run
             self.store.save(state)
         result.state = state
         return result
+
+    async def generate_constraint_layout(self, request: GenerateConstraintLayoutRequest) -> OperationResult:
+        """Capture current geometry, solve a rule-based layout, and select the generated JSON."""
+        state = self.store.load()
+        self._normalize_state(state)
+        missing = self.face_mappings.missing_bottom_mappings(state.components)
+        if missing:
+            return OperationResult(
+                status="blocked",
+                message="Please record bottom face mappings before generating a constraint layout.",
+                missingFaceMappings=missing,
+                state=state,
+            )
+
+        workspace = self._workspace()
+        geometry_path = self._resolve_workspace_path(
+            request.geometry_capture_path or workspace / "demo" / "constraint_geometry_capture.json"
+        ).resolve()
+        output_path = self._resolve_workspace_path(
+            request.output_path or workspace / "demo" / "constraint_layout2d.json"
+        ).resolve()
+        geometry_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        plan = [
+            ToolCallPlan(
+                tool=CAPTURE_COMMON_BASE_LAYOUT_TOOL,
+                arguments={
+                    "sourceAssemblyPath": request.source_assembly_path or state.assembly_path,
+                    "baseComponentName": request.base_component_name
+                    or (state.components[0].component_name if state.components else None),
+                    "outputPath": str(geometry_path),
+                    "components": [
+                        {
+                            "componentName": component.component_name,
+                            "bottomFaceName": component.bottom_face_name,
+                        }
+                        for component in state.components
+                    ],
+                },
+            )
+        ]
+        result = await self.mcp.run_plan(plan)
+        if result.status != "ok":
+            state.last_run = {
+                "status": result.status,
+                "message": result.message,
+                "constraintGeometryPath": str(geometry_path),
+                "toolResults": result.tool_results,
+            }
+            self.store.save(state)
+            result.state = state
+            return result
+
+        try:
+            if not geometry_path.is_file():
+                raise ConstraintLayoutError(f"MCP did not create the geometry capture: {geometry_path}")
+            capture = json.loads(geometry_path.read_text(encoding="utf-8"))
+            generated = generate_constraint_layout(
+                capture,
+                ConstraintLayoutOptions(
+                    role_overrides=request.role_overrides,
+                    margin_ratios=tuple(request.margin_ratios),
+                    minimum_clearance_meters=request.minimum_clearance_meters,
+                    glue_distance_meters=request.glue_distance_meters,
+                    allow_rotation=request.allow_rotation,
+                    portal_pass_through={
+                        portal_name: tuple(component_names)
+                        for portal_name, component_names in request.portal_pass_through.items()
+                    },
+                    portal_opening_width_ratio=request.portal_opening_width_ratio,
+                    portal_opening_height_ratio=request.portal_opening_height_ratio,
+                    module_semantics=request.module_semantics,
+                    process_constraints=tuple(request.process_constraints),
+                    auto_generate_process_constraints=request.auto_generate_process_constraints,
+                    provisional_components=tuple(
+                        item.model_dump(by_alias=True)
+                        for item in request.provisional_components
+                    ),
+                    prefer_source_layout=request.prefer_source_layout,
+                    source_position_independent=request.source_position_independent,
+                    allowed_projected_overlap_pairs=tuple(
+                        tuple(pair) for pair in request.allowed_projected_overlap_pairs
+                    ),
+                    minimum_transport_gantry_overlap_ratio=request.minimum_transport_gantry_overlap_ratio,
+                    minimum_portal_gantry_overlap_ratio=request.minimum_portal_gantry_overlap_ratio,
+                    minimum_functional_gantry_overlap_ratio=request.minimum_functional_gantry_overlap_ratio,
+                    minimum_functional_gantry_boundary_clearance_meters=request.minimum_functional_gantry_boundary_clearance_meters,
+                    maximum_transport_gantry_center_offset_meters=request.maximum_transport_gantry_center_offset_meters,
+                    require_reach_inside_gantry=request.require_reach_inside_gantry,
+                ),
+            )
+            generated["outputPath"] = str(output_path)
+            output_path.write_text(
+                json.dumps(generated, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except (ConstraintLayoutError, OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            state.last_run = {
+                "status": "blocked",
+                "message": str(exc),
+                "constraintGeometryPath": str(geometry_path),
+                "constraintLayoutPath": str(output_path),
+                "toolResults": result.tool_results,
+            }
+            self.store.save(state)
+            return OperationResult(
+                status="blocked",
+                message=f"Constraint layout was not applied: {exc}",
+                plan=plan,
+                toolResults=result.tool_results,
+                state=state,
+            )
+
+        info = self._read_layout_info(output_path)
+        if info is None:
+            return OperationResult(
+                status="error",
+                message=f"Generated constraint layout could not be parsed: {output_path}",
+                plan=plan,
+                toolResults=result.tool_results,
+                state=state,
+            )
+        state.layout_json_path = str(output_path)
+        state.layout_info = info
+        if request.sync_layout:
+            self._sync_components_from_layout(state, info)
+        constraint_plan = generated.get("constraintPlan")
+        state.last_run = {
+            "status": "ok",
+            "message": generated["message"],
+            "constraintGeometryPath": str(geometry_path),
+            "constraintLayoutPath": str(output_path),
+            "constraintLayout": constraint_plan,
+            "toolResults": result.tool_results,
+        }
+        self.store.save(state)
+        return OperationResult(
+            status="ok",
+            message=generated["message"],
+            plan=plan,
+            toolResults=result.tool_results,
+            state=state,
+            layoutInfo=info,
+            constraintLayout=constraint_plan,
+        )
 
     async def apply_captured_layout(self, request: ApplyCapturedLayoutRequest | None = None) -> OperationResult:
         state = self.store.load()
@@ -917,6 +1167,10 @@ class DemoService:
                     "screenshotWidth": 1600,
                     "screenshotHeight": 900,
                     "includeScreenshotBase64Data": False,
+                    # SolidWorks interference detection can block for a long time
+                    # on large assemblies. Replay remains deterministic; run the
+                    # CAD diagnostic separately when it is explicitly needed.
+                    "validatePortalInterference": False,
                 },
             )
         ]
@@ -1451,6 +1705,7 @@ class DemoService:
             "orientationCorrections": payload.get("orientationCorrections", []),
             "orientationChecks": payload.get("orientationChecks", []),
             "missingFaceMappings": payload.get("missingFaceMappings", []),
+            "portalInterferenceChecks": payload.get("portalInterferenceChecks", []),
         }
 
     @staticmethod

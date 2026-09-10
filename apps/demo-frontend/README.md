@@ -4,6 +4,9 @@ React/Vite frontend for the SolidWorks common-base layout demo.
 
 The current demo flow supports:
 
+- run the Project 02 source-independent constraint solve without SolidWorks;
+- preview real solved footprints, directions, service points, reach/FOV regions, and review warnings;
+
 - initialize a target assembly with A/B/C;
 - finalize common-base mates;
 - capture layout2d from a reference assembly;
@@ -40,6 +43,8 @@ npm install
 npm run dev
 ```
 
+To point the Vite development proxy at a backend on another port, set `DEMO_BACKEND_URL` before `npm run dev`.
+
 Open:
 
 ```text
@@ -47,6 +52,17 @@ http://127.0.0.1:5173
 ```
 
 ## Demo Order
+
+For the Project 02 fast constraint-calibration loop:
+
+```text
+Solve Project 02
+Review layout and warnings
+Calibrate shared constraints only when needed
+Replay the selected acceptable result in SolidWorks
+```
+
+The preview solve writes `demo/layout_previews/project02_solution.json` and `project02_preview.json`.
 
 For the current stable demo, use this order:
 

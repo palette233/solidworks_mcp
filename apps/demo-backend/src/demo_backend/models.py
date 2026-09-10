@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -18,6 +18,7 @@ class Layout2d(BaseModel):
     y: float
     theta_degrees: float | None = Field(default=None, alias="thetaDegrees")
     theta_axis: str | None = Field(default=None, alias="thetaAxis")
+    normal_offset_meters: float = Field(default=0.0, alias="normalOffsetMeters")
 
     model_config = {"populate_by_name": True}
 
@@ -85,9 +86,50 @@ class ApplyLayoutRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class ProjectRequirementRequest(BaseModel):
+    requirement: str = Field(min_length=1)
+
+
+class ProjectModuleConfirmationRequest(BaseModel):
+    requirement: str = Field(min_length=1)
+    selected_module_codes: list[str] = Field(default_factory=list, alias="selectedModuleCodes")
+
+    model_config = {"populate_by_name": True}
+
+
 class RecordSelectedFaceRequest(BaseModel):
     component_name: str = Field(alias="componentName")
     face_name: str = Field(default="\u5e95\u9762", alias="faceName")
+
+    model_config = {"populate_by_name": True}
+
+
+class HighlightFaceEndpointRequest(BaseModel):
+    catalog_path: str | None = Field(default=None, alias="catalogPath")
+    endpoint_id: str = Field(alias="endpointId", min_length=1)
+    zoom_to_selection: bool = Field(default=True, alias="zoomToSelection")
+
+    model_config = {"populate_by_name": True}
+
+
+class FaceMatePatchPreviewRequest(BaseModel):
+    catalog_path: str | None = Field(default=None, alias="catalogPath")
+    source_graph_path: str | None = Field(default=None, alias="sourceGraphPath")
+    face_a_endpoint_id: str = Field(alias="faceAEndpointId", min_length=1)
+    face_b_endpoint_id: str = Field(alias="faceBEndpointId", min_length=1)
+    mate_type: int = Field(alias="mateType")
+    mate_name: str | None = Field(default=None, alias="mateName")
+    alignment: int = 0
+    distance_meters: float | None = Field(default=None, alias="distanceMeters")
+    angle_degrees: float | None = Field(default=None, alias="angleDegrees")
+
+    model_config = {"populate_by_name": True}
+
+
+class FaceMatePatchApplyRequest(FaceMatePatchPreviewRequest):
+    preview_digest: str = Field(alias="previewDigest", min_length=64, max_length=64)
+    output_assembly_path: str = Field(alias="outputAssemblyPath", min_length=1)
+    confirmed: bool = False
 
     model_config = {"populate_by_name": True}
 
@@ -172,6 +214,109 @@ class CaptureProjectLayoutRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class ProvisionalComponentSpec(BaseModel):
+    component_name: str = Field(alias="componentName", min_length=1)
+    width_meters: float = Field(alias="widthMeters", gt=0)
+    depth_meters: float = Field(alias="depthMeters", gt=0)
+    height_meters: float = Field(alias="heightMeters", gt=0)
+    anchor_u: float = Field(default=0.0, alias="anchorU")
+    anchor_v: float = Field(default=0.0, alias="anchorV")
+    file_path: str | None = Field(default=None, alias="filePath")
+    bottom_face_name: str = Field(default="底面", alias="bottomFaceName")
+    reason: str = Field(default="User-approved provisional component for coarse reconstruction.")
+    replayable: bool = False
+
+    model_config = {"populate_by_name": True}
+
+
+class GenerateConstraintLayoutRequest(BaseModel):
+    source_assembly_path: str | None = Field(default=None, alias="sourceAssemblyPath")
+    base_component_name: str | None = Field(default=None, alias="baseComponentName")
+    output_path: str | None = Field(default=None, alias="outputPath")
+    geometry_capture_path: str | None = Field(default=None, alias="geometryCapturePath")
+    role_overrides: dict[str, Literal["gantry", "transport", "glue", "functional"]] = Field(
+        default_factory=dict,
+        alias="roleOverrides",
+    )
+    margin_ratios: list[float] = Field(default_factory=lambda: [0.05, 0.03, 0.01, 0.0], alias="marginRatios")
+    minimum_clearance_meters: float = Field(default=0.01, ge=0, alias="minimumClearanceMeters")
+    glue_distance_meters: float = Field(default=0.05, ge=0, alias="glueDistanceMeters")
+    allow_rotation: bool = Field(default=False, alias="allowRotation")
+    portal_pass_through: dict[str, list[str]] = Field(
+        default_factory=dict,
+        alias="portalPassThrough",
+    )
+    portal_opening_width_ratio: float = Field(
+        default=0.8,
+        gt=0,
+        le=1,
+        alias="portalOpeningWidthRatio",
+    )
+    portal_opening_height_ratio: float = Field(
+        default=0.75,
+        gt=0,
+        le=1,
+        alias="portalOpeningHeightRatio",
+    )
+    module_semantics: dict[str, dict[str, Any]] = Field(
+        default_factory=dict,
+        alias="moduleSemantics",
+    )
+    process_constraints: list[dict[str, Any]] = Field(
+        default_factory=list,
+        alias="processConstraints",
+    )
+    auto_generate_process_constraints: bool = Field(
+        default=True,
+        alias="autoGenerateProcessConstraints",
+    )
+    provisional_components: list[ProvisionalComponentSpec] = Field(
+        default_factory=list,
+        alias="provisionalComponents",
+    )
+    prefer_source_layout: bool = Field(default=False, alias="preferSourceLayout")
+    source_position_independent: bool = Field(
+        default=False,
+        alias="sourcePositionIndependent",
+    )
+    allowed_projected_overlap_pairs: list[list[str]] = Field(
+        default_factory=list,
+        alias="allowedProjectedOverlapPairs",
+    )
+    minimum_transport_gantry_overlap_ratio: float = Field(
+        default=0.5,
+        ge=0,
+        le=1,
+        alias="minimumTransportGantryOverlapRatio",
+    )
+    minimum_portal_gantry_overlap_ratio: float = Field(
+        default=0.5,
+        ge=0,
+        le=1,
+        alias="minimumPortalGantryOverlapRatio",
+    )
+    minimum_functional_gantry_overlap_ratio: float = Field(
+        default=0.0,
+        ge=0,
+        le=1,
+        alias="minimumFunctionalGantryOverlapRatio",
+    )
+    minimum_functional_gantry_boundary_clearance_meters: float = Field(
+        default=0.0,
+        ge=0,
+        alias="minimumFunctionalGantryBoundaryClearanceMeters",
+    )
+    maximum_transport_gantry_center_offset_meters: float | None = Field(
+        default=None,
+        ge=0,
+        alias="maximumTransportGantryCenterOffsetMeters",
+    )
+    require_reach_inside_gantry: bool = Field(default=True, alias="requireReachInsideGantry")
+    sync_layout: bool = Field(default=True, alias="syncLayout")
+
+    model_config = {"populate_by_name": True}
+
+
 class ToolCallPlan(BaseModel):
     tool: str
     arguments: dict
@@ -186,6 +331,7 @@ class OperationResult(BaseModel):
     missing_face_mappings: list[dict[str, str]] = Field(default_factory=list, alias="missingFaceMappings")
     layout_info: LayoutJsonInfo | None = Field(default=None, alias="layoutInfo")
     discovery: DiscoveryResult | None = None
+    constraint_layout: dict | None = Field(default=None, alias="constraintLayout")
 
     model_config = {"populate_by_name": True}
 
