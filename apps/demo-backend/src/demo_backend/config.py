@@ -21,16 +21,39 @@ class Settings:
         self.face_mapping_path = Path(
             os.environ.get(
                 "DEMO_FACE_MAPPING_PATH",
-                str(workspace_root() / "artifacts" / "solidworks-mcp-20260615-demo-mate" / "face_mappings.json"),
+                str(workspace_root() / "artifacts" / "solidworks-mcp" / "face_mappings.json"),
             )
         )
         self.mcp_mode = os.environ.get("DEMO_MCP_MODE", "dry-run")
         self.llm_mode = os.environ.get("DEMO_LLM_MODE", "dry-run")
         self.mcp_command = os.environ.get("DEMO_MCP_COMMAND")
-        self.mcp_args = os.environ.get("DEMO_MCP_ARGS", "")
         self.mcp_cwd = os.environ.get("DEMO_MCP_CWD")
+        self.mcp_args = os.environ.get("DEMO_MCP_ARGS", self._default_mcp_args())
         self.mcp_pipe_name = os.environ.get("DEMO_MCP_PIPE_NAME", "SolidWorksMcpHub")
         self.mcp_timeout_seconds = float(os.environ.get("DEMO_MCP_TIMEOUT_SECONDS", "180"))
+        self.initialize_batch_size = int(os.environ.get("DEMO_INITIALIZE_BATCH_SIZE", "4"))
+        self.target_assembly_path = Path(
+            os.environ.get("DEMO_TARGET_ASSEMBLY_PATH", str(workspace_root() / "demo" / "ABC_arrange_demo.SLDASM"))
+        )
+        self.replay_xy_tolerance_meters = float(os.environ.get("DEMO_REPLAY_XY_TOLERANCE_METERS", "0.000001"))
+        self.replay_theta_tolerance_degrees = float(os.environ.get("DEMO_REPLAY_THETA_TOLERANCE_DEGREES", "0.0001"))
+
+    def _default_mcp_args(self) -> str:
+        if (self.mcp_command or "").lower() != "dotnet" or not self.mcp_cwd:
+            return ""
+
+        cwd = self.resolved_mcp_cwd
+        if cwd is None:
+            return ""
+
+        dll = cwd / "SolidWorksMcpApp.dll"
+        if not dll.exists():
+            return ""
+
+        # Prefer direct stdio for backend automation. The old proxy path depends
+        # on a long-lived tray/Hub process and is much more sensitive to stale
+        # named pipes or DLL-mode auto-start issues.
+        return f"{dll} --stdio-direct"
 
     @property
     def resolved_state_path(self) -> Path:
@@ -43,6 +66,10 @@ class Settings:
     @property
     def resolved_face_mapping_path(self) -> Path:
         return self.face_mapping_path if self.face_mapping_path.is_absolute() else workspace_root() / self.face_mapping_path
+
+    @property
+    def resolved_target_assembly_path(self) -> Path:
+        return self.target_assembly_path if self.target_assembly_path.is_absolute() else workspace_root() / self.target_assembly_path
 
     @property
     def resolved_mcp_cwd(self) -> Path | None:

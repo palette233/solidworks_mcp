@@ -18,6 +18,20 @@ pip install -e .
 
 This ensures `solidworks_rag` is discoverable on `sys.path`.
 
+## Layout Constraint Record
+
+The authoritative record for the current FL9A spatial constraints, solver ordering, deterministic biases, overlap exceptions, post-Replay validation, and known gaps is:
+
+- `docs/layout_constraints_and_solver_principles-CN.md`
+
+Any change to layout constraints or solver principles must update that document and its change log in the same change set.
+
+The Project 02 source-independent solve/preview loop is documented in:
+
+- `docs/layout_solution_preview-CN.md`
+
+The demo page can run this solve offline and display the expected module footprints, directions, process points, constraint results, and review warnings before any SolidWorks Replay.
+
 ## Crawl
 
 ```powershell
@@ -77,6 +91,152 @@ Added integration:
 - `BindSelectedDimensionToGlobalVariable`: bind the currently selected SolidWorks display dimension to an existing global variable.
 - `ListFeatureDimensions`: inspect bindable dimensions on a named feature.
 - `UpsertGlobalVariableAndBindFeatureDimensionByDescription`: create/update a variable and bind the best-matching feature dimension by description, without manual dimension selection.
+- `CaptureActiveAssemblyEntityAnnotationSet`: traverse the active assembly, highlight each component/feature/body target, export front/top/right PNGs, and write a stable `manifest.json`.
+- `AnnotateAssemblyEntityCaptureSetWithQwen`: call an OpenAI-compatible Qwen vision endpoint to classify each captured target as directly related to overall X/Y/Z assembly size.
+- `ImportAssemblyEntityDimensionAnnotations`: import externally generated target annotations into a normalized `dimension-annotations.json` index.
+- `QueryAssemblyEntityDimensionAnnotations`: query the annotation index before changing overall assembly width/depth/height.
+- `HighlightAssemblyEntityAnnotationTarget`: reselect a captured target in the active assembly by stable `targetId`.
+
+## Assembly Entity Dimension Annotation Workflow
+
+The entity annotation tools are designed for the workflow where the model first builds an evidence index, then later uses that index to plan size changes.
+
+1. Capture a manifest and front/top/right images for the active assembly:
+
+```text
+CaptureActiveAssemblyEntityAnnotationSet(
+  outputDirectory="C:\\temp\\sw-entity-annotations",
+  width=1280,
+  height=720,
+  includeComponents=true,
+  includeFeatures=true,
+  includeBodies=true,
+  maxTargets=50,
+  startIndex=0,
+  skipExistingTargets=true,
+  writeManifestAfterEachTarget=true,
+  maxDurationSeconds=45,
+  useCleanDisplayMode=false,
+  capturePaddingFactor=1.35
+)
+```
+
+This writes `manifest.json` and one `entities/<targetId>/front.png`, `top.png`, and `right.png` set per target. Each manifest target contains the owning component path, hierarchy path, document path, feature/body metadata, selection status, and stable `targetId`.
+
+The capture skips FeatureManager management nodes such as `Favorites`, `Sensors`, `DocsFolder`, mate folders, reference folders, lights/cameras, and other non-geometric folders. Child part and subassembly contents are collected by recursively traversing assembly components instead of treating `DocsFolder` itself as a target. When a child feature or body cannot be directly selected in assembly context, the capture falls back to highlighting the owning component and records that as `selection.method = "owning-component"`.
+
+For large assemblies, run capture in batches to avoid MCP request timeouts:
+
+```text
+CaptureActiveAssemblyEntityAnnotationSet(
+  outputDirectory="C:\\temp\\sw-entity-annotations",
+  width=800,
+  height=600,
+  includeComponents=true,
+  includeFeatures=true,
+  includeBodies=false,
+  maxTargets=25,
+  startIndex=0,
+  skipExistingTargets=true,
+  maxDurationSeconds=45,
+  useCleanDisplayMode=false,
+  capturePaddingFactor=1.35
+)
+
+CaptureActiveAssemblyEntityAnnotationSet(
+  outputDirectory="C:\\temp\\sw-entity-annotations",
+  width=800,
+  height=600,
+  includeComponents=true,
+  includeFeatures=true,
+  includeBodies=false,
+  maxTargets=25,
+  startIndex=25,
+  skipExistingTargets=true,
+  maxDurationSeconds=45,
+  useCleanDisplayMode=false,
+  capturePaddingFactor=1.35
+)
+```
+
+`writeManifestAfterEachTarget=true` is the default, so completed targets are persisted after every capture. `maxDurationSeconds` is also enabled by default; it makes the tool return a partial manifest before common MCP client request timeouts cut the call off. The result includes `totalTargetCount`, `processedThisRun`, `skippedExistingCount`, `nextStartIndex`, and `stoppedReason`. Re-run with the same `outputDirectory`, `skipExistingTargets=true`, and `startIndex` set to the returned `nextStartIndex` until `stoppedReason` is `completed`.
+
+By default, `useCleanDisplayMode=false` preserves the normal SolidWorks shaded display and selection highlight. The capture switches to each standard view, zooms to fit, zooms out with `capturePaddingFactor`, selects the target, refreshes highlighted items, and exports the PNG. The default `capturePaddingFactor=1.35` prioritizes fitting the whole model in view; if the model appears too small you can lower it, for example `1.2`. Set `useCleanDisplayMode=true` only when you explicitly want hidden-lines-removed images and do not need the normal shaded highlight appearance.
+
+For very large assemblies, prefer the Python batch runner instead of asking an LLM client to hold one long MCP request open:
+
+```powershell
+python .\scripts\capture_assembly_entity_annotations.py `
+  --output-dir C:\temp\sw-entity-annotations `
+  --width 800 `
+  --height 600 `
+  --batch-size 5 `
+  --tool-time-budget 20 `
+  --request-timeout 90 `
+  --padding 1.35 `
+  --no-include-bodies
+```
+
+The runner starts `SolidWorksMcpApp.exe --proxy`, calls `CaptureActiveAssemblyEntityAnnotationSet` repeatedly, and resumes from `manifest.json` if a batch times out after writing partial progress. It automatically uses the latest `artifacts\solidworks-mcp*\SolidWorksMcpApp.exe`, or you can pass `--exe C:\path\to\SolidWorksMcpApp.exe`.
+
+To verify the Python runner can talk to the local MCP hub before capturing, run:
+
+```powershell
+python .\scripts\capture_assembly_entity_annotations.py `
+  --output-dir C:\temp\sw-entity-annotations `
+  --probe-only
+```
+
+2. Annotate with Qwen vision from inside the MCP app:
+
+```text
+AnnotateAssemblyEntityCaptureSetWithQwen(
+  manifestPath="C:\\temp\\sw-entity-annotations\\manifest.json",
+  model="qwen3.6-flash",
+  maxTargets=0
+)
+```
+
+Set `DASHSCOPE_API_KEY` or `QWEN_API_KEY` in the environment before starting `SolidWorksMcpApp.exe`. Optional overrides are `SOLIDWORKS_ENTITY_ANNOTATION_QWEN_MODEL`, `QWEN_VISION_MODEL`, `DASHSCOPE_BASE_URL`, and `QWEN_BASE_URL`. The default base URL is DashScope OpenAI-compatible mode, and the default model is `qwen3.6-flash`.
+
+3. Or import annotations produced by an external vision pipeline:
+
+```json
+[
+  {
+    "targetId": "ae_0123456789abcdef",
+    "x": { "related": true, "description": "Controls the left/right outside envelope.", "identifiers": ["outer side face"] },
+    "y": { "related": false },
+    "z": { "related": true, "description": "Sets the top boundary.", "identifiers": ["top plate"] },
+    "overallReason": "The target is on the assembly envelope.",
+    "confidence": 0.82
+  }
+]
+```
+
+Call `ImportAssemblyEntityDimensionAnnotations(manifestPath, annotationJsonOrFilePath)` to normalize this into `dimension-annotations.json`.
+
+4. Before changing an overall assembly dimension, query the index:
+
+```text
+QueryAssemblyEntityDimensionAnnotations(
+  annotationPath="C:\\temp\\sw-entity-annotations\\dimension-annotations.json",
+  axis="z",
+  query="height",
+  onlyRelated=true
+)
+```
+
+5. Highlight a returned target before editing:
+
+```text
+HighlightAssemblyEntityAnnotationTarget(
+  manifestOrAnnotationPath="C:\\temp\\sw-entity-annotations\\dimension-annotations.json",
+  targetId="ae_0123456789abcdef"
+)
+```
+
+The intended downstream edit flow is: query related targets for the requested X/Y/Z size change, inspect returned `componentPath`, `hierarchyPath`, `featureName`, and descriptions, then use the existing component-open and feature-dimension binding tools to adjust the confirmed controlling geometry.
 
 Build prerequisites on the Windows machine where you publish the app:
 
@@ -103,6 +263,43 @@ After publishing, start the tray app:
 ```powershell
 .\artifacts\solidworks-mcp\SolidWorksMcpApp.exe
 ```
+
+Demo backend startup for the common-base layout workflow:
+
+```cmd
+scripts\start_demo_backend.cmd
+```
+
+This script fixes the backend/MCP environment used by the demo:
+
+- `DEMO_MCP_MODE=bridge`
+- `DEMO_MCP_COMMAND=dotnet`
+- `DEMO_MCP_CWD=vendor\solidworks-mcp\app\SolidWorksMcpApp\bin\Release\net8.0-windows\win-x64`
+- `DEMO_FACE_MAPPING_PATH=artifacts\solidworks-mcp\face_mappings.json`
+- `DEMO_MCP_TIMEOUT_SECONDS=420`
+- `DEMO_REPLAY_XY_TOLERANCE_METERS=0.000001`
+- `DEMO_REPLAY_THETA_TOLERANCE_DEGREES=0.0001`
+
+Use the frontend `Health` button or `GET /api/demo/mcp-health` to confirm that the active SolidWorks assembly matches `demo_state.json` and that backend/MCP are using the same `face_mappings.json`.
+
+The frontend `Replay Layout` action can also pass per-run replay validation thresholds. The backend records the effective tolerances in `state.lastRun.replayValidation` and shows `actual / tolerance` in the frontend `Replay Check` panel.
+
+Optional MCP Hub management scripts:
+
+```cmd
+scripts\check_mcp_hub.cmd
+scripts\start_mcp_hub.cmd
+scripts\stop_mcp_hub.cmd
+scripts\stop_mcp_hub.cmd /all
+```
+
+The demo backend normally uses direct stdio and does not require a long-lived Hub. These scripts are mainly for Hub/proxy diagnostics:
+
+- `check_mcp_hub.cmd` checks the MCP DLL, visible MCP processes, and whether the `SolidWorksMcpHub` named pipe is connectable.
+- `start_mcp_hub.cmd` starts the DLL in `--headless-hub` mode with the unified `DEMO_FACE_MAPPING_PATH`.
+- `start_mcp_hub.cmd /dry-run` prints the command without starting a process.
+- `stop_mcp_hub.cmd` stops only `--headless-hub` / `--hub` processes when command-line process inspection is available.
+- `stop_mcp_hub.cmd /all` stops all SolidWorksMcpApp-related processes when command-line inspection is available, with a conservative fallback that avoids killing unrelated `dotnet.exe` processes.
 
 The exported Claude Desktop and VS Code MCP configs now include the RAG environment variables automatically:
 
