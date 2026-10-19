@@ -61,6 +61,80 @@ internal static class ToolArgumentParsing
             parameterName);
     }
 
+    public static CircularReferenceDimensionKind ParseCircularReferenceDimensionKind(string? value, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new ArgumentException("Dimension kind must not be empty. Use Radius or Diameter.", parameterName);
+        }
+
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "radius" or "radial" or "r" => CircularReferenceDimensionKind.Radius,
+            "diameter" or "dia" or "d" => CircularReferenceDimensionKind.Diameter,
+            _ => throw new ArgumentException(
+                $"Unknown circular reference dimension kind '{value}'. Use Radius or Diameter.",
+                parameterName)
+        };
+    }
+
+    public static AddDimensionKind ParseAddDimensionKind(string? value, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new ArgumentException("Dimension kind must not be empty. Use Smart, Distance, Horizontal, Vertical, Radius, Diameter, or Angle.", parameterName);
+        }
+
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "smart" or "auto" => AddDimensionKind.Smart,
+            "distance" or "linear" or "length" => AddDimensionKind.Distance,
+            "horizontal" or "width" => AddDimensionKind.Horizontal,
+            "vertical" or "height" => AddDimensionKind.Vertical,
+            "radius" or "radial" or "r" => AddDimensionKind.Radius,
+            "diameter" or "dia" or "d" => AddDimensionKind.Diameter,
+            "angle" or "angular" => AddDimensionKind.Angle,
+            _ => throw new ArgumentException(
+                $"Unknown dimension kind '{value}'. Use Smart, Distance, Horizontal, Vertical, Radius, Diameter, or Angle.",
+                parameterName)
+        };
+    }
+
+    public static AddDimensionRole ParseAddDimensionRole(string? value, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return AddDimensionRole.Reference;
+        }
+
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "reference" or "ref" or "driven" or "display" => AddDimensionRole.Reference,
+            "driving" or "drive" => AddDimensionRole.Driving,
+            _ => throw new ArgumentException(
+                $"Unknown dimension role '{value}'. Use Reference or Driving.",
+                parameterName)
+        };
+    }
+
+    public static CartesianAxis ParseCartesianAxis(string? value, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new ArgumentException("Axis must not be empty. Use X, Y, or Z.", parameterName);
+        }
+
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "x" => CartesianAxis.X,
+            "y" => CartesianAxis.Y,
+            "z" => CartesianAxis.Z,
+            _ => throw new ArgumentException(
+                $"Unknown axis '{value}'. Use X, Y, or Z.",
+                parameterName)
+        };
+    }
+
     public static SketchTextJustification ParseSketchTextJustification(string? value, string parameterName = "justification")
     {
         if (string.IsNullOrWhiteSpace(value))

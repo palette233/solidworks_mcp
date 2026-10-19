@@ -5,6 +5,9 @@ param(
     [string]$Output = "artifacts\solidworks-mcp"
 )
 
+$scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repoRoot = Split-Path -Parent $scriptRoot
+
 function Test-FileLocked {
     param([string]$Path)
 
@@ -27,13 +30,26 @@ if (-not $dotnet) {
     throw "dotnet was not found in PATH. Install .NET 8 SDK first."
 }
 
-$projectPath = Resolve-Path $Project
-$outputPath = Join-Path (Get-Location) $Output
+$projectCandidate = if ([System.IO.Path]::IsPathRooted($Project)) {
+    $Project
+}
+else {
+    Join-Path $repoRoot $Project
+}
+
+$outputPath = if ([System.IO.Path]::IsPathRooted($Output)) {
+    $Output
+}
+else {
+    Join-Path $repoRoot $Output
+}
+
+$projectPath = Resolve-Path $projectCandidate
 $targetExe = Join-Path $outputPath "SolidWorksMcpApp.exe"
 
 if (Test-FileLocked $targetExe) {
     $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
-    $outputPath = Join-Path (Get-Location) ("artifacts\solidworks-mcp-" + $stamp)
+    $outputPath = Join-Path $repoRoot ("artifacts\solidworks-mcp-" + $stamp)
     Write-Host "Target exe is in use. Publishing to alternate directory: $outputPath"
 }
 

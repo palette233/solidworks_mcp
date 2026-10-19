@@ -1,0 +1,1561 @@
+# To Be Continued
+
+## Automatic Common Base Orientation Correction Still Pending
+
+### Date
+
+- 2026-06-25
+
+### Latest validation result
+
+- After deleting the old `ABC_arrange_demo.SLDASM`, `Initialize -> Common Base` was run again.
+- A/B/C were inserted successfully.
+- B/C Coincident mates were created successfully with `bottomMateResult.errorName=swAddMateError_NoError`.
+- `FinalizeCommonBaseAssembly` still returned `bottom face orientation mismatch`.
+- The remaining failure comes from `orientationChecks`: B/C have `matchesBase=false`.
+
+### Current conclusion
+
+- The duplicate-mate regression has been narrowed down.
+- The remaining core problem is automatic correction of B/C bottom-face orientation so their recorded bottom-face normals match A.
+
+### Proposed implementation
+
+- Read A/B/C recorded bottom-face `worldNormal`.
+- Use A's `worldNormal` as the target direction.
+- For B/C, compute the rotation axis and angle from the current normal to the target normal.
+- Apply an explicit component rotation, then create or refresh the Coincident mate.
+- Probe the bottom-face normal again and require the dot product to meet the threshold.
+
+## Latest status for Common Base orientation fix
+
+### Date
+
+- 2026-06-25
+
+### Current status
+
+- The earlier "try multiple Coincident mate alignments + Undo(1)" approach showed a real regression risk: duplicate Coincident mates may be left behind.
+- The current implementation has been restored to the stable strategy: create one Coincident mate per target component, then run orientation checks/reporting.
+- `FinalizeCommonBaseAssembly` still returns `orientationChecks` so B/C bottom-face normals can be compared with A.
+- If orientation does not match, the tool reports orientation mismatch, but it no longer attempts automatic correction by repeatedly adding/undoing mates.
+
+### Pending validation
+
+- A real SolidWorks validation pass is still required with a clean assembly.
+- Validation should confirm:
+  - each target component gets only one required Coincident mate;
+  - duplicate Coincident mates are no longer created;
+  - all three bottom faces are coplanar;
+  - if B/C bottom normals still do not match A, the frontend reports a clear orientation mismatch.
+
+### Future direction
+
+- If automatic B/C bottom-face orientation correction is required, the next step should explicitly compute and apply corrective component rotation from the normal vectors before or after mating.
+- The implementation should not probe SolidWorks behavior by repeatedly adding and undoing mate alignments.
+
+## Components inserted by Initialize may be hidden
+
+### Date
+
+- 2026-06-25
+
+### Symptom
+
+- After `Initialize`, the user initially saw only C in the SolidWorks UI.
+- State/log inspection showed A/B/C were inserted.
+- The user later confirmed A/B were present but hidden in the component tree and became visible after manually setting them to show.
+
+### Impact
+
+- This is not an insertion failure, but it can make the demo look broken and may cause users to misread `InitializeCommonBaseAssembly` as incomplete.
+
+### Future improvement
+
+- Explicitly show/unhide inserted components after `InitializeCommonBaseAssembly`.
+- Return component visibility state in the tool result and warn if a component is hidden.
+- Optionally run `ZoomToFit` or refresh the active view after insertion.
+
+## Small-Face Bottom Normal Fallback
+
+### Background
+
+During Common Base validation, a small selected face on `A-1` could be recorded and re-selected by the existing face-mapping logic, but its `localNormal` and `worldNormal` were recorded as `null`.
+
+After selecting a larger planar face on the same component, normal recording succeeded. This shows the current normal-recording path is active and working for standard planar faces, but some small or ambiguous faces are not reliable normal sources.
+
+### Current Behavior
+
+The current implementation reads a face normal through:
+
+- `IFace2.GetSurface()`
+- `ISurface.IsPlane()`
+- `ISurface.PlaneParams`
+- `IFace2.FaceInSurfaceSense()`
+
+If this path cannot produce a valid non-zero normal, the mapping stores:
+
+```json
+"localNormal": null,
+"worldNormal": null
+```
+
+This is intentional after the zero-normal guard fix. It prevents invalid normals such as `[0,0,0]` from being used as Common Base orientation baselines.
+
+### Problem
+
+Some small faces may still be useful for selection tests, but they are not currently suitable as Common Base bottom-face references because orientation validation requires a valid planar normal.
+
+Possible causes:
+
+- The face is not recognized by SolidWorks as a simple planar surface.
+- The face is a small split, transition, thin, chamfer, or ambiguous topology face.
+- Mouse/ray selection may select a nearby narrow face rather than the visually intended bottom face.
+- Nested assembly transforms may expose weak or missing surface metadata.
+
+### Proposed Future Work
+
+If small-face support becomes necessary, add a fallback normal extraction path:
+
+1. Try the current `PlaneParams` path first.
+2. If `PlaneParams` fails, collect face geometry samples using one or more SolidWorks APIs:
+   - face tessellation / triangulation data,
+   - face boundary / loop vertices,
+   - edge curve endpoints where available.
+3. Fit a plane from sampled points.
+4. Compute a normal from the fitted plane.
+5. Validate the fitted normal:
+   - enough non-collinear points,
+   - low point-to-plane residual,
+   - normal length above tolerance.
+6. Store normal metadata with a source flag, for example:
+
+```json
+"normalSource": "planeParams"
+```
+
+or:
+
+```json
+"normalSource": "fittedFromFaceSamples"
+```
+
+### Acceptance Criteria
+
+- A small planar face that fails `PlaneParams` can still produce a valid `localNormal/worldNormal` through fitting.
+- Non-planar or noisy faces are rejected with a clear message instead of producing misleading normals.
+- `face_mapping_record_probe.py` prints the normal source.
+- `face_mapping_verify_select.py` compares fitted normals consistently.
+- `FinalizeCommonBaseAssembly` can use fitted normals only when validation quality is high enough.
+
+### Current Recommendation
+
+Do not block the current demo on this enhancement. For the first complete validation, use larger, clearly planar bottom faces for A/B/C, then verify the full workflow:
+
+1. Initialize assembly.
+2. Record valid bottom faces with normals.
+3. Finalize Common Base.
+4. Move components from frontend coordinates.
+
+## Automatic Bottom-Face Orientation Correction
+
+### Background
+
+`FinalizeCommonBaseAssembly` can currently detect bottom-face orientation mismatches after creating coincident mates. In the latest validation, A/B/C became coplanar, C's bottom-face orientation matched A, but B's bottom face was flipped relative to A.
+
+The frontend correctly showed:
+
+```text
+FinalizeCommonBaseAssembly completed with bottom face orientation mismatch.
+error / base pending
+```
+
+and disabled Arrange because `commonBaseReady=false`.
+
+### Current Behavior
+
+- A/B/C bottom faces can be selected.
+- Coincident mates for B and C can be created successfully.
+- Orientation validation compares each component's bottom-face `worldNormal` against A's baseline normal.
+- If any component normal does not match A within the configured threshold, the tool fails Common Base readiness.
+
+This behavior is correct for safety, but it only detects the problem. It does not fix component orientation.
+
+### Problem
+
+For the full assembly-recovery workflow, common base should mean:
+
+- bottom faces are coplanar,
+- bottom-face normals point consistently,
+- subsequent 2D movement does not break the established base relationship.
+
+If B is coplanar but upside down, the current workflow blocks movement. This protects the model, but it prevents a complete automated demo unless the user manually fixes B.
+
+### Proposed Future Work
+
+Add automatic orientation correction to the MCP high-level common-base workflow:
+
+1. Read A's bottom-face normal as the baseline.
+2. Read each other component's bottom-face normal.
+3. If a component's normal is opposite to A:
+   - try an alternate mate alignment first, or
+   - rotate/flip the component around a suitable in-plane axis, then reapply/verify mate.
+4. Re-probe bottom-face normals after correction.
+5. Only set `commonBaseReady=true` when:
+   - mate creation succeeds,
+   - faces are coplanar,
+   - bottom-face normals match the baseline.
+
+### Acceptance Criteria
+
+- A/B/C can be finalized into a common base without manual flipping when one component starts upside down.
+- Orientation correction does not move components off the common plane.
+- `orientationChecks` clearly report before/after normals and correction actions.
+- Frontend can show whether Common Base was completed directly or after automatic correction.
+
+### Current Recommendation
+
+Keep this as a follow-up enhancement. For the current validation round, focus on verifying the newly introduced Transform2 capture/layout functionality and use the current orientation mismatch result as proof that the validation guard works.
+
+## Why This Workflow Is More Valuable Than a Pure Transform2 Plugin
+
+### Question
+
+Compared with a pure Transform2 plugin, what advantages does the current frontend + backend + MCP + Transform2-based reconstruction workflow provide?
+
+### Answer
+
+A pure Transform2 plugin is usually good at a direct matrix-level workflow:
+
+```text
+read component Transform2
+save transform matrix
+apply transform matrix in another assembly
+```
+
+That is useful for exact pose copying, but the current project is aiming at a more explainable and interactive assembly-reconstruction workflow.
+
+### Main Advantages
+
+1. Closer to the target business workflow.
+
+   The current project does not only restore raw component poses. It introduces common-base semantics:
+
+   ```text
+   import subassemblies
+   align bottom faces
+   project bottom centers into a common 2D plane
+   move components in that 2D layout
+   ```
+
+   This matches the intended demo better than blindly restoring a full Transform2 matrix.
+
+2. Interactive frontend control.
+
+   The frontend allows users to inspect state, drag 2D rectangles, edit coordinates, and execute staged operations. This makes the demo visible and controllable:
+
+   ```text
+   frontend 2D layout change
+   -> backend sends target data
+   -> MCP calls SolidWorks tools
+   -> SolidWorks components move
+   ```
+
+3. Step-by-step verification.
+
+   The workflow is split into clear phases:
+
+   ```text
+   Initialize
+   Record / Verify Face Mapping
+   Common Base
+   Capture Layout
+   Arrange
+   ```
+
+   Each phase can be tested independently, which is important for debugging CAD automation.
+
+4. Bottom-face semantics, not just matrices.
+
+   Transform2 alone does not know which face is the bottom face. The current workflow adds:
+
+   - `RecordFaceMapping`
+   - `SelectFaceByName`
+   - `bottomFaceName`
+   - `bottomCenterWorld`
+   - `bottomNormalWorld`
+   - `orientationChecks`
+
+   This gives the system semantic knowledge of the assembly base plane.
+
+5. Better fit for high-level MCP tools and LLM orchestration.
+
+   Complex SolidWorks actions are wrapped into stable high-level MCP tools:
+
+   - `InitializeCommonBaseAssembly`
+   - `FinalizeCommonBaseAssembly`
+   - `MoveComponentsOnCommonBase`
+   - `CaptureCommonBaseLayoutFromAssembly`
+
+   This allows an LLM or external app to call meaningful operations instead of composing many low-level APIs manually.
+
+6. Easier path toward a semi-automatic reconstruction workbench.
+
+   The current architecture can grow into a system that supports:
+
+   - automatic bottom-face detection,
+   - bottom-face orientation correction,
+   - Transform2/layout capture,
+   - frontend manual adjustment,
+   - backend state persistence,
+   - iterative assembly reconstruction.
+
+### Tradeoff
+
+A pure Transform2 plugin is still more direct if the only goal is exact pose restoration. It may be simpler and more precise for:
+
+```text
+copy original transform
+paste original transform
+```
+
+The current project is stronger when the goal is:
+
+```text
+explainable
+interactive
+stage-verifiable
+bottom-face-aware
+LLM/MCP-callable
+2D layout reconstruction with human adjustment
+```
+
+### Summary
+
+The pure Transform2 plugin is best viewed as a matrix-level pose copy tool. The current project is better viewed as an assembly-layout reconstruction workflow with frontend interaction, backend state, semantic bottom-face mapping, MCP tool orchestration, and Transform2-based layout capture.
+
+## MCP Publish/Runtime Directory Consistency
+
+### Background
+
+While implementing the first layout2d replay workflow, the MCP app was rebuilt successfully. Publishing to `artifacts/solidworks-mcp` could not overwrite the running executable because the old MCP process was still active, so the publish script wrote a new artifact directory:
+
+```text
+artifacts/solidworks-mcp-20260624-112354
+```
+
+Running `apply_captured_common_base_layout.py` against the new directory failed before tool execution:
+
+```text
+System.IO.IOException: The server shut down unexpectedly.
+```
+
+The new artifact log showed:
+
+```text
+Tray startup skipped because another hub instance is already running.
+```
+
+### Problem
+
+The new MCP tool exists in the newly published executable, but the active hub is still the older `artifacts/solidworks-mcp` instance. This prevents validating newly added tools until the old MCP process is stopped and the new MCP build is launched.
+
+### Resolution for Next Test
+
+Before testing newly published MCP tools:
+
+1. Stop the old `SolidWorksMcpApp.exe` processes.
+2. Start the newly published MCP executable, or republish after the old process is stopped so `artifacts/solidworks-mcp` can be overwritten.
+3. Copy or recreate `face_mappings.json` in the active MCP artifact directory.
+4. Run the command-line tool again.
+
+### Current Recommendation
+
+For the next validation, either:
+
+- restart MCP from `artifacts/solidworks-mcp-20260624-112354`, or
+- stop MCP, republish to `artifacts/solidworks-mcp`, and use the default script paths.
+
+## PowerShell npm Execution Policy Blocks Frontend Build Command
+
+### Background
+
+After exposing `Replay Layout` in the frontend, the frontend build needed to be verified.
+
+### Symptom
+
+Running this directly in PowerShell:
+
+```cmd
+npm run build
+```
+
+fails because the system blocks `npm.ps1`.
+
+### Current Workaround
+
+Use the CMD entry point instead:
+
+```cmd
+cmd /c npm.cmd run build
+```
+
+### Recommendation
+
+- This is not a frontend code issue. It is a Windows PowerShell Execution Policy environment issue.
+- Future Windows demo/test instructions should prefer `cmd /c npm.cmd ...` to avoid being blocked by PowerShell policy.
+
+## Frontend Replay Layout Still Needs Real UI-Level Validation
+
+### Current Status
+
+- `ApplyCapturedCommonBaseLayout` has passed real SolidWorks validation through the command-line script.
+- The frontend now has a `Replay Layout` button.
+- The backend now exposes `/api/demo/apply-captured-layout`.
+- The frontend build passes.
+
+### Pending Validation
+
+The next real-environment validation should:
+
+1. Start the new MCP build.
+2. Start the backend.
+3. Start the frontend.
+4. Confirm `ABC_arrange_demo.SLDASM` is initialized or open.
+5. Click `Replay Layout` in the frontend.
+6. Confirm SolidWorks replays component positions from captured `layout2d`.
+7. Confirm the frontend Result and Screenshot sections update.
+
+## Multiple SolidWorks Instances Can Make MCP Miss the User-Selected Face
+
+### Time
+
+- 2026-06-24
+
+### Symptom
+
+- The user selected the bottom face of `A-1` in SolidWorks.
+- MCP returned this when calling `record_face_mapping`:
+
+```text
+No active document. Open or create a document first.
+```
+
+### Analysis
+
+- Multiple `SLDWORKS.exe` processes are currently running.
+- MCP connected to a SolidWorks instance with no active document.
+- The SolidWorks UI where the user selected the bottom face is likely a different instance.
+
+### Impact
+
+- Manual face recording requires the user-operated SolidWorks instance and the MCP-connected SolidWorks instance to be the same one.
+- If they differ, MCP cannot read the user's current selection even when the correct face is selected visually.
+
+### Temporary Workaround
+
+1. Save any SolidWorks documents that should be kept.
+2. Close extra SolidWorks windows/processes and keep only one SolidWorks instance.
+3. Reopen:
+
+```text
+demo/X_reference.SLDASM
+```
+
+4. Select the real bottom face of `A-1` in that single instance.
+5. Run face recording again.
+
+### Follow-Up Improvement
+
+- Add an MCP health tool that returns the connected SolidWorks process, active document title, and active document path.
+- Before face recording, check that the active document is the expected `X_reference.SLDASM`.
+- If multiple SolidWorks processes are detected, return a clear warning.
+
+## Validate Common Base Orientation-Aware Mate Retry in Real SolidWorks
+
+### Time
+
+- 2026-06-25
+
+### Current Status
+
+- `FinalizeCommonBaseAssembly` now tries multiple coincident mate alignments.
+- After each successful mate it probes the target bottom-face normal.
+- If the normal does not match the base component, the tool undoes that mate and tries the next alignment.
+- The code builds successfully.
+
+### Pending Validation
+
+This still needs a real SolidWorks run with the new MCP build:
+
+1. Publish the updated MCP.
+2. Stop old `SolidWorksMcpApp.exe` instances.
+3. Start the newly published MCP.
+4. Initialize an assembly with A/B/C.
+5. Record/verify bottom faces if needed.
+6. Run `FinalizeCommonBaseAssembly`.
+7. Confirm:
+   - bottom faces are coplanar;
+   - B/C bottom-face normals match A;
+   - frontend no longer reports `bottom face orientation mismatch`.
+
+### Remaining Risk
+
+If SolidWorks resolves all tried coincident mate alignments to the same physical orientation for a specific face pair, the retry mechanism will still fail with `BottomFaceOrientationMismatch`. In that case the next improvement should rotate the component explicitly before or after mating, using the normal vectors to compute a correction transform.
+
+## Validate Small-Face Normal Fallback and Frontend Capture Layout
+
+### Time
+
+- 2026-06-25
+
+### Current Status
+
+- Small-face normal fallback has been implemented:
+  - primary path: `PlaneParams`;
+  - fallback path: tessellated normals;
+  - fallback path: fitted normal from tessellated triangle points.
+- Unit tests cover the tessellation fitting helper.
+- Frontend now exposes `Capture Layout`.
+- Backend now exposes `/api/demo/capture-common-base-layout`.
+- Latest published MCP build: `artifacts/solidworks-mcp-20260625-163843`.
+
+### Pending Real Validation
+
+1. Restart MCP from `artifacts/solidworks-mcp-20260625-163843`.
+2. Open or initialize an assembly with known A/B/C bottom-face mappings.
+3. Select and record a previously problematic small bottom face.
+4. Verify that `face_mappings.json` now contains `localNormal` and `worldNormal` instead of `null`.
+5. Run frontend `Capture Layout`.
+6. Confirm `demo/captured_common_base_layout.json` updates.
+7. Run frontend `Replay Layout`.
+8. Confirm component positions replay from the newly captured layout.
+
+### Remaining Risk
+
+- SolidWorks tessellation APIs can vary by face type and document state. If both tessellated normals and tessellated triangle points are unavailable, small faces may still return `normal=null`.
+- If triangle point ordering is inconsistent for some topology, the fitted normal direction may need an additional orientation check against surrounding geometry or component transform.
+
+## Common Base Orientation Auto-Correction Still Needs a Second-Phase Design
+
+### Time
+
+- 2026-06-25
+
+### Current Progress
+
+- A first explicit-rotation correction path has been implemented:
+  - computes a rotation axis and angle from the base bottom-face normal and target bottom-face normal;
+  - tries both positive and negative angle directions;
+  - rolls the component back when the correction cannot be confirmed;
+  - returns `orientationCorrections` for diagnostics.
+- Build and unit-level validation passed.
+
+### Real Validation Problems
+
+- For B, after rotation the selected recorded face returned `normal=null`, so the tool could not confirm whether the orientation was fixed.
+- For C, the face normal matched A before the coincident mate, but mismatched after mating. This suggests the mate solver itself can still change component orientation.
+- Therefore the first pre-mate explicit-rotation strategy is not enough to solve bottom-face orientation consistently.
+
+### Recommended Follow-Up
+
+1. Split correction into two phases:
+   - optional pre-mate correction;
+   - mandatory post-mate orientation check and second explicit correction.
+2. Preserve the established common-base relation during the second correction:
+   - rotate in a controlled way around the common-base frame or bottom-center anchor;
+   - move the bottom center back after rotation to prevent layout2d drift.
+3. Improve face re-identification after rotation:
+   - keep matching by normal, area, local center, and leaf full name;
+   - add candidate-face scanning when `SelectFaceByName` succeeds but the selected face probe returns `normal=null`.
+4. Add diagnostic tools:
+   - list current mates;
+   - detect duplicate coincident mates;
+   - report each component bottom normal, bottom center, and Transform2.
+5. Validate with a minimal real SolidWorks sample first:
+   - start with A/B only;
+   - verify common-base plus orientation correction;
+   - then scale back to A/B/C and larger assemblies.
+
+### Not Recommended
+
+- Do not return to repeated add/undo mate-alignment guessing. That path has already shown duplicate-mate regression risk.
+
+### 2026-06-26 Update
+
+- A first `PostMate` second-phase correction path has been integrated:
+  - create the coincident mate once;
+  - rebuild;
+  - explicitly rotate by bottom-face normals;
+  - run the final orientation check.
+- `orientationCorrections` now includes a `Stage` field. The expected value for this path is `PostMate`.
+
+Still pending:
+
+1. Publish the updated MCP and validate in real SolidWorks.
+2. If B still returns `normal=null` after rotation, implement candidate-face scanning fallback.
+3. If post-mate explicit rotation is constrained by mates, consider:
+   - temporarily suppressing the relevant mate during correction;
+   - or setting orientation through Transform2 before mating and using mate only as a final verification;
+   - or adding a dedicated Transform2 setter to remove uncertainty from `RotateComponent` multiplication order.
+4. Add a mate diagnostic tool that lists mates in the active assembly and flags duplicate coincident mates.
+
+### 2026-06-26 Update: PostMate Rotation Disabled by Default
+
+- A real run produced a `Common Base` timeout.
+- The likely cause is `RotateComponent` running after Coincident mates were already created, forcing SolidWorks into a long constraint solve.
+- `enablePostMateOrientationCorrection` now defaults to `false`.
+- Future automatic orientation correction should prefer:
+  1. mate diagnostics and mate suppression;
+  2. suppressing related mates before rotation, then restoring them;
+  3. or setting initial orientation through Transform2 before mating;
+  4. avoiding direct component rotation while the component is strongly constrained by mates.
+
+### 2026-06-26 Update: Strategy 3 Selected and Implemented
+
+- Pre-mate Transform2 orientation correction has been integrated.
+- `enablePreMateOrientationCorrection` defaults to `true`.
+- The default flow now corrects component orientation before creating mates.
+- PostMate rotation remains available as an experimental switch, but it stays disabled by default.
+
+Still pending:
+
+1. Publish the updated MCP and validate in real SolidWorks.
+2. If B/C still cannot reliably probe normals after correction, implement candidate-face scanning fallback.
+3. If Transform2 rotation direction remains unstable, add a more explicit Transform2 setter instead of relying on the current `RotateComponent` matrix multiplication behavior.
+
+### 2026-06-26 Update: New MCP Startup Blocked by Device Guard
+
+- The newly published single-file executable is blocked by Windows Device Guard:
+
+```text
+artifacts\solidworks-mcp\SolidWorksMcpApp.exe
+```
+
+- The viable fallback is the build output DLL:
+
+```text
+dotnet vendor\solidworks-mcp\app\SolidWorksMcpApp\bin\Release\net8.0-windows\win-x64\SolidWorksMcpApp.dll
+```
+
+- That DLL still needs a stable foreground/tray session to keep the Hub running.
+- The backend temporary launcher has been changed to use:
+
+```text
+DEMO_MCP_COMMAND=dotnet
+DEMO_MCP_ARGS=<SolidWorksMcpApp.dll> --proxy --client DemoBackendArrange
+```
+
+- Follow-up: resolve executable trust/signing/allow-listing, or formalize the DLL startup path in a stable script.
+
+### 2026-06-26 Update: Add MCP Direct Stdio Mode
+
+Background:
+
+- `SolidWorksMcpHub` named-pipe/tray mode has repeatedly caused integration friction:
+  - permission isolation;
+  - Hub lifecycle ambiguity;
+  - Device Guard blocking the published executable;
+  - proxy processes failing before they reach the Hub.
+- These issues distract from validating the frontend/backend/MCP demo workflow.
+
+Recommended Solution:
+
+- Add a direct stdio mode to the MCP app, for example:
+
+```cmd
+dotnet SolidWorksMcpApp.dll --stdio
+```
+
+- In this mode, the MCP app should not start the tray Hub and should not connect to `SolidWorksMcpHub`.
+- The backend launches MCP as a direct child process and communicates through stdin/stdout.
+
+Suggested Implementation:
+
+1. Add a `--stdio` branch in `SolidWorksMcpApp`.
+2. Build the MCP session host directly against the current process stdin/stdout.
+3. Configure the backend with:
+
+```cmd
+DEMO_MCP_MODE=stdio
+DEMO_MCP_COMMAND=dotnet
+DEMO_MCP_ARGS=<SolidWorksMcpApp.dll> --stdio
+DEMO_MCP_CWD=<directory containing SolidWorksMcpApp.dll>
+```
+
+4. Keep the existing `--proxy` / Hub mode for tray use cases.
+5. Use direct stdio as the default for demo integration tests.
+
+Expected Benefit:
+
+- Shorter startup chain.
+- No dependency on a long-lived Hub process.
+- Better fit for automated testing and frontend/backend integration.
+- Errors can be captured directly from stderr/stdout.
+
+### 2026-06-26 Addendum: Common Base timeout recap
+
+- The latest `Common Base` run returned `MCP execution failed: TimeoutError:` in the frontend.
+- The MCP Hub log shows that `FinalizeCommonBaseAssembly` actually completed:
+  - Started at 16:42:48
+  - Completed at 16:46:02
+  - Total duration: about 194.6 seconds
+- The backend default `DEMO_MCP_TIMEOUT_SECONDS` is 180 seconds, so the backend timed out about 14.6 seconds before MCP returned.
+- This run was not a Hub/proxy connection failure. SolidWorks completed the tool call, but slower than the backend timeout.
+- The real MCP result was still `FinalizeCommonBaseAssembly completed with bottom face orientation mismatch.`, so `commonBaseReady=false` is expected.
+
+Next plan:
+
+1. For short-term validation, raise `DEMO_MCP_TIMEOUT_SECONDS` to 420 seconds so the backend can capture the full MCP result.
+2. Add phase timing logs in `FinalizeCommonBaseAssembly` for probe, PreMate correction, mate, rebuild, save, and screenshot.
+3. Make screenshot export optional for Common Base validation to reduce extra runtime.
+4. Continue the direct stdio MCP plan to reduce Hub/proxy startup uncertainty.
+
+### 2026-06-26 Addendum: Orientation diagnostics are now visible
+
+- MCP `orientationCorrections` and `orientationChecks` are now persisted into `demo_state.json`.
+- The frontend now has an `Orientation` diagnostics panel for:
+  - whether correction was triggered;
+  - before/after world normals;
+  - rotation axis and angle;
+  - final dot value against A;
+  - which component mismatched.
+- After the next real `Common Base` run, use the diagnostics to decide:
+  1. If PreMate correction did not trigger, inspect face-mapping normals and correction predicate logic.
+  2. If PreMate correction succeeded but mate later failed, prioritize an explicit Transform2 initial-pose setter or a controlled post-mate correction path.
+  3. If any component normal cannot be read, continue with candidate-face scanning fallback.
+
+### 2026-06-26 Addendum: SelectFaceByName needs rotation/mate robustness
+
+- Face mapping is no longer the early world-center-only implementation. It already stores leaf-local center, area, and normal, so it has some robustness for ordinary component movement.
+- The latest Common Base diagnostics show:
+  - B/C final probed face areas differ greatly from the recorded bottom face areas;
+  - after rotation or mate solving, the current candidate score can select adjacent small/side faces.
+- Next improvements:
+  1. Treat area/normal as strong constraints instead of weak penalties.
+  2. Verify the selected face probe against the recorded mapping after selection.
+  3. Return candidate scoring diagnostics.
+  4. If no reliable candidate exists, return a clear failure instead of continuing to mate.
+  5. Unify the `face_mappings.json` path used by backend validation and MCP selection.
+
+### 2026-06-26 Addendum: SelectFaceByName strong validation completed, real validation pending
+
+- Area/normal/center strong constraints and top-candidate diagnostics are implemented.
+- Expected behavior:
+  - If B/C's true bottom face can be recovered reliably, `SelectFaceByName` returns `Success=true`;
+  - If only an adjacent small/side face can be found, `SelectFaceByName` returns `Success=false` and reports whether center, area, or normal failed.
+- Remaining work:
+  1. Stop the old MCP, then publish/start the updated MCP;
+  2. Run `Common Base` again in real SolidWorks;
+  3. Use `faceSelection.diagnostics` to decide whether thresholds should be tuned or Persistent Reference is needed;
+  4. Unify the `face_mappings.json` path.
+
+### 2026-06-26 Addendum: New conclusion after strong-validation real test
+
+- The updated MCP was built and validated with a real `Common Base` run.
+- Strong validation is working:
+  - B-1 final orientation check was rejected because `center distance 0.407875m > 0.002000m`;
+  - C-1 final orientation check was rejected because `center distance 0.280773m > 0.002000m`.
+- The problem is no longer "a wrong small face was selected and still returned success". It is now clearly:
+
+```text
+After rotation/mate, the old face mapping's saved leaf-local center is no longer valid as a later strong constraint.
+```
+
+Priority:
+
+1. Unify the `face_mappings.json` path.
+2. Investigate and implement SolidWorks Persistent Reference to recover the same IFace2.
+3. Before persistent reference is available, consider writing a post-common-base face mapping snapshot after PreMate correction/mating.
+4. In Common Base, if strong validation fails, return a clear "mapping invalidated by pose change; re-record or refresh mapping" message instead of continuing automatic correction.
+
+### 2026-06-26 Addendum: Persistent Reference is wired, clean re-record validation pending
+
+Completed:
+
+- The backend and MCP default `face_mappings.json` path now resolves to:
+
+```text
+artifacts\solidworks-mcp\face_mappings.json
+```
+
+- `RecordFaceMapping` now attempts to store a SolidWorks Persistent Reference:
+
+```json
+"persistentReferenceBase64": "..."
+```
+
+- `SelectFaceByName` now:
+  1. tries `GetObjectByPersistReference3` with `persistentReferenceBase64` first;
+  2. falls back to the current leaf-local center / area / normal strong candidate validation if the persistent reference is missing or fails.
+- `InitializeCommonBaseAssembly` now reuses an existing target assembly file so reset + initialize does not fail when `ABC_arrange_demo.SLDASM` is already open in SolidWorks.
+
+Current limitation:
+
+- The existing A/B/C mappings are old entries and do not contain `persistentReferenceBase64`.
+- The current `ABC_arrange_demo.SLDASM` has already gone through Common Base / mate / rotation attempts. In this state, B/C cannot be selected by the old geometry mapping strongly enough to auto-refresh the mapping.
+- Therefore Persistent Reference support is implemented, but the real workflow validation still needs a clean bottom-face re-record.
+
+Recommended next validation:
+
+1. Return to a clean initialized state:
+   - close or delete the old `ABC_arrange_demo.SLDASM`;
+   - `Reset`;
+   - `Initialize`;
+   - do not run `Common Base` first.
+2. In SolidWorks UI, select the real bottom faces for A/B/C and run the record script or frontend record action.
+3. Check `artifacts\solidworks-mcp\face_mappings.json` and confirm A/B/C contain:
+
+```json
+"persistentReferenceBase64": "..."
+```
+
+4. Run `Common Base` again and inspect:
+   - whether `SelectFaceByName` succeeds through Persistent Reference;
+   - whether B/C still show large center-distance drift;
+   - whether `orientationChecks` still fail.
+
+If it still fails:
+
+- Implement a post-common-base face mapping snapshot:
+  - preserve the pre-common-base mapping;
+  - after PreMate / mate, write a `postCommonBaseMapping` from the currently selected/known bottom faces;
+  - let later orientation checks and Replay Layout prefer that snapshot.
+- Continue evaluating whether SolidWorks Persistent Reference remains stable after save/reopen, subassembly rotation, and mate solving.
+### 2026-06-29 Addendum: MCP Hub/Proxy chain needs stabilization
+
+Observed behavior:
+
+- While attempting to automatically create `demo\X_reference.SLDASM`, both the official backend endpoint and a temporary direct MCP plan failed during MCP connection setup:
+
+```text
+System.IO.IOException: The server shut down unexpectedly.
+```
+
+- After restarting the MCP Hub, the log only showed:
+
+```text
+Hub pipe server starting on 'SolidWorksMcpHub'
+Tray service started
+```
+
+but the process later exited and direct pipe mode reported:
+
+```text
+FileNotFoundError: \\.\pipe\SolidWorksMcpHub
+```
+
+Follow-up work:
+
+1. Script and standardize MCP Hub startup so manual, hidden-window, and visible-window launches behave consistently.
+2. Add a startup health check:
+   - verify the `dotnet`/`SolidWorksMcpApp` process is alive;
+   - verify `\\.\pipe\SolidWorksMcpHub` is connectable;
+   - run one lightweight tool such as `Ping` or `ListComponents`.
+3. If `dotnet SolidWorksMcpApp.dll` remains unstable as a tray/Hub session, prioritize direct stdio MCP mode to remove the Hub/proxy layer.
+4. The backend should check MCP health before frontend operations, instead of exposing `server shut down unexpectedly` only after a button click.
+
+Impact:
+
+- The automatic `X_reference` creation workflow is currently blocked.
+- The CAD operation plan itself remains reusable once the Hub/Proxy chain is restored.
+
+### 2026-06-29 Addendum: Root cause of operation-chain instability and current fix
+
+Current conclusion:
+
+- The main instability was not `MoveComponent` / `RotateComponent` itself. The larger failure point was MCP Hub/proxy startup and connection handling.
+- In DLL launch mode, `dotnet SolidWorksMcpApp.dll --proxy` makes `Environment.ProcessPath` point to `dotnet.exe`.
+- The old proxy auto-start logic could therefore start bare `dotnet.exe`, which made the proxy fail with:
+
+```text
+System.IO.IOException: The server shut down unexpectedly.
+```
+
+- Manual or scripted tray Hub startup can also leave the named pipe unavailable:
+
+```text
+FileNotFoundError: \\.\pipe\SolidWorksMcpHub
+```
+
+Mitigations completed:
+
+1. Added `SolidWorksMcpApp --stdio-direct`, allowing backend automation to use direct MCP stdio without Hub/proxy.
+2. Added `SolidWorksMcpApp --headless-hub`, allowing a non-tray Hub session when a named pipe is still needed.
+3. Fixed DLL-mode proxy Hub auto-start so it no longer launches bare `dotnet`.
+4. Changed backend defaults to prefer direct stdio.
+5. Made `McpToolRunner` tolerate stdin BOM/whitespace so PowerShell debug commands are less fragile.
+
+Remaining work:
+
+1. Document direct stdio startup and health-check commands.
+2. Extend backend `/api/health` with a lightweight MCP tool probe instead of only echoing configuration.
+3. Surface MCP health in the frontend before running long CAD actions.
+4. Keep Hub/proxy as an optional mode, but prefer direct stdio for demos and automation.
+
+### 2026-06-29 Addendum: Why rotation can still be unstable
+
+Even after stabilizing MCP transport, rotation still has CAD-level risk:
+
+- `RotateComponent` modifies component `Transform2`.
+- If the component is fixed, already mated, or affected by internal subassembly constraints, SolidWorks may trigger expensive constraint solving.
+- Rotation after common-base mates, especially around arbitrary axes, can be slow, cancelled by constraints, or change which face the fallback mapping selects.
+
+Current safer approach:
+
+- For `X_reference` creation, rotate only around the common bottom-face normal after Common Base is already established.
+- For automatic orientation correction, prefer pre-mate orientation setup instead of rotating after strong mates exist.
+- For real assembly restoration, prefer recording/restoring explicit `Transform2` or target orientation data over relying only on incremental rotations.
+
+### 2026-06-29 Addendum: bottom-face world/local center semantics need continued validation
+
+During `X_reference_spread` creation:
+
+- B/C `sourceTransform` changed after `MoveComponent`.
+- The old `CaptureCommonBaseLayoutFromAssembly` result still produced unchanged `layout2d`.
+- Root cause: `GetSelectedFaceMappingProbe` treated the center of `IFace2.GetBox()` as a world-space point.
+- In nested subassembly / leaf-component cases, that center behaves more like a leaf/local-space point and must be transformed through `IComponent2.GetTotalTransform(true)` to get an assembly world center.
+
+Fix completed:
+
+- `GetSelectedFaceMappingProbe` now uses:
+  - `localCenter = BoxCenter(face.GetBox())`
+  - `worldCenter = GetTotalTransform(true) * localCenter`
+- `RecordFaceMapping` now stores the clearer leaf-local center as well.
+- Recapturing `X_reference_spread` layout2d now succeeds.
+
+Remaining considerations:
+
+1. Older face mappings may contain `localCenter` values recorded with the previous semantics. A/B/C currently rely on Persistent Reference, so this does not block the current workflow.
+2. If a future workflow lacks Persistent Reference and falls back to geometry matching, the fallback may need to support both legacy and corrected local-center semantics.
+3. The next Replay Layout test should verify that the corrected world-center probe also drives restored component movement correctly.
+
+### 2026-06-29 Addendum: Replay Layout loop passed, orientation replay still pending
+
+Loop verification result:
+
+- Fresh assembly creation, A/B/C insertion, Common Base, and replay of `x_reference_layout2d.json` passed.
+- The recaptured layout2d after replay matched the target layout2d with approximately `2.78e-17` error.
+
+Fix completed:
+
+- `ApplyCapturedCommonBaseLayout` used to call `GetSelectedFaceCenter()` for the current bottom-face center.
+- That path did not use `GetTotalTransform(true)` and caused replay offsets for nested components.
+- It now uses `GetSelectedFaceMappingProbe().WorldCenter`.
+
+Remaining work:
+
+1. Current replay restores only 2D bottom-center positions. It does not restore each component's own rotation/orientation.
+2. `X_reference_spread` already contains rotated B/C `sourceTransform` data, so a future Transform2 orientation replay can:
+   - align bottom-face normals;
+   - restore in-plane rotation around the common-base normal;
+   - then restore layout2d position.
+3. `GetSelectedFaceCenter()` may still be used by older flows and should either be replaced with probe world center or fixed internally.
+
+### 2026-06-29 Addendum: layout2d in-plane theta replay completed, full 3D pose restore still pending
+
+Completed:
+
+- `layout2d` now includes `thetaDegrees/thetaAxis`.
+- Capture chooses the Transform2 X/Y/Z axis with the strongest projection onto the common-base plane as the theta reference axis.
+- Replay restores theta first, then probes the bottom center again and restores x/y.
+- Real SolidWorks loop passed:
+
+```text
+A-1 xy_error=0, theta_error=0deg
+B-1 xy_error=0, theta_error=0deg
+C-1 xy_error=1.11e-16m, theta_error=0deg
+```
+
+Issue found:
+
+- `RotateComponent` angle direction is opposite to the layout projection convention.
+- The current fix negates the angle only inside `ApplyCapturedCommonBaseLayout` theta replay, leaving the lower-level `RotateComponent` behavior unchanged.
+
+Remaining work:
+
+1. This restores planar heading on the common base, not arbitrary full 3D `Transform2` pose.
+2. If full 3D pose restoration is needed later, add a dedicated `SetComponentTransform2` or complete Transform2 save/restore tool.
+3. `dotnet test` is currently blocked by Windows application control policy while loading the test DLL. The test environment or runner still needs to be stabilized.
+
+### 2026-06-30 Addendum: n-component productization follow-ups
+
+First pass completed:
+
+- State and frontend are no longer tied to fixed A/B/C. Components can be synced from a layout JSON `components` array.
+- The frontend can choose or upload layout JSON and display each component's `x/y/theta`.
+- Batch face-mapping verification has been added.
+
+Remaining work:
+
+1. Upload currently handles layout JSON content only, not CAD files.
+   - In real projects, child assembly file paths in the layout JSON must still be accessible on the local machine.
+   - CAD upload would need separate file storage, path mapping, and safety rules.
+2. Real batch face-mapping verification depends on the active SolidWorks assembly.
+   - If the wrong assembly is active, `select_face_by_name` may fail even when mappings exist.
+   - Add an active document / assemblyPath consistency check before verification.
+3. The frontend canvas still uses fixed world bounds.
+   - For n components or larger layouts, auto-fit based on layout bounds should be added.
+4. Current n-component sync is driven by captured layout JSON.
+   - A future tool can discover top-level components from the source assembly and generate the demo configuration automatically.
+### 2026-06-30 Addendum: Follow-ups After Real Frontend Loop
+
+The frontend upload of `x_reference_layout2d_theta.json` followed by `Initialize -> Verify Faces -> Common Base -> Replay Layout` has passed real SolidWorks validation. A second capture confirmed the replayed `x/y/theta` errors are effectively zero.
+
+Recommended follow-ups:
+
+1. Stabilize MCP/backend health checks
+   - `/api/health` currently mainly reports backend configuration.
+   - Add lightweight MCP Hub connectivity, tool-list, and SolidWorks active-document checks.
+2. Check active assembly consistency
+   - Before `Verify Faces`, `Common Base`, and `Replay Layout`, verify that the active SolidWorks assembly matches `demo_state.json.assemblyPath`.
+   - This prevents operations from running against the wrong assembly after SolidWorks restarts or window switches.
+3. Auto-fit the frontend canvas
+   - The current layout view still uses a fairly fixed world range.
+   - For n components or larger layouts, fit the viewport from layout bounds.
+4. Discover n components from a source assembly
+   - Current n-component sync is driven by the layout JSON `components` array.
+   - Add a source-assembly discovery tool that lists top-level child assemblies and produces a record/verify checklist.
+5. Clean up encoding display
+   - PowerShell/log output can still show mojibake for `底面` and degree symbols.
+   - Functionality is unaffected, but CLI/log encoding should be made consistent.
+6. Add automatic post-replay error reporting
+   - The current geometry recheck can be run manually by capturing the replayed assembly and comparing it with the target layout.
+   - Later, `Replay Layout` should optionally capture and return per-component `xy_error/theta_error`.
+### 2026-06-30 Addendum: Follow-ups After Health Check and Replay Error Report
+
+Completed:
+- Backend now exposes `/api/demo/mcp-health`.
+- `Verify Faces` now checks active assembly consistency before selecting faces.
+- `Replay Layout` now automatically captures the current layout and stores `state.lastRun.replayValidation`.
+- Frontend now displays `Replay Check`.
+
+Still pending:
+
+1. Add an explicit frontend MCP Health button or status light
+   - The endpoint exists, but the frontend does not have a dedicated entry yet.
+   - Later, add a toolbar `Health` button that shows whether the active document matches the state assembly.
+2. Add softer consistency warnings before `Common Base` and `Replay Layout`
+   - These tools open the target file via `assemblyPath`, so they should not always block.
+   - A warning is enough to tell users that the visible SolidWorks window may differ from the target assembly.
+3. Make replay validation thresholds configurable
+   - Current defaults: `xyError <= 1e-6m`, `thetaError <= 1e-4deg`.
+   - Larger real assemblies may need project-specific thresholds.
+4. Keep `demo/replay_validation_layout2d.json` ignored
+   - It is a runtime validation artifact and should not be committed.
+5. Run one more real SolidWorks validation
+   - Restart backend;
+   - run `Replay Layout` from the frontend;
+   - confirm `Replay Check` shows `matched` with near-zero errors.
+### 2026-06-30 Addendum: Two face_mappings Path Issue Confirmed and Needs Hardening
+
+Confirmed issue:
+- Backend health reported `artifacts\solidworks-mcp\face_mappings.json`.
+- MCP probing previously used `vendor\solidworks-mcp\app\SolidWorksMcpApp\bin\Release\net8.0-windows\win-x64\face_mappings.json`.
+- This lets the backend believe mappings exist while MCP uses stale mapping data, causing B/C selection failures or orientation probe errors.
+
+Temporary fix:
+- Restart backend with explicit `DEMO_FACE_MAPPING_PATH`.
+- Real validation now passes.
+
+Still to harden:
+1. Add an official backend startup script
+   - Set:
+     - `DEMO_MCP_MODE`
+     - `DEMO_MCP_COMMAND`
+     - `DEMO_MCP_CWD`
+     - `DEMO_FACE_MAPPING_PATH`
+     - `DEMO_MCP_TIMEOUT_SECONDS`
+2. Add MCP-side mapping path visibility to `/api/health` or `/api/demo/mcp-health`
+   - Current `mcp-health` reads active document only.
+   - Later, add a lightweight probe or dedicated tool to report the actual MCP-side `face_mappings.json`.
+3. Add a frontend Health status indicator
+   - MCP connectivity;
+   - active assembly match;
+   - mapping path consistency.
+### 2026-06-30 Addendum: MCP/Backend Startup and Health Hardening Completed, Long-Term Stability Still Pending
+
+Completed in this round:
+- Added official backend startup script `scripts/start_demo_backend.cmd`, fixing MCP mode, DLL startup directory, unified face mapping path, and 420-second timeout.
+- Added MCP tool `get_face_mapping_store_info` to report the `face_mappings.json` path used by the MCP process.
+- Extended backend `/api/demo/mcp-health` to return:
+  - active assembly vs `demo_state.json.assemblyPath` match;
+  - backend mapping path;
+  - MCP mapping path;
+  - whether the two paths match.
+- Added frontend `Health` button and status panel.
+
+Still pending:
+1. Make `scripts/start_demo_backend.cmd` part of the official daily test instructions.
+2. If MCP Hub multi-instance or stale-process issues continue, add a dedicated MCP Hub management script:
+   - list current hub process;
+   - show launch path;
+   - stop old hub;
+   - start the new hub through the DLL path.
+3. Health now depends on the new MCP tool. If an old MCP process is still running, it may report `unknown tool`, which is useful as a signal that the active MCP is stale.
+### 2026-06-30 Addendum: Detailed Plan for Project-Scale Workflow
+
+Goal:
+- Move from the current A/B/C demo toward a generic workflow where a source assembly X contains n child assemblies/components.
+- Capture layout2d from X, then create a new assembly, insert n child components, align common base, and replay layout2d position/theta.
+
+Recommended implementation phases:
+
+#### Phase 1: Auto-discover n child components
+
+Goal:
+- Given source assembly X, automatically list child assemblies/components that can become layout units.
+
+Recommended new MCP high-level tool:
+```text
+DiscoverLayoutComponentsFromAssembly
+```
+
+Inputs:
+- `sourceAssemblyPath`
+- `scope`: `topLevelOnly` / `recursive`
+- `includeParts`
+- `includeSuppressed=false`
+
+Output:
+- `assemblyPath`
+- `components[]`:
+  - `componentName`
+  - `componentPath`
+  - `filePath`
+  - `isAssembly`
+  - `isSuppressed`
+  - `transform`
+  - `candidateBottomFaces`, empty in the first version and enhanced later.
+
+Backend changes:
+- Add `ProjectLayoutConfig` or extend `DemoState` for n components.
+- Add endpoints:
+  - `POST /api/demo/discover-components`
+  - `POST /api/demo/import-discovered-components`
+
+Frontend changes:
+- Add source assembly path input.
+- Show discovered components in a table.
+- Let the user choose which components participate in layout replay.
+
+Risks:
+- Real assemblies may include nested assemblies, lightweight components, virtual components, and suppressed components.
+- First version should support only top-level resolved components.
+
+#### Phase 2: Generate layout JSON project config
+
+Goal:
+- Generate a replayable layout JSON from the source assembly X.
+
+Recommended enhancement to `CaptureCommonBaseLayoutFromAssembly`:
+- Ensure output contains:
+  - `sourceAssemblyPath`
+  - `baseComponentName`
+  - `basePlane`
+  - `createdAt`
+  - `components[]`:
+    - `componentName`
+    - `filePath`
+    - `bottomFaceName`
+    - `layout2d.x`
+    - `layout2d.y`
+    - `layout2d.thetaDegrees`
+    - `layout2d.thetaAxis`
+    - `sourceTransform`
+    - `faceMappingFound`
+    - `faceMappingPath`
+
+Backend flow:
+```text
+Discover -> Verify Faces -> Capture Layout JSON -> Save Project Config
+```
+
+Frontend changes:
+- Add `Capture from Source Assembly`.
+- Auto-load the captured layout JSON.
+- Show whether each component file path exists and whether face mapping exists.
+
+Risk:
+- Missing bottom-face mappings should return a structured missing list instead of failing the entire project.
+
+#### Phase 3: Auto-fit frontend layout bounds
+
+Goal:
+- Support n components and larger layouts without fixed `WORLD_BOUNDS`.
+
+Implementation:
+- Compute bounds from `state.components[].target` and `layoutInfo.components[].layout2d`.
+- Add 10%-20% padding.
+- Keep minimum width/height defaults so the canvas does not collapse when components overlap.
+- Add reset view / fit view if needed.
+
+Frontend data:
+- `worldBounds = computeLayoutBounds(components, layoutInfo)`
+- Keep fixed fallback block sizes for now; later, derive sizes from CAD bounding boxes.
+
+Risk:
+- The 2D canvas is an operation view. Its rectangles should not imply true CAD shape/scale unless bounding-box data is added.
+
+#### Phase 4: Configurable replay validation thresholds
+
+Goal:
+- Different projects can use tolerances suitable for their size and complexity.
+
+Backend options:
+- Add settings:
+  - `DEMO_REPLAY_XY_TOLERANCE_METERS`
+  - `DEMO_REPLAY_THETA_TOLERANCE_DEGREES`
+- Or pass in replay request:
+  - `xyToleranceMeters`
+  - `thetaToleranceDegrees`
+- Store actual thresholds in `state.lastRun.replayValidation`.
+
+Frontend:
+- Add compact settings:
+  - XY tolerance
+  - Theta tolerance
+- Display:
+  - `actual / tolerance`
+  - per-component pass/fail status.
+
+Risk:
+- Loose thresholds can hide replay failures; defaults should stay strict and only change when users opt in.
+
+#### Phase 5: Batch face-mapping validation issue list
+
+Goal:
+- For n components, one bad mapping should produce a useful table instead of forcing the user to inspect logs.
+
+Recommended structured result:
+- `componentName`
+- `faceName`
+- `selected`
+- `persistentReferenceUsed`
+- `centerError`
+- `areaError`
+- `normalDot`
+- `result`
+- `recommendedAction`
+
+Frontend:
+- Highlight failed components.
+- Show a clear “re-record this component bottom face” action.
+
+#### Recommended order
+
+1. Implement frontend layout bounds auto-fit first. Completed.
+   - Pure frontend, lowest risk, immediately improves n-component usability.
+2. Add configurable replay thresholds. Completed.
+   - Backend comparison logic already exists, so scope is small.
+3. Implement n-component discovery. Recommended next.
+   - Requires real SolidWorks tree traversal and broader testing.
+4. Add layout JSON project config generation and batch issue reporting.
+   - This ties discovery, face mapping, and capture into the full project workflow.
+
+### 2026-06-30 Addendum: Next Step After Project-Scale Round 1
+
+Completed:
+- Frontend layout bounds auto-fit.
+- Configurable Replay validation thresholds.
+- Replay Check display now shows `actual / tolerance`.
+
+Recommended next:
+1. Implement a minimal `DiscoverLayoutComponentsFromAssembly`.
+   - Scan only top-level resolved components.
+   - Return `componentName/filePath/isAssembly/transform`.
+   - Do not auto-detect bottom faces yet.
+2. Add backend discovery endpoint.
+   - `POST /api/demo/discover-components`
+   - Return candidate components first; do not overwrite state automatically.
+3. Add frontend discovered-components table.
+   - Let the user select components.
+   - Let the user sync selected components into demo state.
+4. Then implement “capture from source assembly and generate layout JSON project config”.
+
+Notes:
+- Discovery should be read-only first.
+- The first version should avoid automatic bottom-face inference to reduce geometry false positives.
+## 2026-06-30 22:06:48 To Continue: projectization gaps after n-component discovery
+
+This round added `DiscoverLayoutComponentsFromAssembly`, backend sync endpoints, and a frontend Project Config entry point. Remaining limits:
+
+1. Discovery is currently centered on top-level resolved subassemblies.
+   - A `recursive` scope is available, but real projects still need a clear policy for whether nested subassemblies should be layout units.
+   - Suppressed / lightweight / hidden components are not yet handled robustly.
+2. Bottom faces still require manual recording or existing mappings.
+   - Discovery only assigns the default `bottomFaceName=底面`.
+   - Later work should suggest bottom-face candidates automatically or generate a batch face-mapping task list.
+3. Project layout JSON generation depends on the current component list and face mappings.
+   - If component names do not match mapping keys, Capture Project Layout will be blocked by mapping validation.
+   - The UI should later show a matrix of discovered / mapped / unmapped / capturable components.
+4. A reusable project config file is still missing.
+   - Recommended next artifact: `project_config.json` with sourceAssemblyPath, component list, bottomFaceName, baseComponentName, outputPath, and replay tolerances.
+   - The frontend can load that config and run discovery -> verify -> capture -> replay as a guided workflow.
+## 2026-07-06 15:17:34 To Continue: component identity strategy for real recursive discovery
+
+- Duplicate `componentName` blocking has been added to avoid syncing an unsafe recursive result set.
+- This is a guardrail, not the final solution.
+- If recursive layouts must support repeated instance names, choose one long-term strategy:
+  1. Let MCP tools target components by `hierarchyPath`;
+  2. Or generate stable aliases during sync and teach downstream SelectFace/Move tools to use them;
+  3. Or define layout units as top-level components only, using recursive discovery for inspection and diagnostics.
+- During the next real 10+ assembly test, record whether the assembly contains duplicate instance names, nested repeated components, lightweight components, or suppressed components.
+
+## 2026-07-06 15:09:37 To Continue: real 10+ subassembly closed-loop validation
+
+This round added discovery filters, project config output, and a face-mapping matrix. Remaining work:
+
+1. Recursive discovery still needs project rules.
+   - `topLevelOnly` and `recursive` are now available.
+   - Real assemblies still need a business rule for which nested subassemblies should become layout units.
+2. Suppressed / lightweight / hidden components are not yet stable capabilities.
+   - Discovery still focuses on resolved components.
+   - Later work should decide whether to auto-resolve lightweight components and how to report suppressed components.
+3. The face-mapping matrix is status visualization, not automatic repair.
+   - It now shows Missing/Ready/Verified.
+   - Later work should add per-component record/remap flows and automatic bottom-face candidate suggestions.
+4. `project_config.json` is generated but cannot yet be loaded as a full workflow driver.
+   - Later work should support importing project config and restoring source path, component list, layout path, tolerances, and related settings.
+5. Common Base still needs stress testing for 10+ components.
+   - Batch execution, per-component failure isolation, and duplicate mate diagnostics remain important next steps.
+## 2026-07-06 15:32:27 To continue: projectized closed-loop test for test1.SLDASM
+
+- Read-only discovery validation is complete:
+  - 15 top-level subassemblies discovered.
+  - 174 recursive assembly candidates discovered.
+  - 1870 recursive candidates discovered when parts are included.
+- Next validation steps after restarting the backend:
+  1. Confirm the default discovered bottom face name is normalized from `??` to `底面`.
+  2. Use `Top-level components`, select the 15 top-level subassemblies, and run `Sync Selected`.
+  3. Run `Verify Faces` to produce the missing bottom-face mapping list.
+  4. Record missing bottom faces in batches so mapping mistakes are easy to isolate.
+  5. After mappings pass, run `Generate Config` to produce `project_config.json` and the layout JSON.
+- Risks:
+  - Not every top-level subassembly in the real assembly is necessarily a layout recovery unit; the set may need business filtering.
+  - The 1870 recursive candidates with parts included are too large for direct sync in the current workflow.
+  - If recursive layout units are required, hierarchy-path addressing or stable aliases must be implemented to avoid same-name ambiguity.
+
+### Current blocker: missing bottom-face mappings for 15 top-level components
+
+- `Sync Selected` has completed. The current demo state now contains the 15 top-level subassemblies from `test1.SLDASM`.
+- `Verify Faces` returned `blocked` because all 15 components are missing the `底面` mapping.
+- Next validation sequence:
+  1. In the active SolidWorks `test1.SLDASM`, select the real bottom face for each top-level subassembly.
+  2. For each selected face, run `Record Selected Face` or:
+     `python scripts\face_mapping_record_probe.py --component "<componentName>" --face 底面`
+  3. Run `Verify Faces` after every 3 to 5 recorded components so incorrect selections are caught early.
+  4. After all 15 components pass `Verify Faces`, continue with `Generate Config`.
+  5. For reconstruction testing, then proceed to `Initialize -> Common Base -> Replay Layout`.
+
+### 2026-07-06 Addendum: top-level components without solid-body faces
+
+- `螺丝枪组件DDC-1` could not be auto-recorded with `record_first_face_mapping`:
+  - MCP found no solid-body face under that component.
+  - This usually means the component is unresolved, has missing external references, contains no solid bodies, or its geometry is not visible/readable in the current assembly context.
+- Follow-up options:
+  1. Exclude this component from the project config and do not treat it as a layout recovery unit.
+  2. Resolve/open the component source file in SolidWorks and confirm its solid bodies are visible, then record again.
+  3. Implement Partial Mode so Common Base / Replay Layout process only mapped components and report skipped items explicitly.
+  4. If this component must participate, add an alternative anchor strategy for no-solid-body components, such as reference planes, coordinate systems, or bounding-box proxy anchors.
+
+
+## 2026-07-06 17:58:49 To Continue: 14-component target initialize timeout
+
+- For `demo/test1.SLDASM`, the workflow was continued by excluding `螺丝枪组件DDC-1`, which has no readable solid-body face in the current assembly context.
+- The remaining 14 top-level components passed face-mapping verification.
+- Source-side capture succeeded:
+  - `demo/test1_14_layout2d.json`
+  - `demo/test1_14_project_config.json`
+- Target-side reconstruction is currently blocked by one-shot initialization performance/stability:
+  - `initialize_common_base_assembly` was invoked for all 14 components into `demo/test1_14_replay.SLDASM`.
+  - The call timed out after roughly 15 minutes.
+  - No target assembly or initialize screenshot was produced.
+- This is not currently a face-mapping blocker. It is a large-assembly insertion / MCP progress / SolidWorks responsiveness blocker.
+
+Recommended next steps:
+
+1. Split target initialization into batches, for example 3 to 5 components per call.
+2. Persist progress after every inserted component so a timeout does not lose all work.
+3. Return per-component insert status, elapsed time, and failure details.
+4. Add a smaller smoke test path that replays 3 to 5 selected components before retrying the full 14-component workflow.
+5. Keep `螺丝枪组件DDC-1` excluded until a no-solid-body anchor strategy is implemented.
+## 2026-07-06 Addendum: next validation for the 14-component closed loop
+
+Resolved in this round:
+
+- The 14-component one-shot Initialize timeout is mitigated by batched append/insert.
+- Target instance names drifting away from source layout `componentName` is addressed by renaming inserted instances to the requested component name.
+- Common Base is also batched now. On the old target it no longer timed out and instead returned a precise first-batch failure.
+
+Remaining validation:
+
+1. Re-run exact instance-name comparison on `demo/test1_14_replay_batched_v2.SLDASM`.
+   - Expected: the 14 top-level target instance names match the 14 `componentName` values in `demo_state.json`.
+2. Run batched Common Base.
+   - Expected: no more `component not found` for renamed instances.
+   - If it fails, use `commonBaseBatches` and `orientationChecks` to identify the component.
+3. Run Replay Layout using `demo/test1_14_layout2d.json`.
+4. Run Replay Check.
+   - If errors remain, classify them as face mapping, instance naming, theta/orientation replay, or mate/common-base issues.
+
+## 2026-07-22 To continue: MCP/SolidWorks desktop-session binding
+
+- A `--stdio-direct` client launched from a restricted session can attach to a different SolidWorks COM instance with no open documents, while the same call from the visible SolidWorks desktop session attaches correctly.
+- Add a backend Save endpoint or explicit SolidWorks process-ID selection so persistence does not depend on the caller's desktop session and implicit ROT resolution.
+
+## 2026-07-22 To implement: constraint-driven reasonable layout generation
+
+### Goal
+
+Add a branch parallel to captured-layout replay:
+
+```text
+Existing: source assembly -> Capture Layout2D -> Common Base -> Replay Layout
+New: roles/bounding boxes -> constraint solver -> Constraint Layout2D -> Replay/Move
+```
+
+The solver generates target planar positions and rotations only. Existing movement, read-back validation, screenshots, and persistence remain shared.
+
+### MVP model
+
+- Common Base has aligned every bottom-face normal to global `+Y`.
+- Y is fixed; decision variables are `(x, z, theta)`.
+- `theta` is restricted to `0/90/180/270 deg` for the first version.
+- Roles are `gantry`, `transport`, `functional`, and `glue`.
+- Name-based classification provides defaults; project JSON mappings override them.
+- Projected component bounding boxes are modeled as XZ rectangles. A 90/270-degree rotation swaps width and depth.
+
+### Constraint priority
+
+Hard constraints:
+
+1. Preserve Y height and common-base alignment.
+2. Functional modules may not overlap or touch each other.
+3. Functional modules may not overlap or touch transport modules.
+4. Glue modules must remain outside the gantry envelope.
+5. Every result must remain within configured global solver bounds.
+
+High-priority soft constraints:
+
+1. Transport stays near the gantry center and follows its long axis, with limited long-axis overhang allowed.
+2. Functional modules remain inside the gantry envelope and occupy the two sides of the transport corridor.
+3. Glue modules stay near the gantry at a configured target distance.
+
+Relaxable constraints:
+
+- Initial X/Z boundary margins are 5% of the corresponding gantry side.
+- Retry in the order `5% -> 3% -> 1% -> 0`, recording every relaxation.
+- Among feasible results, minimize total movement and improve compactness and side balance.
+
+The gantry bounding box is a layout envelope, not a complete solid obstacle. Final physical collision validation must use SolidWorks interference checking.
+
+### Integration output
+
+Emit an existing-compatible Layout2D document with additional `layoutSource`, component roles, solver status, applied margin, relaxed constraints, and validation diagnostics. Use the `baseFrame` tangent axes rather than hard-coding world XZ, even though the MVP assumes a `+Y` normal.
+
+### Implementation phases
+
+1. Add role-mapping configuration and projected bounding-box input models.
+2. Build a SolidWorks-independent solver core with discrete rotations, placement regions, non-overlap rules, and staged margin relaxation.
+3. Add a backend `generate-constraint-layout` endpoint returning Constraint Layout2D and diagnostics.
+4. Feed successful results into the existing Replay/Move path without changing Common Base or face mapping behavior.
+5. Add a frontend mode selector, role editor, solver parameters, result preview, and guarded Apply action.
+6. Validate by reading back Transform2/bounding boxes and running SolidWorks interference checks.
+
+### Test and acceptance plan
+
+- Unit-test role precedence, rotated rectangle dimensions, contact/overlap checks, corridor/side-region generation, glue external placement, relaxation order, and deterministic output.
+- Synthetic test: `1 gantry + 1 transport + 1 glue + 2-4 functional` must produce a layout with no hard violations.
+- Congested cases must either relax margins with diagnostics or return `infeasible`; they must never move CAD components after an unsolved result.
+- Real closed-loop acceptance requires successful Common Base, complete Constraint Layout2D output, replay errors within configured tolerances, no bounding-box hard violations, no forbidden SolidWorks interferences, and saved reports/screenshots/assembly.
+
+### Deferred beyond MVP
+
+- Arbitrary continuous rotation angles.
+- Multiple gantries or multiple transport corridors.
+- Exact B-Rep collision constraints inside the solver.
+- Automatic process-direction or assembly-sequence inference.
+- VLM-based role or layout-reasonableness decisions.
+## 2026-07-22 17:55 To continue: transactional Constraint Layout apply
+
+Real five-component geometry capture and constraint solving now succeed, but CAD apply still needs a clean-session validation and stronger transaction semantics:
+
+1. A timed-out direct MCP call can leave partial Transform2 mutations. Snapshot all target transforms before apply and provide explicit rollback on failure/cancellation.
+2. Large mated components may still trigger long SolidWorks solves. Rotation now defaults off; base pinning, zero-move skipping, batched rebuild, and temporary mate suppression are implemented but require a clean-session retest.
+3. Name Common Base mate features with a stable workflow prefix and suppress only those features instead of every child under the top-level MateGroup.
+4. Add per-stage/per-component progress logs and safe cancellation points around suppress, select/probe, transform write, restore, and rebuild.
+5. After stable apply, run SolidWorks interference checks; projected AABB non-overlap is not sufficient physical validation.
+
+Manual recovery for the next test: close the current target assembly without saving, restart SolidWorks, reopen the clean five-component target, then run Health -> Generate Constraint Layout with rotation disabled -> Replay Layout.
+## 2026-07-22 18:10 Follow-up after the successful real loop
+
+- Real Constraint Layout replay now succeeds and is no longer a functional blocker.
+- Remaining work is primarily performance and runtime stability:
+  1. Replay on the five-component nested assembly still takes about 224 seconds. Add per-component and per-stage timing for mate suppression, Transform2 writes, rebuild, and validation capture.
+  2. Multiple concurrent `SLDWORKS.exe` instances can make COM active-document selection ambiguous. Add process/document-instance diagnostics and a single-instance preflight check.
+  3. Constraint Layout currently suppresses the top-level MateGroup temporarily. Narrow this to mates that affect participating components and report restore outcomes explicitly.
+  4. The solver currently projects world AABBs. Consider OBBs, convex hulls, or SolidWorks interference checks to reduce conservative spacing and false overlap assumptions.
+## 2026-07-23 Portal follow-up
+
+1. Allow the updated `SolidWorksMcpApp.dll`/`SolidWorksMcpApp.exe` through the system policy, then run the real A200/A800 Replay and B-Rep interference validation.
+2. Portal clearance is currently estimated from outer AABB width/height ratios. Later extract support legs and the top beam from child parts, sections, or real-body geometry.
+3. `CheckInterference` proves non-intersection but not a positive minimum clearance. Add component-to-component minimum-distance measurement.
+4. A500 remains limited by fixed side-band partitioning. Add free-space packing inside the gantry and safe 90-degree candidate orientations.
+5. Add timing and resolved-component diagnostics to portal interference checks to avoid false positives from pre-existing interference inside nested subassemblies.
+
+### Information required for enterprise-policy allowlisting
+
+- Blocking subsystem: Windows Code Integrity, not AppLocker.
+- Event IDs: `3033` and `3077`.
+- Policy ID: `{0283ac0f-fff1-49ae-ada1-8a933130cad6}`.
+- Blocked file: `vendor/solidworks-mcp/app/SolidWorksMcpApp/bin/Release/net8.0-windows/win-x64/SolidWorksMcpApp.dll`.
+- Signature status: `NotSigned`.
+- SHA-256: `7A13AAB8829F3169391BE530A41E1A43BB961F8457225E6F397DD2C6562F7E52`.
+- Recommended resolution: have enterprise IT sign the release artifacts with a trusted code-signing certificate, or allow them in the identified Code Integrity policy by trusted publisher or controlled path. `Unblock-File`, copying the binary, and `dotnet run` do not bypass this policy.
+- Acceptance sequence after allowlisting: MCP Health, generate the Portal Constraint Layout, Replay, inspect `portalInterferenceChecks`, then validate XY/theta errors and save the screenshot.
+
+## 2026-07-23 18:56 Portal follow-up update
+
+- The earlier enterprise-policy diagnosis was superseded: the blocker was local Windows Smart App Control, and the device is not school- or enterprise-managed. The updated MCP runs after Smart App Control was disabled.
+- Portal generation, Replay, and XY/theta recapture validation now pass in a real SolidWorks loop.
+- The remaining blocker is `AssemblyService.CheckInterference()`, which may not return for the tested large nested component pair. Next steps:
+  1. Move Portal interference validation into a dedicated MCP tool and backend action, outside the Replay transaction.
+  2. Run it in an isolated process with a hard timeout and safe MCP-child termination.
+  3. Log resolved leaf components, body counts, elapsed time, and SolidWorks return diagnostics.
+  4. Until B-Rep validation is stable, keep Portal clearance rules and declared AABB overlap as the solver basis and report physical interference as not yet validated.
+  5. Sign formal MCP release artifacts instead of relying on Smart App Control being disabled.
+
+## 2026-07-29: engineering follow-up after the seven-component loop
+
+1. **Common Base timeout semantics**
+   - Batch 2 exceeded the `900 s` client timeout, while SolidWorks continued and completed the common-base operation and save.
+   - Add checkpoints, a background task ID, and result polling so a response timeout is not reported as a geometric failure.
+2. **Replay runtime is near the timeout ceiling**
+   - Seven-component Replay took about `898 s`.
+   - Add per-stage timing for pose reads, Persistent Reference face recovery, Transform2 writes, mate restoration, and rebuild; remove redundant COM and rebuild work.
+3. **Replay does not persist automatically**
+   - `ApplyCapturedCommonBaseLayoutCore()` returns after rebuild/screenshot without saving the target assembly.
+   - The geometry recapture passed, but the disk file still has the Common Base save timestamp. Add `saveAfterReplay` (default on) or make the backend invoke save explicitly after a successful Replay.
+4. **SolidWorks instance binding is ambiguous**
+   - A direct MCP save attempt started a blank `SLDWORKS.exe` instead of attaching to the Replay session.
+   - Add process ID, active-document path, and session diagnostics; block writes when the resolved target document does not match.
+5. **UTF-8 request handling needs a standard path**
+   - Windows PowerShell `Invoke-RestMethod` corrupted `底面` and Chinese source paths in one state update, causing false missing mappings.
+   - Standardize on UTF-8 no-BOM files plus `curl.exe --data-binary`, or ship a repository Python/CLI request wrapper.
+6. **Soft constraints need role-specific refinement**
+   - A500, A700, and A300 triggered containment relaxation in the seven-component layout.
+   - Add functional-module side zones, ordering, orientation, and priority constraints to improve business meaning beyond mathematical feasibility.
+
+### 2026-07-29 status update
+
+- The missing Replay persistence item is resolved. Saving now occurs in the same MCP/COM session and passed a real seven-component assembly test.
+- Remaining work is Replay/Common Base performance, timeout task-state polling, multi-instance SolidWorks preflight, and role-specific refinement for A500/A700/A300.
+
+## 2026-08-29 next checkpoint: Project02 optical evidence integrated
+
+- A180 CAD-inferred scan origin and A800 directly measured barcode face are now in the real request; the source/target 3D working-distance check is height-aware and passes.
+- The formal Top-3 preview is restored and the numerical gate passes (`23/23`, `13/13`, `37/37`). The backend at `127.0.0.1:8000` was restarted; the existing frontend at `127.0.0.1:5173` displays the new candidates.
+- Do not mark the scanner stage ready until the SR-X100 vendor working-distance range/dynamic carrier scan position and the directed optical axis are confirmed. The inferred central origin intentionally remains `scanOriginMeasured=false`.
+- Before another broad full-assembly check, Replay only the visually selected candidate and run conditional B-rep first on A500–A700 (28 leaf-AABB pre-hits). Reuse unchanged exact-pair evidence where relative transforms are identical; do not rerun all 28 top-level pairs blindly.
+- Keep `productionReady=false`: service-side capacity, actual dual-valve travel/work points, and remaining sequence-stage engineering inputs are still provisional.

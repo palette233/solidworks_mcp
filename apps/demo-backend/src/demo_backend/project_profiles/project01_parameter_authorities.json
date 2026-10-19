@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "project-parameter-authority-registry/v1",
+  "registryVersion": "2026-10-11.1",
+  "projectId": "project01",
+  "requirements": [
+    {
+      "requirementId": "transport-installation-datum",
+      "label": "SS00相对JJ00的支承面与双定位孔安装基准",
+      "ownerModules": ["SS00"],
+      "requiredForProduction": true,
+      "requiredValueKeys": ["supportPlane", "locatingHole1", "locatingHole2"],
+      "baseline": {
+        "authority": "cad-measured",
+        "evidencePaths": [
+          "demo/global_assembly_catalog/v1/relation-v2-preview/project01-ss00-current-insert-v1/cad-result.json"
+        ],
+        "summary": "安装端点和三配合束来自项目01原型CAD，并已从非原型初始位姿完成真实重建。"
+      },
+      "decision": {"mode": "pending"}
+    },
+    {
+      "requirementId": "service-module-installation-and-anti-rotation",
+      "label": "GN00主定位束与相对SS00的防转平面",
+      "ownerModules": ["GN00", "SS00"],
+      "requiredForProduction": true,
+      "requiredValueKeys": ["supportPlane", "locatingAxis", "antiRotationPlane"],
+      "baseline": {
+        "authority": "cad-measured",
+        "evidencePaths": [
+          "demo/global_assembly_catalog/v1/relation-v2-preview/project01-gn00-current-insert-v2/cad-result.json",
+          "demo/global_assembly_catalog/relation-topology-audit-v1.json"
+        ],
+        "summary": "GN00以JJ00主定位，并以SS00平面消除剩余转动自由度；机械边已通过拓扑审计。"
+      },
+      "decision": {"mode": "pending"}
+    },
+    {
+      "requirementId": "service-target-proxies",
+      "label": "GN00清洁、称重、排胶和硬度测试服务点代理",
+      "ownerModules": ["GN00"],
+      "requiredForProduction": true,
+      "requiredValueKeys": ["servicePoints", "maintenanceEnvelope"],
+      "baseline": {
+        "authority": "temporary-estimate",
+        "evidencePaths": [
+          "demo/layout_previews/project01_service_points.json"
+        ],
+        "summary": "服务点来自原型叶几何代理；只用于Demo工艺说明，不参与本轮机械安装求解。"
+      },
+      "decision": {"mode": "pending"}
+    }
+  ]
+}

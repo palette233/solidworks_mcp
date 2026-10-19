@@ -34,7 +34,27 @@ internal static class Program
         // MCP clients pass --proxy; the exe relays stdin/stdout to the Hub.
         if (args.Contains("--proxy")) { RunProxy(args); return; }
 
+        // ── Direct stdio mode (backend automation, no Hub/proxy) ─────────
+        if (args.Contains("--stdio-direct") || args.Contains("--direct"))
+        {
+            RunDirectStdio();
+            return;
+        }
+
+        // ── Headless Hub mode (used by backend automation) ───────────────
+        // Keeps the named-pipe Hub alive without depending on a tray UI.
+        if (args.Contains("--headless-hub") || args.Contains("--hub"))
+        {
+            RunHub(useTray: false);
+            return;
+        }
+
         // ── Tray / Hub mode (double-click, one singleton) ─────────────────
+        RunHub(useTray: true);
+    }
+
+    static void RunHub(bool useTray)
+    {
         ServerState.InitLogFile();
         WireGlobalExceptionLogging();
         ServerLogBuffer.Append("INFO", "App", $"Session log file: {ServerState.LogFilePath}");
@@ -48,7 +68,6 @@ internal static class Program
             return;
         }
 
-        ApplicationConfiguration.Initialize();
         using var cts = new CancellationTokenSource();
 
         // Shared services: one StaDispatcher + one Bridge connection for ALL sessions.
@@ -58,16 +77,90 @@ internal static class Program
         new HubPipeServer(cts.Token, async (pipe, client, ct) =>
         {
             var sessionHost = BuildMcpSessionHost(pipe, sharedSvc);
-            try   { await sessionHost.RunAsync(ct); }
-            catch (OperationCanceledException) { /* Hub shutting down */ }
-            catch { /* client disconnected */ }
+            try
+            {
+                await sessionHost.RunAsync(ct);
+            }
+            catch (OperationCanceledException)
+            {
+                // Hub shutting down.
+            }
+            catch (Exception ex)
+            {
+                ServerLogBuffer.Append("ERROR", "Hub", $"MCP session runner failed for {client.Name}.", ex);
+                throw;
+            }
         }).Start();
 
-        using var tray = new TrayApplicationContext(cts);
-        Application.Run(tray);
+        if (useTray)
+        {
+            ApplicationConfiguration.Initialize();
+            using var tray = new TrayApplicationContext(cts);
+            Application.Run(tray);
+        }
+        else
+        {
+            ServerLogBuffer.Append("INFO", "App", "Headless Hub service started.");
+            using var wait = new ManualResetEventSlim(false);
+            Console.CancelKeyPress += (_, e) =>
+            {
+                e.Cancel = true;
+                wait.Set();
+            };
+            AppDomain.CurrentDomain.ProcessExit += (_, _) => wait.Set();
+            wait.Wait();
+        }
 
         // Tray closed → cancel everything.
         cts.Cancel();
+        if (sharedSvc is IDisposable d) d.Dispose();
+    }
+
+    static void RunDirectStdio()
+    {
+        ServerState.InitLogFile();
+        WireGlobalExceptionLogging();
+        ServerLogBuffer.Append("INFO", "App", $"Direct stdio session log file: {ServerState.LogFilePath}");
+
+        var sharedSvc = BuildSharedServices();
+        var builder = Host.CreateApplicationBuilder(Array.Empty<string>());
+        builder.Logging.ClearProviders();
+        builder.Logging.AddProvider(new ErrorFileLoggerProvider(ServerState.LogFilePath));
+
+        builder.Services.AddSingleton(sharedSvc.GetRequiredService<StaDispatcher>());
+        builder.Services.AddSingleton(sharedSvc.GetRequiredService<ISwConnectionManager>());
+        builder.Services.AddSingleton(sharedSvc.GetRequiredService<IDocumentService>());
+        builder.Services.AddSingleton(sharedSvc.GetRequiredService<ISelectionService>());
+        builder.Services.AddSingleton(sharedSvc.GetRequiredService<ISketchService>());
+        builder.Services.AddSingleton(sharedSvc.GetRequiredService<IFeatureService>());
+        builder.Services.AddSingleton(sharedSvc.GetRequiredService<IAssemblyService>());
+        builder.Services.AddSingleton(sharedSvc.GetRequiredService<IAssemblyEntityAnnotationService>());
+        builder.Services.AddSingleton(sharedSvc.GetRequiredService<IEquationService>());
+        builder.Services.AddSingleton(sharedSvc.GetRequiredService<IPointCloudExportService>());
+        builder.Services.AddSingleton(sharedSvc.GetRequiredService<IFeatureDimensionService>());
+        builder.Services.AddSingleton(sharedSvc.GetRequiredService<IWorkflowService>());
+
+        builder.Services.AddTransient<SolidWorksMcpApp.Tools.ConnectionTools>();
+        builder.Services.AddTransient<SolidWorksMcpApp.Tools.DocumentTools>();
+        builder.Services.AddTransient<SolidWorksMcpApp.Tools.SelectionTools>();
+        builder.Services.AddTransient<SolidWorksMcpApp.Tools.SketchTools>();
+        builder.Services.AddTransient<SolidWorksMcpApp.Tools.FeatureTools>();
+        builder.Services.AddTransient<SolidWorksMcpApp.Tools.AssemblyTools>();
+        builder.Services.AddTransient<SolidWorksMcpApp.Tools.DemoTools>();
+        builder.Services.AddTransient<SolidWorksMcpApp.Tools.AssemblyEntityAnnotationTools>();
+        builder.Services.AddTransient<SolidWorksMcpApp.Tools.EquationTools>();
+        builder.Services.AddTransient<SolidWorksMcpApp.Tools.FeatureDimensionTools>();
+        builder.Services.AddTransient<SolidWorksMcpApp.Tools.GeometryTools>();
+        builder.Services.AddTransient<SolidWorksMcpApp.Tools.KnowledgeTools>();
+
+        builder.Services
+            .AddMcpServer()
+            .WithStdioServerTransport()
+            .WithToolsFromAssembly();
+
+        using var host = builder.Build();
+        host.Run();
+
         if (sharedSvc is IDisposable d) d.Dispose();
     }
 
@@ -151,7 +244,11 @@ internal static class Program
             var inner = sta.InvokeAsync(() =>
             {
                 var connector = new SwComConnector();
-                return (ISwConnectionManager)new SwConnectionManager(connector);
+                var forceNewInstance = string.Equals(
+                    Environment.GetEnvironmentVariable("SOLIDWORKS_MCP_FORCE_NEW_INSTANCE"),
+                    "1",
+                    StringComparison.OrdinalIgnoreCase);
+                return (ISwConnectionManager)new SwConnectionManager(connector, forceNewInstance);
             }).GetAwaiter().GetResult();
 
             return new ConnectionLoggingSwConnectionManager(
@@ -164,7 +261,9 @@ internal static class Program
         sc.AddSingleton<ISketchService>(sp    => new SketchService(sp.GetRequiredService<ISwConnectionManager>()));
         sc.AddSingleton<IFeatureService>(sp   => new FeatureService(sp.GetRequiredService<ISwConnectionManager>()));
         sc.AddSingleton<IAssemblyService>(sp  => new AssemblyService(sp.GetRequiredService<ISwConnectionManager>()));
+        sc.AddSingleton<IAssemblyEntityAnnotationService>(sp => new AssemblyEntityAnnotationService(sp.GetRequiredService<ISwConnectionManager>()));
         sc.AddSingleton<IEquationService>(sp  => new EquationService(sp.GetRequiredService<ISwConnectionManager>()));
+        sc.AddSingleton<IPointCloudExportService>(sp => new PointCloudExportService(sp.GetRequiredService<ISwConnectionManager>()));
         sc.AddSingleton<IFeatureDimensionService>(sp => new FeatureDimensionService(
             sp.GetRequiredService<ISwConnectionManager>(),
             sp.GetRequiredService<IEquationService>()));
@@ -195,7 +294,9 @@ internal static class Program
         builder.Services.AddSingleton(sharedSvc.GetRequiredService<ISketchService>());
         builder.Services.AddSingleton(sharedSvc.GetRequiredService<IFeatureService>());
         builder.Services.AddSingleton(sharedSvc.GetRequiredService<IAssemblyService>());
+        builder.Services.AddSingleton(sharedSvc.GetRequiredService<IAssemblyEntityAnnotationService>());
         builder.Services.AddSingleton(sharedSvc.GetRequiredService<IEquationService>());
+        builder.Services.AddSingleton(sharedSvc.GetRequiredService<IPointCloudExportService>());
         builder.Services.AddSingleton(sharedSvc.GetRequiredService<IFeatureDimensionService>());
         builder.Services.AddSingleton(sharedSvc.GetRequiredService<IWorkflowService>());
 
@@ -206,8 +307,10 @@ internal static class Program
         builder.Services.AddTransient<SolidWorksMcpApp.Tools.FeatureTools>();
         builder.Services.AddTransient<SolidWorksMcpApp.Tools.AssemblyTools>();
         builder.Services.AddTransient<SolidWorksMcpApp.Tools.DemoTools>();
+        builder.Services.AddTransient<SolidWorksMcpApp.Tools.AssemblyEntityAnnotationTools>();
         builder.Services.AddTransient<SolidWorksMcpApp.Tools.EquationTools>();
         builder.Services.AddTransient<SolidWorksMcpApp.Tools.FeatureDimensionTools>();
+        builder.Services.AddTransient<SolidWorksMcpApp.Tools.GeometryTools>();
         builder.Services.AddTransient<SolidWorksMcpApp.Tools.KnowledgeTools>();
 
         builder.Services
@@ -296,14 +399,44 @@ internal static class Program
 
     static void StartHubProcess()
     {
-        var exePath = Environment.ProcessPath
-            ?? throw new InvalidOperationException("Process path is unavailable.");
+        var launch = ResolveCurrentAppLaunch();
 
-        Process.Start(new ProcessStartInfo
+        var psi = new ProcessStartInfo
         {
-            FileName = exePath,
+            FileName = launch.FileName,
             UseShellExecute = true,
-            WorkingDirectory = Path.GetDirectoryName(exePath) ?? Directory.GetCurrentDirectory(),
-        });
+            WorkingDirectory = launch.WorkingDirectory,
+        };
+        foreach (var argument in launch.Arguments)
+            psi.ArgumentList.Add(argument);
+
+        Process.Start(psi);
+    }
+
+    static (string FileName, string WorkingDirectory, string[] Arguments) ResolveCurrentAppLaunch()
+    {
+        var processPath = Environment.ProcessPath
+            ?? throw new InvalidOperationException("Process path is unavailable.");
+        var commandLine = Environment.GetCommandLineArgs();
+
+        // When the app is launched as `dotnet SolidWorksMcpApp.dll --proxy`,
+        // Environment.ProcessPath points to dotnet.exe. Starting that path alone
+        // only launches bare dotnet and the proxy observes "server shut down".
+        // Preserve the DLL path and start a stable headless Hub instead.
+        if (Path.GetFileName(processPath).Equals("dotnet.exe", StringComparison.OrdinalIgnoreCase)
+            && commandLine.Length >= 2
+            && commandLine[1].EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+        {
+            var dllPath = Path.GetFullPath(commandLine[1]);
+            return (
+                processPath,
+                Path.GetDirectoryName(dllPath) ?? Directory.GetCurrentDirectory(),
+                [dllPath, "--headless-hub"]);
+        }
+
+        return (
+            processPath,
+            Path.GetDirectoryName(processPath) ?? Directory.GetCurrentDirectory(),
+            ["--headless-hub"]);
     }
 }

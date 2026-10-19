@@ -53,6 +53,31 @@ public record FeatureTreeItemInfo(
     bool IsSketch,
     bool HasChildren);
 
+public record FeatureManagerTreeNodeInfo(
+    int NodeIndex,
+    int Depth,
+    string Text,
+    int ObjectType,
+    string? ObjectKind,
+    bool IsRoot,
+    bool IsExpanded,
+    string? GraphPath,
+    string? ParentGraphPath,
+    string? FeatureName,
+    string? FeatureTypeName,
+    bool IsSketch,
+    string? ComponentName,
+    string? ComponentPath,
+    string? DocumentTitle,
+    string? DocumentPath);
+
+public record ActiveFeatureManagerTreeResult(
+    string DocumentTitle,
+    int DocumentType,
+    string? DocumentPath,
+    int NodeCount,
+    IReadOnlyList<FeatureManagerTreeNodeInfo> Nodes);
+
 /// <summary>
 /// Structured snapshot of one SolidWorks sensor attached to the active document.
 /// </summary>
@@ -188,7 +213,71 @@ public record SelectableEntityInfo(
 /// <summary>
 /// Result of a face-mapping record or select operation.
 /// </summary>
-public record FaceMappingResult(bool Success, string Message, string? FaceName, string? ComponentName);
+public record FaceMappingResult(
+    bool Success,
+    string Message,
+    string? FaceName,
+    string? ComponentName,
+    FaceMappingSelectionDiagnostics? Diagnostics = null);
+
+public record FaceMappingSelectionDiagnostics(
+    string? LeafComponentName,
+    string? LeafComponentFullName,
+    double[]? SavedLocalCenter,
+    double? SavedArea,
+    double[]? SavedLocalNormal,
+    double CenterTolerance,
+    double AreaRelativeTolerance,
+    double NormalDotTolerance,
+    string? FailureReason,
+    IReadOnlyList<FaceMappingCandidateDiagnostic> Candidates);
+
+public record FaceMappingCandidateDiagnostic(
+    int Rank,
+    double Score,
+    bool Accepted,
+    string? RejectReason,
+    double CenterDistance,
+    double? Area,
+    double? AreaRelativeError,
+    double? NormalDot,
+    double[]? LocalCenter,
+    double[]? LocalNormal,
+    double[]? Box);
+
+public record FaceMappingProbeResult(
+    bool Success,
+    string Message,
+    string? FaceName,
+    string? ComponentName,
+    string? LeafComponentName,
+    string? LeafComponentFullName,
+    double[]? WorldCenter,
+    double[]? LocalCenter,
+    double[]? WorldNormal,
+    double[]? LocalNormal,
+    double? Area,
+    double[]? Box,
+    string MappingPath);
+
+public record FaceGeometryInfo(
+    int Index,
+    string? ComponentName,
+    string? ReferencedDocumentPath,
+    double[] LocalCenter,
+    double[] WorldCenter,
+    double[]? LocalNormal,
+    double[]? WorldNormal,
+    double Area,
+    double[] Box,
+    string? PersistentReferenceBase64);
+
+public record FaceGeometryListResult(
+    string ComponentName,
+    string? ReferencedDocumentPath,
+    int FaceCount,
+    int PlanarFaceCount,
+    IReadOnlyList<FaceGeometryInfo> Faces);
 
 /// <summary>
 /// Stable reference to a measured topology entity.
@@ -242,6 +331,32 @@ public interface ISelectionService
         string? componentName = null);
 
     /// <summary>
+    /// Enumerate face geometry for one leaf component in assembly context. The result includes
+    /// leaf-local and assembly-world centers/normals plus persistent references, allowing callers
+    /// to rank semantic faces without selecting every face through the UI.
+    /// </summary>
+    FaceGeometryListResult ListFaceGeometry(string componentName, bool planarOnly = true);
+
+    /// <summary>
+    /// Select a face by the leaf-local index returned from <see cref="ListFaceGeometry"/>.
+    /// This avoids traversing every face in a large parent assembly.
+    /// </summary>
+    SelectionResult SelectFaceGeometry(
+        string componentName,
+        int faceIndex,
+        bool append = false,
+        int mark = 0);
+
+    /// <summary>Activate the referenced part or subassembly document for a resolved leaf component.</summary>
+    SelectionResult ActivateLeafComponentDocument(string componentName);
+
+    /// <summary>Select a face by body-order index in the active standalone part document.</summary>
+    SelectionResult SelectActivePartFaceGeometry(
+        int faceIndex,
+        bool append = false,
+        int mark = 0);
+
+    /// <summary>
     /// List reference planes from the active document by traversing the feature tree.
     /// The returned names are localized to the current SolidWorks language.
     /// </summary>
@@ -257,6 +372,11 @@ public interface ISelectionService
     /// Enumerate the active document's top-level FeatureManager nodes.
     /// </summary>
     IReadOnlyList<FeatureTreeItemInfo> ListFeatureTree();
+
+    /// <summary>
+    /// Traverse the active document's FeatureManager tree exactly as shown in the SolidWorks UI.
+    /// </summary>
+    ActiveFeatureManagerTreeResult TraverseActiveFeatureManagerTree();
 
     /// <summary>
     /// Enumerate the active document's sensor features and current alert state.
@@ -309,6 +429,9 @@ public interface ISelectionService
     /// <summary>Clear the current selection set.</summary>
     void ClearSelection();
 
+    /// <summary>Zoom the active SolidWorks view to the current selection.</summary>
+    SelectionResult ZoomToSelection();
+
     /// <summary>
     /// Record the currently-selected face into the persistent face mapping file.
     /// The face is stored in component-local coordinates so the entry survives
@@ -317,11 +440,22 @@ public interface ISelectionService
     FaceMappingResult RecordFaceMapping(string faceName, string componentName);
 
     /// <summary>
+    /// Record the first solid-body face found under a component. This is a demo fallback for
+    /// components where any stable face is acceptable.
+    /// </summary>
+    FaceMappingResult RecordFirstFaceMapping(string faceName, string componentName);
+
+    /// <summary>
     /// Select a face previously recorded with <see cref="RecordFaceMapping"/> by its name.
     /// Matching is done in component-local coordinates, so the selection is stable
     /// across move/rotate/mate operations.
     /// </summary>
     FaceMappingResult SelectFaceByName(string faceName, string componentName, bool append = false, int mark = 0);
+
+    /// <summary>
+    /// Return the mapping-style geometry fingerprint for the currently selected face without writing face_mappings.json.
+    /// </summary>
+    FaceMappingProbeResult GetSelectedFaceMappingProbe(string? faceName = null, string? componentName = null);
 
     /// <summary>Return the world-space bounding-box center for the currently selected face.</summary>
     SelectedFaceCenterResult GetSelectedFaceCenter();
@@ -401,7 +535,7 @@ public class SelectionService : ISelectionService
         foreach (var candidateType in ExpandSelectionTypes(selType))
         {
             // SelectByID(name, type, x, y, z) — x/y/z are 0,0,0 for named geometry
-            bool ok = doc.Extension.SelectByID2(name, candidateType, 0, 0, 0, append, mark, null, 0);
+            bool ok = SelectById(doc, name, candidateType, append, mark);
             if (ok)
             {
                 string message = string.Equals(candidateType, selType, StringComparison.OrdinalIgnoreCase)
@@ -442,6 +576,222 @@ public class SelectionService : ISelectionService
             .AsReadOnly();
     }
 
+    public FaceGeometryListResult ListFaceGeometry(string componentName, bool planarOnly = true)
+    {
+        if (string.IsNullOrWhiteSpace(componentName))
+        {
+            throw new ArgumentException("componentName must not be empty", nameof(componentName));
+        }
+
+        _cm.EnsureConnected();
+        var component = ResolveLeafComponent(componentName);
+        if (component == null)
+        {
+            throw new InvalidOperationException($"Component '{componentName}' was not found.");
+        }
+        string? referencedDocumentPath = null;
+        try
+        {
+            referencedDocumentPath = component.GetPathName();
+        }
+        catch
+        {
+            // Imported and virtual components do not always expose a referenced path.
+        }
+
+        var faces = new List<FaceGeometryInfo>();
+        int faceCount = 0;
+        int planarFaceCount = 0;
+        int faceIndex = 0;
+        foreach (var body in GetBodies(component))
+        {
+            foreach (var face in ((object[]?)body.GetFaces() ?? Array.Empty<object>()).OfType<IFace2>())
+            {
+                int currentFaceIndex = faceIndex++;
+                faceCount++;
+
+                var box = ToDoubleArray(face.GetBox());
+                if (box is not { Length: >= 6 })
+                {
+                    continue;
+                }
+
+                var localCenter = BoxCenter(box);
+                var worldCenter = LocalToWorld(localCenter, component);
+                var localNormal = TryGetPlanarFaceNormal(face);
+                if (localNormal is { Length: >= 3 })
+                {
+                    planarFaceCount++;
+                }
+                else if (planarOnly)
+                {
+                    continue;
+                }
+
+                var worldNormal = localNormal is { Length: >= 3 }
+                    ? LocalToWorldVector(localNormal, component)
+                    : null;
+                double area;
+                try
+                {
+                    area = face.GetArea();
+                }
+                catch
+                {
+                    area = 0;
+                }
+
+                faces.Add(new FaceGeometryInfo(
+                    currentFaceIndex,
+                    component.Name2,
+                    referencedDocumentPath,
+                    localCenter,
+                    worldCenter,
+                    localNormal,
+                    worldNormal,
+                    area,
+                    box,
+                    TryGetPersistentReferenceBase64(face)));
+            }
+        }
+
+        return new FaceGeometryListResult(
+            component.Name2,
+            referencedDocumentPath,
+            faceCount,
+            planarFaceCount,
+            faces.AsReadOnly());
+    }
+
+    public SelectionResult SelectFaceGeometry(
+        string componentName,
+        int faceIndex,
+        bool append = false,
+        int mark = 0)
+    {
+        if (faceIndex < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(faceIndex));
+        }
+
+        _cm.EnsureConnected();
+        var component = ResolveLeafComponent(componentName);
+        if (component == null)
+        {
+            return new SelectionResult(false, $"Component '{componentName}' was not found.");
+        }
+
+        int currentFaceIndex = 0;
+        foreach (var body in GetBodies(component))
+        {
+            foreach (var face in ((object[]?)body.GetFaces() ?? Array.Empty<object>()).OfType<IFace2>())
+            {
+                if (currentFaceIndex++ != faceIndex)
+                {
+                    continue;
+                }
+
+                var doc = GetActiveModelDoc();
+                var selectionManager = doc.ISelectionManager
+                    ?? throw new InvalidOperationException("No selection manager available.");
+                if (!append)
+                {
+                    doc.ClearSelection2(true);
+                }
+
+                bool ok = ((IEntity)face).Select4(append, CreateSelectData(selectionManager, mark));
+                var box = ToDoubleArray(face.GetBox());
+                return ok
+                    ? new SelectionResult(true, $"Selected leaf face index {faceIndex}", SelectableEntityType.Face, faceIndex, component.Name2, box)
+                    : new SelectionResult(false, $"Failed to select leaf face index {faceIndex}", SelectableEntityType.Face, faceIndex, component.Name2, box);
+            }
+        }
+
+        return new SelectionResult(
+            false,
+            $"Could not find leaf face index {faceIndex} for component '{component.Name2}'.");
+    }
+
+    public SelectionResult ActivateLeafComponentDocument(string componentName)
+    {
+        _cm.EnsureConnected();
+        var component = ResolveLeafComponent(componentName);
+        if (component == null)
+        {
+            return new SelectionResult(false, $"Component '{componentName}' was not found.");
+        }
+
+        var model = component.GetModelDoc2() as IModelDoc2;
+        if (model == null)
+        {
+            string path = component.GetPathName();
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return new SelectionResult(false, $"Component '{component.Name2}' has no resolvable referenced document.");
+            }
+
+            _cm.SwApp!.OpenDoc(path);
+            model = _cm.SwApp.IActiveDoc2;
+        }
+
+        string title = model?.GetTitle() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            return new SelectionResult(false, $"Could not read the referenced document title for '{component.Name2}'.");
+        }
+
+        _cm.SwApp!.ActivateDocByTitle(title);
+        return new SelectionResult(
+            true,
+            $"Activated referenced document '{title}' for component '{component.Name2}'.",
+            ComponentName: component.Name2);
+    }
+
+    public SelectionResult SelectActivePartFaceGeometry(
+        int faceIndex,
+        bool append = false,
+        int mark = 0)
+    {
+        if (faceIndex < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(faceIndex));
+        }
+
+        _cm.EnsureConnected();
+        var doc = GetActiveModelDoc();
+        if (doc is not IPartDoc part)
+        {
+            return new SelectionResult(false, "The active document is not a standalone part.");
+        }
+
+        int currentFaceIndex = 0;
+        foreach (var body in GetBodies(part))
+        {
+            foreach (var face in ((object[]?)body.GetFaces() ?? Array.Empty<object>()).OfType<IFace2>())
+            {
+                if (currentFaceIndex++ != faceIndex)
+                {
+                    continue;
+                }
+
+                var selectionManager = doc.ISelectionManager
+                    ?? throw new InvalidOperationException("No selection manager available.");
+                if (!append)
+                {
+                    doc.ClearSelection2(true);
+                }
+
+                bool ok = ((IEntity)face).Select4(append, CreateSelectData(selectionManager, mark));
+                var box = ToDoubleArray(face.GetBox());
+                return ok
+                    ? new SelectionResult(true, $"Selected active-part face index {faceIndex}", SelectableEntityType.Face, faceIndex, null, box)
+                    : new SelectionResult(false, $"Failed to select active-part face index {faceIndex}", SelectableEntityType.Face, faceIndex, null, box);
+            }
+        }
+
+        return new SelectionResult(false, $"Could not find active-part face index {faceIndex}.");
+    }
+
     public IReadOnlyList<ReferencePlaneInfo> ListReferencePlanes()
     {
         _cm.EnsureConnected();
@@ -478,6 +828,28 @@ public class SelectionService : ISelectionService
                 node.HasChildren))
             .ToList()
             .AsReadOnly();
+    }
+
+    public ActiveFeatureManagerTreeResult TraverseActiveFeatureManagerTree()
+    {
+        _cm.EnsureConnected();
+        var doc = GetActiveModelDoc();
+        EnsureNotEditing(doc, "reading the active FeatureManager tree");
+
+        var featureManager = _cm.SwApp?.FeatureManager
+            ?? throw new InvalidOperationException("FeatureManager is not available for the active document.");
+        var root = GetFeatureTreeRootItem(featureManager)
+            ?? throw new InvalidOperationException("Could not access the active FeatureManager tree root.");
+
+        var nodes = new List<FeatureManagerTreeNodeInfo>();
+        TraverseTreeNode(root, depth: 0, parentGraphPath: null, nodes, doc);
+
+        return new ActiveFeatureManagerTreeResult(
+            DocumentTitle: SafeGetDocumentTitle(doc) ?? "<untitled>",
+            DocumentType: SafeGetDocumentType(doc),
+            DocumentPath: NormalizePathOrNull(SafeGetDocumentPath(doc)),
+            NodeCount: nodes.Count,
+            Nodes: nodes.AsReadOnly());
     }
 
     public FeatureDiagnosticsResult GetFeatureDiagnostics()
@@ -772,6 +1144,37 @@ public class SelectionService : ISelectionService
         GetActiveModelDoc().ClearSelection2(true);
     }
 
+    public SelectionResult ZoomToSelection()
+    {
+        _cm.EnsureConnected();
+        var doc = GetActiveModelDoc();
+        try
+        {
+            dynamic dynamicDoc = doc;
+            dynamicDoc.ViewZoomtoSelection();
+            return new SelectionResult(true, "Zoomed the active view to the current selection.");
+        }
+        catch (Exception first)
+        {
+            try
+            {
+                ((object)doc).GetType().InvokeMember(
+                    "ViewZoomToSelection",
+                    BindingFlags.InvokeMethod | BindingFlags.Public | BindingFlags.Instance,
+                    binder: null,
+                    doc,
+                    args: null);
+                return new SelectionResult(true, "Zoomed the active view to the current selection.");
+            }
+            catch (Exception second)
+            {
+                return new SelectionResult(
+                    false,
+                    $"Could not zoom to the current selection: {first.Message}; {second.Message}");
+            }
+        }
+    }
+
     // ── Helpers ───────────────────────────────────────────────────
 
     private IModelDoc2 GetActiveModelDoc()
@@ -865,6 +1268,225 @@ public class SelectionService : ISelectionService
 
             index++;
         }
+    }
+
+    private static ITreeControlItem? GetFeatureTreeRootItem(IFeatureManager featureManager)
+    {
+        try
+        {
+            return featureManager.GetFeatureTreeRootItem2((int)swFeatMgrPane_e.swFeatMgrPaneBottom) as ITreeControlItem
+                ?? featureManager.GetFeatureTreeRootItem2((int)swFeatMgrPane_e.swFeatMgrPaneTop) as ITreeControlItem
+                ?? featureManager.GetFeatureTreeRootItem() as ITreeControlItem;
+        }
+        catch (COMException)
+        {
+            return null;
+        }
+        catch (TargetInvocationException)
+        {
+            return null;
+        }
+    }
+
+    private static void TraverseTreeNode(
+        ITreeControlItem node,
+        int depth,
+        string? parentGraphPath,
+        ICollection<FeatureManagerTreeNodeInfo> nodes,
+        IModelDoc2 activeDocument)
+    {
+        int siblingIndex = 0;
+        for (var current = node; current != null; current = SafeGetNextTreeNode(current))
+        {
+            int nodeIndex = nodes.Count;
+            string text = SafeGetTreeNodeText(current) ?? $"TreeNode{nodeIndex}";
+            string graphPath = BuildTreeGraphPath(parentGraphPath, siblingIndex, text);
+            object? treeObject = SafeGetTreeNodeObject(current);
+            int objectType = SafeGetTreeNodeObjectType(current);
+            string? objectKind = DescribeTreeNodeObject(treeObject);
+            string? featureName = null;
+            string? featureTypeName = null;
+            bool isSketch = false;
+            string? componentName = null;
+            string? componentPath = null;
+            string? documentTitle = SafeGetDocumentTitle(activeDocument);
+            string? documentPath = NormalizePathOrNull(SafeGetDocumentPath(activeDocument));
+
+            if (treeObject is Feature feature)
+            {
+                featureName = SafeGetFeatureName(feature);
+                featureTypeName = SafeGetFeatureTypeName(feature);
+                isSketch = IsSketchLike(featureTypeName);
+            }
+            else if (treeObject is IComponent2 component)
+            {
+                componentName = SafeGetComponentName(component);
+                componentPath = NormalizePathOrNull(SafeGetComponentPath(component));
+            }
+            else if (treeObject is IModelDoc2 modelDoc)
+            {
+                documentTitle = SafeGetDocumentTitle(modelDoc);
+                documentPath = NormalizePathOrNull(SafeGetDocumentPath(modelDoc));
+            }
+
+            nodes.Add(new FeatureManagerTreeNodeInfo(
+                NodeIndex: nodeIndex,
+                Depth: depth,
+                Text: text,
+                ObjectType: objectType,
+                ObjectKind: objectKind,
+                IsRoot: SafeIsTreeRoot(current),
+                IsExpanded: SafeIsTreeExpanded(current),
+                GraphPath: graphPath,
+                ParentGraphPath: parentGraphPath,
+                FeatureName: featureName,
+                FeatureTypeName: featureTypeName,
+                IsSketch: isSketch,
+                ComponentName: componentName,
+                ComponentPath: componentPath,
+                DocumentTitle: documentTitle,
+                DocumentPath: documentPath));
+
+            var child = SafeGetFirstTreeChild(current);
+            if (child != null)
+            {
+                TraverseTreeNode(child, depth + 1, graphPath, nodes, activeDocument);
+            }
+
+            siblingIndex++;
+        }
+    }
+
+    private static string BuildTreeGraphPath(string? parentGraphPath, int siblingIndex, string text)
+    {
+        string segment = $"{siblingIndex}:{text}";
+        return string.IsNullOrWhiteSpace(parentGraphPath)
+            ? segment
+            : $"{parentGraphPath}/{segment}";
+    }
+
+    private static ITreeControlItem? SafeGetFirstTreeChild(ITreeControlItem node)
+    {
+        try
+        {
+            return node.GetFirstChild() as ITreeControlItem;
+        }
+        catch (COMException)
+        {
+            return null;
+        }
+        catch (TargetInvocationException)
+        {
+            return null;
+        }
+    }
+
+    private static ITreeControlItem? SafeGetNextTreeNode(ITreeControlItem node)
+    {
+        try
+        {
+            return node.GetNext() as ITreeControlItem;
+        }
+        catch (COMException)
+        {
+            return null;
+        }
+        catch (TargetInvocationException)
+        {
+            return null;
+        }
+    }
+
+    private static string? SafeGetTreeNodeText(ITreeControlItem node)
+    {
+        try
+        {
+            return node.Text;
+        }
+        catch (COMException)
+        {
+            return null;
+        }
+        catch (TargetInvocationException)
+        {
+            return null;
+        }
+    }
+
+    private static int SafeGetTreeNodeObjectType(ITreeControlItem node)
+    {
+        try
+        {
+            return node.ObjectType;
+        }
+        catch (COMException)
+        {
+            return 0;
+        }
+        catch (TargetInvocationException)
+        {
+            return 0;
+        }
+    }
+
+    private static object? SafeGetTreeNodeObject(ITreeControlItem node)
+    {
+        try
+        {
+            return node.Object;
+        }
+        catch (COMException)
+        {
+            return null;
+        }
+        catch (TargetInvocationException)
+        {
+            return null;
+        }
+    }
+
+    private static bool SafeIsTreeExpanded(ITreeControlItem node)
+    {
+        try
+        {
+            return node.Expanded;
+        }
+        catch (COMException)
+        {
+            return false;
+        }
+        catch (TargetInvocationException)
+        {
+            return false;
+        }
+    }
+
+    private static bool SafeIsTreeRoot(ITreeControlItem node)
+    {
+        try
+        {
+            return node.IsRoot;
+        }
+        catch (COMException)
+        {
+            return false;
+        }
+        catch (TargetInvocationException)
+        {
+            return false;
+        }
+    }
+
+    private static string? DescribeTreeNodeObject(object? treeObject)
+    {
+        return treeObject switch
+        {
+            Feature => "feature",
+            IComponent2 => "component",
+            IModelDoc2 => "document",
+            _ when treeObject == null => null,
+            _ => treeObject.GetType().Name
+        };
     }
 
     private static IEnumerable<WhatsWrongFeatureInfo> EnumerateWhatsWrongItems(IModelDoc2 doc)
@@ -1436,7 +2058,12 @@ public class SelectionService : ISelectionService
             .Any(type => string.Equals(type, "PLANE", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(type, "swSelDATUMPLANES", StringComparison.OrdinalIgnoreCase));
 
-    private static SelectionResult? TrySelectLocalizedStandardPlane(IModelDoc2 doc, string requestedName, string requestedType, bool append, int mark)
+    private static SelectionResult? TrySelectLocalizedStandardPlane(
+        IModelDoc2 doc,
+        string requestedName,
+        string requestedType,
+        bool append,
+        int mark)
     {
         var requestedKind = GetStandardPlaneKind(requestedName);
         if (requestedKind == StandardPlaneKind.Unknown)
@@ -1467,7 +2094,7 @@ public class SelectionService : ISelectionService
 
         foreach (var candidateType in candidateTypes)
         {
-            bool ok = doc.Extension.SelectByID2(plane.SelectionName, candidateType, 0, 0, 0, append, mark, null, 0);
+            bool ok = SelectById(doc, plane.SelectionName, candidateType, append, mark);
             if (ok)
             {
                 return new SelectionResult(
@@ -1477,6 +2104,22 @@ public class SelectionService : ISelectionService
         }
 
         return null;
+    }
+
+    private static bool SelectById(
+        IModelDoc2 doc,
+        string name,
+        string selectionType,
+        bool append,
+        int mark)
+    {
+        // ModelDocExtension is the full-fidelity path used by SolidWorks.  The
+        // legacy fallback also keeps the operation usable for older/partial COM
+        // proxies that do not expose Extension (and makes that case testable).
+        var extension = doc.Extension;
+        return extension != null
+            ? extension.SelectByID2(name, selectionType, 0, 0, 0, append, mark, null, 0)
+            : doc.SelectByID(name, selectionType, 0, 0, 0);
     }
 
     private static StandardPlaneKind GetStandardPlaneKind(string? value)
@@ -1592,6 +2235,17 @@ public class SelectionService : ISelectionService
                 yield return body;
     }
 
+    private static IEnumerable<(IBody2 Body, IComponent2 Component)> GetBodyContextsDeep(IComponent2 component)
+    {
+        foreach (var body in GetBodies(component))
+            yield return (body, component);
+
+        var children = (object[]?)component.GetChildren() ?? [];
+        foreach (var child in children.OfType<IComponent2>())
+            foreach (var context in GetBodyContextsDeep(child))
+                yield return context;
+    }
+
     private static double[]? GetBox(IFace2 face)
         => ToDoubleArray(face.GetBox());
 
@@ -1646,6 +2300,25 @@ public class SelectionService : ISelectionService
         };
     }
 
+    private static byte[]? ToByteArray(object? raw)
+    {
+        return raw switch
+        {
+            null => null,
+            byte[] bytes => bytes,
+            object[] objects => objects
+                .Select(value =>
+                {
+                    try { return (byte?)Convert.ToByte(value, CultureInfo.InvariantCulture); }
+                    catch { return null; }
+                })
+                .Where(value => value.HasValue)
+                .Select(value => value!.Value)
+                .ToArray(),
+            _ => null,
+        };
+    }
+
     private static double? NormalizeMeasureValue(double value)
         => value == -1 ? null : value;
 
@@ -1665,6 +2338,22 @@ public class SelectionService : ISelectionService
         try
         {
             return (feature.GetChildren() as object[] ?? Array.Empty<object>()).Length > 0;
+        }
+        catch (COMException)
+        {
+            return false;
+        }
+        catch (TargetInvocationException)
+        {
+            return false;
+        }
+    }
+
+    private static bool HasSubFeatures(Feature feature)
+    {
+        try
+        {
+            return feature.GetFirstSubFeature() is Feature;
         }
         catch (COMException)
         {
@@ -1802,6 +2491,70 @@ public class SelectionService : ISelectionService
         catch (TargetInvocationException)
         {
             return null;
+        }
+    }
+
+    private static string? SafeGetDocumentPath(IModelDoc2 doc)
+    {
+        try
+        {
+            return doc.GetPathName();
+        }
+        catch (COMException)
+        {
+            return null;
+        }
+        catch (TargetInvocationException)
+        {
+            return null;
+        }
+    }
+
+    private static string? SafeGetComponentName(IComponent2 component)
+    {
+        try
+        {
+            return component.Name2;
+        }
+        catch (COMException)
+        {
+            return null;
+        }
+        catch (TargetInvocationException)
+        {
+            return null;
+        }
+    }
+
+    private static string? SafeGetComponentPath(IComponent2 component)
+    {
+        try
+        {
+            return component.GetPathName();
+        }
+        catch (COMException)
+        {
+            return null;
+        }
+        catch (TargetInvocationException)
+        {
+            return null;
+        }
+    }
+
+    private static int SafeGetDocumentType(IModelDoc2 doc)
+    {
+        try
+        {
+            return doc.GetType();
+        }
+        catch (COMException)
+        {
+            return 0;
+        }
+        catch (TargetInvocationException)
+        {
+            return 0;
         }
     }
 
@@ -2063,7 +2816,15 @@ public class SelectionService : ISelectionService
     // ── Face mapping ─────────────────────────────────────────────
 
     private static string FaceMappingFilePath =>
-        Path.Combine(AppContext.BaseDirectory, "face_mappings.json");
+        ResolveFaceMappingFilePath();
+
+    private static string ResolveFaceMappingFilePath()
+    {
+        var configured = System.Environment.GetEnvironmentVariable("DEMO_FACE_MAPPING_PATH");
+        return string.IsNullOrWhiteSpace(configured)
+            ? Path.Combine(AppContext.BaseDirectory, "face_mappings.json")
+            : Path.GetFullPath(configured);
+    }
 
     private static System.Text.Json.Nodes.JsonObject LoadMappings()
     {
@@ -2073,8 +2834,16 @@ public class SelectionService : ISelectionService
     }
 
     private static void SaveMappings(System.Text.Json.Nodes.JsonObject root)
-        => File.WriteAllText(FaceMappingFilePath,
+    {
+        var directory = Path.GetDirectoryName(FaceMappingFilePath);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        File.WriteAllText(FaceMappingFilePath,
             root.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+    }
 
     private IComponent2? FindComponent(string componentName)
     {
@@ -2085,6 +2854,35 @@ public class SelectionService : ISelectionService
         return all.OfType<IComponent2>().FirstOrDefault(c =>
             string.Equals(c.Name2, componentName, StringComparison.OrdinalIgnoreCase) ||
             string.Equals(c.Name2.Split('/').Last(), componentName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private IComponent2? ResolveLeafComponent(string componentSelector)
+    {
+        var exact = FindComponent(componentSelector);
+        if (exact != null)
+        {
+            return exact;
+        }
+
+        if (GetActiveModelDoc() is not IAssemblyDoc assembly)
+        {
+            return null;
+        }
+
+        var tokenMatches = EnumerateAssemblyComponentsRecursive(
+                ((object[]?)assembly.GetComponents(true) ?? Array.Empty<object>())
+                    .OfType<IComponent2>())
+            .Where(item => (item.Name2 ?? string.Empty).Contains(
+                componentSelector,
+                StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        return tokenMatches.Count switch
+        {
+            0 => null,
+            1 => tokenMatches[0],
+            _ => throw new InvalidOperationException(
+                $"Component selector '{componentSelector}' matched {tokenMatches.Count} components; use a more specific ASCII token or exact Name2.")
+        };
     }
 
     private static double[] BoxCenter(double[] box) =>
@@ -2133,7 +2931,7 @@ public class SelectionService : ISelectionService
     /// </summary>
     private static double[] WorldToLocal(double[] world, IComponent2 component)
     {
-        var xform = component.Transform2;
+        var xform = GetComponentWorldTransform(component);
         if (xform == null) return world;
 
         // ArrayData: 16 doubles, column-major rotation + translation + scale
@@ -2155,8 +2953,530 @@ public class SelectionService : ISelectionService
         return [lx / s, ly / s, lz / s];
     }
 
+    private static double[] LocalToWorld(double[] local, IComponent2 component)
+    {
+        var xform = GetComponentWorldTransform(component);
+        if (xform == null) return local;
+
+        var raw = xform.ArrayData as double[];
+        if (raw == null || raw.Length < 13) return local;
+
+        double s = raw[12] == 0 ? 1.0 : raw[12];
+        double lx = local[0] * s;
+        double ly = local[1] * s;
+        double lz = local[2] * s;
+        return [
+            raw[9] * s + raw[0] * lx + raw[3] * ly + raw[6] * lz,
+            raw[10] * s + raw[1] * lx + raw[4] * ly + raw[7] * lz,
+            raw[11] * s + raw[2] * lx + raw[5] * ly + raw[8] * lz,
+        ];
+    }
+
+    private static IMathTransform? GetComponentWorldTransform(IComponent2 component)
+    {
+        try
+        {
+            return component.GetTotalTransform(true) ?? component.Transform2;
+        }
+        catch
+        {
+            return component.Transform2;
+        }
+    }
+
+    private static double[]? LocalToWorldVector(double[] localVector, IComponent2 component)
+    {
+        var xform = GetComponentWorldTransform(component);
+        if (xform == null) return NormalizeVectorOrNull(localVector);
+
+        var raw = xform.ArrayData as double[];
+        if (raw == null || raw.Length < 13) return NormalizeVectorOrNull(localVector);
+
+        double wx = raw[0] * localVector[0] + raw[3] * localVector[1] + raw[6] * localVector[2];
+        double wy = raw[1] * localVector[0] + raw[4] * localVector[1] + raw[7] * localVector[2];
+        double wz = raw[2] * localVector[0] + raw[5] * localVector[1] + raw[8] * localVector[2];
+        return NormalizeVectorOrNull([wx, wy, wz]);
+    }
+
+    private static double[]? NormalizeVectorOrNull(double[] vector)
+    {
+        if (vector.Length < 3) return null;
+        double length = Math.Sqrt(vector[0] * vector[0] + vector[1] * vector[1] + vector[2] * vector[2]);
+        return length < 1e-9
+            ? null
+            : [vector[0] / length, vector[1] / length, vector[2] / length];
+    }
+
+    internal static double[]? TryGetPlanarFaceNormal(IFace2 face)
+    {
+        ISurface? surface = null;
+        try
+        {
+            surface = face.GetSurface() as ISurface;
+            if (surface != null && surface.IsPlane())
+            {
+                var plane = ToDoubleArray(surface.PlaneParams);
+                if (plane != null && plane.Length >= 6)
+                {
+                    // PlaneParams layout is [normal.x, normal.y, normal.z,
+                    // rootPoint.x, rootPoint.y, rootPoint.z]. Using the root point
+                    // as a direction silently ranks faces by position instead of orientation.
+                    var normal = NormalizeVectorOrNull([plane[0], plane[1], plane[2]]);
+                    if (normal != null)
+                    {
+                        return ApplyFaceSense(face, normal);
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Imported/foreign faces can throw or report IsPlane=false even when
+            // their trimmed geometry is planar. Continue through safer fallbacks.
+        }
+
+        // IFace2.Normal is SolidWorks' direct planar-face query. Unlike
+        // ISurface.PlaneParams it also works for some imported topology proxies,
+        // and it already follows the face's outward sense.
+        var directFaceNormal = TryGetDirectFaceNormal(face);
+        if (directFaceNormal != null)
+        {
+            return directFaceNormal;
+        }
+
+        // Foreign NURBS surfaces sometimes represent a geometric plane without
+        // advertising IsPlane(). Accept their evaluated normal only when both
+        // principal curvatures are effectively zero.
+        var evaluatedNormal = TryGetLocallyPlanarSurfaceNormal(face, surface);
+        if (evaluatedNormal != null)
+        {
+            return evaluatedNormal;
+        }
+
+        var tessellatedNormal = TryGetTessellatedFaceNormal(face);
+        if (tessellatedNormal != null)
+        {
+            return tessellatedNormal;
+        }
+
+        // Last-resort fallback for imported faces whose tessellation is not
+        // exposed through COM. It is deliberately restricted to a face box with
+        // one near-zero dimension and uses the body center to determine the
+        // outward sign. Ambiguous/internal faces are rejected.
+        return TryGetAxisAlignedPlanarFaceNormal(face);
+    }
+
+    private static double[]? TryGetDirectFaceNormal(IFace2 face)
+    {
+        try
+        {
+            return NormalizeVectorOrNull(ToDoubleArray(face.Normal) ?? []);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static double[]? TryGetLocallyPlanarSurfaceNormal(IFace2 face, ISurface? surface)
+    {
+        if (surface == null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var box = ToDoubleArray(face.GetBox());
+            if (box == null || box.Length < 6)
+            {
+                return null;
+            }
+
+            var point = BoxCenter(box);
+            var closest = ToDoubleArray(face.GetClosestPointOn(point[0], point[1], point[2]));
+            if (closest is { Length: >= 3 })
+            {
+                point = [closest[0], closest[1], closest[2]];
+            }
+
+            var evaluation = ToDoubleArray(surface.EvaluateAtPoint(point[0], point[1], point[2]));
+            if (evaluation == null || evaluation.Length < 11)
+            {
+                return null;
+            }
+
+            const double curvatureTolerance = 1e-7;
+            if (Math.Abs(evaluation[9]) > curvatureTolerance
+                || Math.Abs(evaluation[10]) > curvatureTolerance)
+            {
+                return null;
+            }
+
+            var normal = NormalizeVectorOrNull([evaluation[0], evaluation[1], evaluation[2]]);
+            return normal == null ? null : ApplyFaceSense(face, normal);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static double[]? TryGetAxisAlignedPlanarFaceNormal(IFace2 face)
+    {
+        try
+        {
+            var faceBox = ToDoubleArray(face.GetBox());
+            var bodyBox = face.GetBody() is IBody2 body
+                ? ToDoubleArray(body.GetBodyBox())
+                : null;
+            return TryInferAxisAlignedPlanarFaceNormal(faceBox, bodyBox);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    internal static double[]? TryInferAxisAlignedPlanarFaceNormal(double[]? faceBox, double[]? bodyBox)
+    {
+        if (faceBox == null || faceBox.Length < 6 || bodyBox == null || bodyBox.Length < 6)
+        {
+            return null;
+        }
+
+        var extents = new[]
+        {
+            Math.Abs(faceBox[3] - faceBox[0]),
+            Math.Abs(faceBox[4] - faceBox[1]),
+            Math.Abs(faceBox[5] - faceBox[2]),
+        };
+        var orderedAxes = Enumerable.Range(0, 3).OrderBy(axis => extents[axis]).ToArray();
+        int thinAxis = orderedAxes[0];
+        double middleExtent = extents[orderedAxes[1]];
+        double largestExtent = extents[orderedAxes[2]];
+
+        if (middleExtent < 1e-6 || largestExtent < 1e-6)
+        {
+            return null;
+        }
+
+        double thinTolerance = Math.Max(5e-7, largestExtent * 1e-5);
+        if (extents[thinAxis] > thinTolerance)
+        {
+            return null;
+        }
+
+        double faceCenter = (faceBox[thinAxis] + faceBox[thinAxis + 3]) / 2.0;
+        double bodyCenter = (bodyBox[thinAxis] + bodyBox[thinAxis + 3]) / 2.0;
+        double bodyExtent = Math.Abs(bodyBox[thinAxis + 3] - bodyBox[thinAxis]);
+        double directionTolerance = Math.Max(5e-7, bodyExtent * 1e-6);
+        double offset = faceCenter - bodyCenter;
+        if (Math.Abs(offset) <= directionTolerance)
+        {
+            return null;
+        }
+
+        var normal = new double[3];
+        normal[thinAxis] = offset > 0 ? 1.0 : -1.0;
+        return normal;
+    }
+
+    private static double[] ApplyFaceSense(IFace2 face, double[] normal)
+    {
+        try
+        {
+            if (!face.FaceInSurfaceSense())
+            {
+                return [-normal[0], -normal[1], -normal[2]];
+            }
+        }
+        catch
+        {
+            // Some topology proxies do not expose FaceInSurfaceSense reliably.
+        }
+
+        return normal;
+    }
+
+    private static double[]? TryGetTessellatedFaceNormal(IFace2 face)
+    {
+        var normal = TryGetAverageTessellatedNormal(face);
+        if (normal != null)
+        {
+            return normal;
+        }
+
+        var tessTriangles =
+            TryInvokeDoubleArray(face, "GetTessTriangles", true)
+            ?? TryInvokeDoubleArray(face, "GetTessTriangles", false)
+            ?? TryInvokeDoubleArray(face, "GetTessTriangles");
+
+        normal = TryFitTriangleNormalFromTessellation(tessTriangles);
+        return normal == null ? null : ApplyFaceSense(face, normal);
+    }
+
+    private static double[]? TryGetAverageTessellatedNormal(IFace2 face)
+    {
+        var tessNormals =
+            TryInvokeDoubleArray(face, "GetTessNorms")
+            ?? TryInvokeDoubleArray(face, "GetTessNormals");
+        if (tessNormals == null || tessNormals.Length < 3)
+        {
+            return null;
+        }
+
+        double x = 0, y = 0, z = 0;
+        for (var i = 0; i + 2 < tessNormals.Length; i += 3)
+        {
+            x += tessNormals[i];
+            y += tessNormals[i + 1];
+            z += tessNormals[i + 2];
+        }
+
+        return NormalizeVectorOrNull([x, y, z]);
+    }
+
+    internal static double[]? TryFitTriangleNormalFromTessellation(double[]? tessTriangles)
+    {
+        if (tessTriangles == null || tessTriangles.Length < 9)
+        {
+            return null;
+        }
+
+        var candidates = new List<TessellationNormalCandidate>();
+        AddTessellationNormalCandidate(tessTriangles, vertexStride: 3, candidates);
+        AddTessellationNormalCandidate(tessTriangles, vertexStride: 9, candidates);
+
+        return candidates
+            .OrderBy(candidate => candidate.MaxPlaneResidual)
+            .ThenByDescending(candidate => candidate.AreaWeight)
+            .FirstOrDefault()
+            ?.Normal;
+    }
+
+    private static void AddTessellationNormalCandidate(
+        double[] data,
+        int vertexStride,
+        ICollection<TessellationNormalCandidate> candidates)
+    {
+        var triangleStride = vertexStride * 3;
+        if (data.Length < triangleStride || data.Length % triangleStride != 0)
+        {
+            return;
+        }
+
+        var points = new List<double[]>();
+        double nx = 0, ny = 0, nz = 0, areaWeight = 0;
+        for (var offset = 0; offset + triangleStride - 1 < data.Length; offset += triangleStride)
+        {
+            var p0 = ReadPoint(data, offset);
+            var p1 = ReadPoint(data, offset + vertexStride);
+            var p2 = ReadPoint(data, offset + vertexStride * 2);
+            var cross = Cross(Subtract(p1, p0), Subtract(p2, p0));
+            var area2 = Length(cross);
+            if (area2 < 1e-12)
+            {
+                continue;
+            }
+
+            nx += cross[0];
+            ny += cross[1];
+            nz += cross[2];
+            areaWeight += area2;
+            points.Add(p0);
+            points.Add(p1);
+            points.Add(p2);
+        }
+
+        var normal = NormalizeVectorOrNull([nx, ny, nz]);
+        if (normal == null || points.Count < 3)
+        {
+            return;
+        }
+
+        var origin = points[0];
+        var maxResidual = points
+            .Select(point => Math.Abs(Dot(Subtract(point, origin), normal)))
+            .DefaultIfEmpty(double.PositiveInfinity)
+            .Max();
+        candidates.Add(new TessellationNormalCandidate(normal, areaWeight, maxResidual));
+    }
+
+    private static double[] ReadPoint(double[] data, int offset) =>
+        [data[offset], data[offset + 1], data[offset + 2]];
+
+    private static double[] Subtract(double[] a, double[] b) =>
+        [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+
+    private static double[] Cross(double[] a, double[] b) =>
+        [
+            a[1] * b[2] - a[2] * b[1],
+            a[2] * b[0] - a[0] * b[2],
+            a[0] * b[1] - a[1] * b[0],
+        ];
+
+    private static double Dot(double[] a, double[] b) =>
+        a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+
+    private static double Length(double[] vector) =>
+        Math.Sqrt(Dot(vector, vector));
+
+    private static double[]? TryInvokeDoubleArray(object target, string methodName, params object[] args)
+    {
+        try
+        {
+            var result = target
+                .GetType()
+                .InvokeMember(
+                    methodName,
+                    BindingFlags.InvokeMethod | BindingFlags.Public | BindingFlags.Instance,
+                    binder: null,
+                    target,
+                    args);
+            return ToDoubleArray(result);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private sealed record TessellationNormalCandidate(double[] Normal, double AreaWeight, double MaxPlaneResidual);
+
+    private string? TryGetPersistentReferenceBase64(IFace2 face)
+    {
+        try
+        {
+            var doc = GetActiveModelDoc();
+            var bytes = ToByteArray(doc.Extension.GetPersistReference3(face));
+            return bytes is { Length: > 0 } ? Convert.ToBase64String(bytes) : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private FaceMappingResult? TrySelectFaceByPersistentReference(
+        string persistentReferenceBase64,
+        string faceName,
+        string componentName,
+        bool append,
+        int mark)
+    {
+        try
+        {
+            var bytes = Convert.FromBase64String(persistentReferenceBase64);
+            var doc = GetActiveModelDoc();
+            int error = 0;
+            var resolved = doc.Extension.GetObjectByPersistReference3(bytes, out error);
+            if (resolved is not IFace2 face)
+            {
+                return new FaceMappingResult(
+                    false,
+                    $"Persistent reference did not resolve to a face for '{faceName}' in '{componentName}'. Error={error}.",
+                    faceName,
+                    componentName);
+            }
+
+            if (!append)
+            {
+                doc.ClearSelection2(true);
+            }
+
+            var selectData = CreateSelectData(doc.ISelectionManager, mark);
+            var ok = ((IEntity)face).Select4(append, selectData);
+            return ok
+                ? new FaceMappingResult(
+                    true,
+                    $"Selected face '{faceName}' for '{componentName}' via persistent reference.",
+                    faceName,
+                    componentName)
+                : new FaceMappingResult(
+                    false,
+                    $"Persistent reference resolved but failed to select face '{faceName}' for '{componentName}'.",
+                    faceName,
+                    componentName);
+        }
+        catch (Exception ex)
+        {
+            return new FaceMappingResult(
+                false,
+                $"Persistent reference selection failed for '{faceName}' in '{componentName}': {ex.Message}",
+                faceName,
+                componentName);
+        }
+    }
+
+    public FaceMappingProbeResult GetSelectedFaceMappingProbe(string? faceName = null, string? componentName = null)
+    {
+        // 读取 SolidWorks 当前选择集中的第一个面，并返回“当前状态下”的几何探针数据。
+        // 该函数不会主动寻找面，只验证已经选中的面；因此常用于：
+        // 1. 手动选面后确认记录内容；
+        // 2. SelectFaceByName 自动选回面后，检查是否仍是同一个几何面；
+        // 3. Common Base / Replay 前读取底面中心和法向，作为移动或朝向校验依据。
+        _cm.EnsureConnected();
+        var selMgr = GetActiveModelDoc().ISelectionManager;
+        int count = selMgr.GetSelectedObjectCount2(-1);
+        if (count == 0)
+            return new FaceMappingProbeResult(false, "No entity selected. Select a face in SolidWorks first.", faceName, componentName, null, null, null, null, null, null, null, null, FaceMappingFilePath);
+
+        IFace2? face = null;
+        IComponent2? leafComponent = null;
+        for (int i = 1; i <= count; i++)
+        {
+            if (selMgr.GetSelectedObjectType3(i, -1) == (int)swSelectType_e.swSelFACES)
+            {
+                face = selMgr.GetSelectedObject6(i, -1) as IFace2;
+                leafComponent = selMgr.GetSelectedObjectsComponent3(i, -1) as IComponent2;
+                break;
+            }
+        }
+
+        if (face == null)
+            return new FaceMappingProbeResult(false, "Selected entity is not a face.", faceName, componentName, null, null, null, null, null, null, null, null, FaceMappingFilePath);
+
+        var box = ToDoubleArray(face.GetBox());
+        if (box == null || box.Length < 6)
+            return new FaceMappingProbeResult(false, "Could not read face bounding box.", faceName, componentName, null, null, null, null, null, null, null, null, FaceMappingFilePath);
+
+        var localCenter = BoxCenter(box);
+        var worldCenter = leafComponent != null ? LocalToWorld(localCenter, leafComponent) : localCenter;
+        var localNormal = TryGetPlanarFaceNormal(face);
+        var worldNormal = localNormal != null && leafComponent != null
+            ? LocalToWorldVector(localNormal, leafComponent)
+            : localNormal;
+        var leafFullName = leafComponent?.Name2 ?? componentName;
+        var leafName = leafFullName?.Split('/').Last() ?? componentName;
+        var area = face.GetArea();
+
+        var normalMessage = worldNormal == null
+            ? " Selected face has no valid planar normal."
+            : $" normal=[{worldNormal[0]:F6},{worldNormal[1]:F6},{worldNormal[2]:F6}].";
+
+        return new FaceMappingProbeResult(
+            true,
+            $"Selected face probe: leaf='{leafName}', local=[{localCenter[0]:F6},{localCenter[1]:F6},{localCenter[2]:F6}], area={area:F9}.{normalMessage}",
+            faceName,
+            componentName,
+            leafName,
+            leafFullName,
+            worldCenter,
+            localCenter,
+            worldNormal,
+            localNormal,
+            area,
+            box,
+            FaceMappingFilePath);
+    }
+
     public FaceMappingResult RecordFaceMapping(string faceName, string componentName)
     {
+        // 手动记录路径：用户先在 SolidWorks UI 里选中一个真实面，
+        // MCP 再把该面的 leaf component、局部中心、面积、法向、Persistent Reference 等写入 face_mappings.json。
+        // 注意：这里不判断“这个面是否真的是底面”，只忠实记录当前选择。
+        // 因此真实装配体里底面不明显时，记录质量直接决定后续 SelectFaceByName、Common Base、Replay 的稳定性。
         _cm.EnsureConnected();
         var selMgr = GetActiveModelDoc().ISelectionManager;
         int count = selMgr.GetSelectedObjectCount2(-1);
@@ -2178,17 +3498,54 @@ public class SelectionService : ISelectionService
         if (face == null)
             return new FaceMappingResult(false, "Selected entity is not a face.", faceName, componentName);
 
+        return SaveFaceMapping(face, leafComponent, faceName, componentName);
+    }
+
+    public FaceMappingResult RecordFirstFaceMapping(string faceName, string componentName)
+    {
+        // 自动兜底记录路径：遍历目标组件下的实体并记录遇到的第一个面。
+        // 这只能用于快速诊断或非关键组件占位；它没有“识别真实底面”的语义。
+        // 如果后续要做精确共底面，应优先使用 RecordFaceMapping 手动记录，或实现更可靠的底面自动识别策略。
+        _cm.EnsureConnected();
+
+        var component = FindComponent(componentName);
+        if (component == null)
+            return new FaceMappingResult(false, $"Component '{componentName}' was not found.", faceName, componentName);
+
+        foreach (var (body, leafComponent) in GetBodyContextsDeep(component))
+        {
+            foreach (var face in ((object[]?)body.GetFaces() ?? Array.Empty<object>()).OfType<IFace2>())
+            {
+                return SaveFaceMapping(face, leafComponent, faceName, componentName);
+            }
+        }
+
+        return new FaceMappingResult(false, $"No solid-body face found under component '{componentName}'.", faceName, componentName);
+    }
+
+    private FaceMappingResult SaveFaceMapping(IFace2 face, IComponent2? leafComponent, string faceName, string componentName)
+    {
+        // face_mappings.json 的核心结构由这里生成。
+        // 保存 leafComponentFullName + localCenter 的原因是：组件整体移动/旋转后，
+        // 面在 leaf component 坐标系下的位置通常不变，便于在新姿态下重新找回同一个面。
+        // 但如果重新导入后组件实例名变化，或同类面很多且 localCenter/area/normal 不够区分，仍可能选错面。
         var box = ToDoubleArray(face.GetBox());
         if (box == null || box.Length < 6)
             return new FaceMappingResult(false, "Could not read face bounding box.", faceName, componentName);
 
-        var worldCenter = BoxCenter(box);
+        var localCenter = BoxCenter(box);
+        var worldCenter = leafComponent != null ? LocalToWorld(localCenter, leafComponent) : localCenter;
         double area = face.GetArea();
+        var localNormal = TryGetPlanarFaceNormal(face);
 
         // Convert to leaf-component local coordinates — stable across assembly-level move/rotate/mate.
-        var localCenter = leafComponent != null ? WorldToLocal(worldCenter, leafComponent) : worldCenter;
+        var worldNormal = localNormal != null && leafComponent != null
+            ? LocalToWorldVector(localNormal, leafComponent)
+            : localNormal;
         // Name2 may be prefixed with ancestor names (e.g. "ParentAsm/LeafPart"); use the short name only.
-        string leafName = leafComponent?.Name2.Split('/').Last() ?? componentName;
+        string leafFullName = leafComponent?.Name2 ?? componentName;
+        string leafName = leafFullName.Split('/').Last();
+        string? persistentReferenceBase64 = TryGetPersistentReferenceBase64(face);
 
         var root = LoadMappings();
         if (root[componentName] is not System.Text.Json.Nodes.JsonObject compNode)
@@ -2199,7 +3556,11 @@ public class SelectionService : ISelectionService
         compNode[faceName] = System.Text.Json.Nodes.JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(new
         {
             leafComponentName = leafName,
+            leafComponentFullName = leafFullName,
             localCenter,
+            localNormal,
+            worldNormal,
+            persistentReferenceBase64,
             area,
         }));
         SaveMappings(root);
@@ -2211,6 +3572,12 @@ public class SelectionService : ISelectionService
 
     public FaceMappingResult SelectFaceByName(string faceName, string componentName, bool append = false, int mark = 0)
     {
+        // 自动选回路径：
+        // 1. 从 face_mappings.json 读取记录；
+        // 2. 优先用 SolidWorks Persistent Reference 找回 IFace2；
+        // 3. Persistent Reference 失败时，按 leaf component + localCenter + area + localNormal 扫描候选面；
+        // 4. 选中分数最好的候选面。
+        // 这一步是后续“操作底面”的入口：mate、probe、move/replay 都依赖它先选中正确底面。
         _cm.EnsureConnected();
         var root = LoadMappings();
         if (root[componentName] is not System.Text.Json.Nodes.JsonObject compNode || compNode[faceName] is not System.Text.Json.Nodes.JsonNode entryNode)
@@ -2218,15 +3585,27 @@ public class SelectionService : ISelectionService
 
         // Parse saved entry.
         string? leafName = null;
+        string? leafFullName = null;
         double[]? savedLocal = null;
+        double[]? savedLocalNormal = null;
+        string? persistentReferenceBase64 = null;
         double savedArea = -1;
 
         if (entryNode is System.Text.Json.Nodes.JsonObject obj)
         {
             leafName = obj["leafComponentName"]?.GetValue<string>();
+            leafFullName = obj["leafComponentFullName"]?.GetValue<string>();
+            persistentReferenceBase64 = obj["persistentReferenceBase64"]?.GetValue<string>();
             savedLocal = obj["localCenter"] != null
                 ? System.Text.Json.JsonSerializer.Deserialize<double[]>(obj["localCenter"]!.ToJsonString())
                 : null;
+            savedLocalNormal = obj["localNormal"] != null
+                ? System.Text.Json.JsonSerializer.Deserialize<double[]>(obj["localNormal"]!.ToJsonString())
+                : null;
+            if (savedLocalNormal is { Length: >= 3 } && !CommonBaseLayoutMath.IsValidNormal(savedLocalNormal))
+            {
+                savedLocalNormal = null;
+            }
             savedArea = obj["area"] != null ? obj["area"]!.GetValue<double>() : -1;
         }
 
@@ -2237,14 +3616,35 @@ public class SelectionService : ISelectionService
         if (savedLocal == null || savedLocal.Length < 3)
             return new FaceMappingResult(false, $"Invalid mapping data for '{faceName}'.", faceName, componentName);
 
+        if (!string.IsNullOrWhiteSpace(persistentReferenceBase64))
+        {
+            // Persistent Reference 是当前最稳定的选面方式，但它可能受文档另存、重新导入实例、
+            // 组件替换等因素影响；失败后会自动降级到几何匹配。
+            var persistentResult = TrySelectFaceByPersistentReference(
+                persistentReferenceBase64,
+                faceName,
+                componentName,
+                append,
+                mark);
+            if (persistentResult?.Success == true)
+            {
+                return persistentResult;
+            }
+        }
+
         // Locate the leaf component directly — O(N_components), not O(N_faces).
-        var leaf = leafName != null ? FindComponent(leafName) : FindComponent(componentName);
+        // 先定位记录时的 leaf component，再只扫描该叶组件内的面，避免在整个装配体内 O(N_faces) 盲扫。
+        // 对 10+ 子装配体场景，这一步能明显减少误选和耗时；但实例名变化时 leafFullName 可能失效。
+        var leaf = !string.IsNullOrWhiteSpace(leafFullName)
+            ? FindComponent(leafFullName)
+            : leafName != null ? FindComponent(leafName) : FindComponent(componentName);
         if (leaf == null)
             return new FaceMappingResult(false, $"Leaf component '{leafName ?? componentName}' not found.", faceName, componentName);
 
-        // Scan only this leaf component's bodies — typically a single part with <100 faces.
-        IFace2? bestFace = null;
-        double bestScore = double.MaxValue;
+        const double centerTolerance = 0.002; // meters, leaf-local bounding-box center tolerance
+        const double areaRelativeTolerance = 0.05;
+        const double normalDotTolerance = 0.95;
+        var candidateRows = new List<(IFace2 Face, FaceMappingCandidateDiagnostic Diagnostic)>();
 
         foreach (var body in GetBodies(leaf))
         {
@@ -2253,31 +3653,114 @@ public class SelectionService : ISelectionService
                 var box = ToDoubleArray(face.GetBox());
                 if (box == null || box.Length < 6) continue;
                 var lc = WorldToLocal(BoxCenter(box), leaf);
-                double distScore = Dist(lc, savedLocal);
+                double centerDistance = Dist(lc, savedLocal);
+                double score = centerDistance;
 
-                // If area is recorded, use it as a tiebreaker: penalise area mismatch.
+                double? area = null;
+                double? areaRelativeError = null;
                 if (savedArea > 0)
                 {
-                    double areaRatio = Math.Abs(face.GetArea() - savedArea) / savedArea;
-                    distScore += areaRatio * 0.01; // small weight so distance dominates
+                    area = face.GetArea();
+                    areaRelativeError = Math.Abs(area.Value - savedArea) / savedArea;
+                    score += areaRelativeError.Value * 0.1;
                 }
 
-                if (distScore < bestScore) { bestScore = distScore; bestFace = face; }
-                if (bestScore < 1e-5) goto done;
+                double? normalDot = null;
+                double[]? candidateNormal = null;
+                if (savedLocalNormal is { Length: >= 3 } savedNormal
+                    && CommonBaseLayoutMath.IsValidNormal(savedNormal))
+                {
+                    candidateNormal = TryGetPlanarFaceNormal(face);
+                    if (candidateNormal is { Length: >= 3 } candidateNormalValue
+                        && CommonBaseLayoutMath.IsValidNormal(candidateNormalValue))
+                    {
+                        normalDot = Math.Abs(Dot(candidateNormalValue, savedNormal));
+                        score += (1 - Math.Min(1, normalDot.Value)) * 0.05;
+                    }
+                    else
+                    {
+                        score += 1.0;
+                    }
+                }
+
+                var rejectReasons = new List<string>();
+                if (centerDistance > centerTolerance)
+                {
+                    rejectReasons.Add($"center distance {centerDistance:F6}m > {centerTolerance:F6}m");
+                }
+                if (areaRelativeError is not null && areaRelativeError > areaRelativeTolerance)
+                {
+                    rejectReasons.Add($"area relative error {areaRelativeError:F6} > {areaRelativeTolerance:F6}");
+                }
+                if (savedLocalNormal is { Length: >= 3 } && normalDot is null)
+                {
+                    rejectReasons.Add("candidate normal unavailable");
+                }
+                else if (normalDot is not null && normalDot < normalDotTolerance)
+                {
+                    rejectReasons.Add($"normal dot {normalDot:F6} < {normalDotTolerance:F6}");
+                }
+
+                candidateRows.Add((face, new FaceMappingCandidateDiagnostic(
+                    Rank: 0,
+                    Score: score,
+                    Accepted: rejectReasons.Count == 0,
+                    RejectReason: rejectReasons.Count == 0 ? null : string.Join("; ", rejectReasons),
+                    CenterDistance: centerDistance,
+                    Area: area,
+                    AreaRelativeError: areaRelativeError,
+                    NormalDot: normalDot,
+                    LocalCenter: lc,
+                    LocalNormal: candidateNormal,
+                    Box: box)));
             }
         }
-        done:
 
-        if (bestFace == null)
-            return new FaceMappingResult(false, $"No faces found on leaf '{leafName}'. Re-record the mapping.", faceName, componentName);
+        var rankedRows = candidateRows
+            .OrderBy(row => row.Diagnostic.Accepted ? 0 : 1)
+            .ThenBy(row => row.Diagnostic.Score)
+            .Select((row, index) => (row.Face, Diagnostic: row.Diagnostic with { Rank = index + 1 }))
+            .ToList();
+        var diagnostics = new FaceMappingSelectionDiagnostics(
+            LeafComponentName: leafName,
+            LeafComponentFullName: leafFullName,
+            SavedLocalCenter: savedLocal,
+            SavedArea: savedArea > 0 ? savedArea : null,
+            SavedLocalNormal: savedLocalNormal,
+            CenterTolerance: centerTolerance,
+            AreaRelativeTolerance: areaRelativeTolerance,
+            NormalDotTolerance: normalDotTolerance,
+            FailureReason: null,
+            Candidates: rankedRows.Take(5).Select(row => row.Diagnostic).ToList().AsReadOnly());
+
+        if (rankedRows.Count == 0)
+        {
+            return new FaceMappingResult(
+                false,
+                $"No faces found on leaf '{leafName}'. Re-record the mapping.",
+                faceName,
+                componentName,
+                diagnostics with { FailureReason = "No faces were available on the mapped leaf component." });
+        }
+
+        var best = rankedRows[0];
+        if (!best.Diagnostic.Accepted)
+        {
+            return new FaceMappingResult(
+                false,
+                $"Mapped face '{faceName}' for '{componentName}' could not be selected reliably. Best candidate rejected: {best.Diagnostic.RejectReason}.",
+                faceName,
+                componentName,
+                diagnostics with { FailureReason = best.Diagnostic.RejectReason });
+        }
 
         var doc = GetActiveModelDoc();
         if (!append) doc.ClearSelection2(true);
         var selectData = CreateSelectData(doc.ISelectionManager, mark);
-        bool ok = ((IEntity)bestFace).Select4(append, selectData);
+        bool ok = ((IEntity)best.Face).Select4(append, selectData);
 
         return ok
-            ? new FaceMappingResult(true, $"Selected face '{faceName}' for '{componentName}'.", faceName, componentName)
-            : new FaceMappingResult(false, $"Failed to select face '{faceName}' for '{componentName}'.", faceName, componentName);
+            ? new FaceMappingResult(true, $"Selected face '{faceName}' for '{componentName}'.", faceName, componentName, diagnostics)
+            : new FaceMappingResult(false, $"Failed to select face '{faceName}' for '{componentName}'.", faceName, componentName, diagnostics);
     }
 }

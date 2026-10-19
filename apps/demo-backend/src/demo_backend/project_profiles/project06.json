@@ -1,0 +1,151 @@
+{
+  "schemaVersion": "project-assembly-profile/v1",
+  "profileVersion": "2026-10-10.1-identity-only",
+  "projectId": "project06",
+  "baseModule": "A000",
+  "validatedSequence": ["A000", "D000", "K000", "F000", "M000", "G000", "N000", "P000", "B000"],
+  "modules": {
+    "A000": {
+      "label": "机架与双回流固定环境",
+      "aliases": ["机架", "箱体", "固定环境", "回流模组"],
+      "componentName": "FL9C254099A000.001",
+      "componentNames": ["FL9C254099A000.001", "FL9C254099E000.001", "FL9C254099E000.002"],
+      "instanceCount": 3,
+      "sourceConfidence": "engineer-confirmed"
+    },
+    "D000": {
+      "label": "上层产品输送模组",
+      "aliases": ["传输模组", "输送模组"],
+      "componentName": "FL9C254099D000.001",
+      "instanceCount": 1,
+      "sourceConfidence": "engineer-confirmed",
+      "assemblyPolicy": {
+        "requires": ["A000"],
+        "placementKind": "frame-anchored-primary",
+        "ruleSummary": "按机架安装基准确定输送模组；当前仅登记身份，安装端口尚未提取。",
+        "acceptanceChecks": ["机架安装基准", "输送方向", "保存重开"],
+        "implementationStatus": "identity_only_cad_unvalidated",
+        "engineeringLimitations": ["项目06尚无版本化面端点和真实CAD增量插入证据。"]
+      }
+    },
+    "K000": {
+      "label": "双工位顶升定位模组",
+      "aliases": ["顶升定位模组", "顶升模组", "定位模组"],
+      "componentName": "FL9C254099K000.001",
+      "instanceCount": 1,
+      "sourceConfidence": "engineer-confirmed",
+      "assemblyPolicy": {
+        "requires": ["A000", "D000"],
+        "placementKind": "transport-dependent-rigid",
+        "ruleSummary": "依据输送路径确定两个工作位；项目06工位参数尚未标定。",
+        "acceptanceChecks": ["两个工作位", "载具通道", "保存重开"],
+        "implementationStatus": "identity_only_cad_unvalidated",
+        "engineeringLimitations": ["不得继承项目05的工位距离。"]
+      }
+    },
+    "F000": {
+      "label": "双读头条码扫描模组",
+      "aliases": ["扫描模组", "扫码模组", "条码扫描模组"],
+      "componentName": "FL9C254099F000.001",
+      "instanceCount": 1,
+      "sourceConfidence": "engineer-confirmed",
+      "assemblyPolicy": {
+        "requires": ["D000", "K000"],
+        "placementKind": "transport-dependent-optical",
+        "ruleSummary": "在输送缓冲位扫描载具与产品条码；光轴和距离尚未登记。",
+        "acceptanceChecks": ["缓冲扫描位", "两条光轴", "条码目标侧", "工作距离"],
+        "implementationStatus": "identity_only_cad_unvalidated",
+        "engineeringLimitations": ["扫描出光面和条码目标面尚无项目06端口证据。"]
+      }
+    },
+    "M000": {
+      "label": "产品定位CCD模组",
+      "aliases": ["CCD模组", "视觉模组", "产品CCD"],
+      "componentName": "FL9C254099M000.001",
+      "instanceCount": 1,
+      "sourceConfidence": "engineer-confirmed",
+      "assemblyPolicy": {
+        "requires": ["D000", "K000"],
+        "placementKind": "transport-dependent-optical",
+        "ruleSummary": "覆盖两个顶升工作位的产品定位特征；项目06光学参数尚未标定。",
+        "acceptanceChecks": ["双工作位覆盖", "光轴", "视场", "工作距离"],
+        "implementationStatus": "identity_only_cad_unvalidated",
+        "engineeringLimitations": ["不得直接复用项目05的CCD参数。"]
+      }
+    },
+    "G000": {
+      "label": "针头校准与称重组合模组",
+      "aliases": ["功能模组", "校准称重模组", "标定称重模组"],
+      "componentName": "FL9C254099G000.001",
+      "instanceCount": 1,
+      "sourceConfidence": "inferred-from-prototype",
+      "assemblyPolicy": {
+        "requires": ["A000"],
+        "placementKind": "independent-rigid-multifunction",
+        "ruleSummary": "优先布置在操作侧，并保留校准点、称重点和维护空间。",
+        "acceptanceChecks": ["校准点", "称重点", "操作侧空间", "维护空间"],
+        "implementationStatus": "identity_only_cad_unvalidated",
+        "engineeringLimitations": ["功能身份高置信，但服务点和安装面尚未登记。"]
+      }
+    },
+    "N000": {
+      "label": "自动针头清洁模组",
+      "aliases": ["清洁模组", "针头清洁模组"],
+      "componentName": "FL9C254099N000.001",
+      "instanceCount": 1,
+      "sourceConfidence": "engineer-confirmed",
+      "assemblyPolicy": {
+        "requires": ["A000"],
+        "placementKind": "independent-rigid-service-pair",
+        "ruleSummary": "布置清洁服务点并保留双阀插入和维护空间。",
+        "acceptanceChecks": ["清洁服务点", "双阀插入通道", "维护空间"],
+        "implementationStatus": "identity_only_cad_unvalidated",
+        "engineeringLimitations": ["清洁动态状态与插入深度尚未标定。"]
+      }
+    },
+    "P000": {
+      "label": "双排胶杯模组",
+      "aliases": ["排胶模组", "排胶杯", "废胶收集模组"],
+      "componentName": "FL9C254099P000.001",
+      "componentNames": ["FL9C254099P000.001", "FL9C254099P000.003"],
+      "instanceCount": 2,
+      "sourceConfidence": "engineer-confirmed",
+      "assemblyPolicy": {
+        "requires": ["A000"],
+        "placementKind": "independent-rigid-service-pair",
+        "ruleSummary": "布置两个排胶杯实例，使杯口成为阀头可达服务目标。",
+        "acceptanceChecks": ["两个杯口", "阀头可达", "更换维护空间"],
+        "implementationStatus": "identity_only_cad_unvalidated",
+        "engineeringLimitations": ["两个实例的语义端口与相对位置尚未登记。"]
+      }
+    },
+    "B000": {
+      "label": "龙门与双阀Z轴运动组",
+      "aliases": ["龙门模组", "点胶龙门", "Z轴模组", "双阀运动组"],
+      "componentName": "FL9C254099B000.001",
+      "componentNames": ["FL9C254099B000.001", "FL9C254099Z000.001"],
+      "instanceCount": 2,
+      "sourceConfidence": "engineer-confirmed",
+      "assemblyPolicy": {
+        "requires": ["D000", "K000", "F000", "M000", "G000", "N000", "P000"],
+        "placementKind": "coverage-solved-rigid-group",
+        "ruleSummary": "最后反求龙门位置，使双阀行程覆盖工作位和全部服务点。",
+        "acceptanceChecks": ["双工作位可达", "功能点可达", "传输门洞", "保存重开"],
+        "implementationStatus": "identity_only_cad_unvalidated",
+        "engineeringLimitations": ["项目06权威行程、门洞和安装端口尚未提取。"]
+      }
+    }
+  },
+  "artifacts": {
+    "orderedClosure": "demo/semantic_ports/project06_ordered_jobs/latest_ordered_closure.json",
+    "fullMachineClosure": "demo/semantic_ports/project06_ordered_jobs/project06_static_closure.json"
+  },
+  "releaseBoundary": {
+    "planPreviewMayPass": false,
+    "cadExecutionMayStart": false,
+    "staticDemoMayPass": false,
+    "staticCadClosureStatus": "NOT_STARTED_IDENTITY_ONLY",
+    "liveCadApiMayStart": false,
+    "productionDynamicRequires": ["安装端口", "扫描与CCD光学基准", "全部服务点", "龙门权威行程", "项目06真实CAD增量闭环"]
+  }
+}

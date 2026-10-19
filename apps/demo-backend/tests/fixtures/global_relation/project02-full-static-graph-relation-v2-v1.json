@@ -1,0 +1,280 @@
+{
+  "schemaVersion": "global-assembly-context/v1",
+  "contextId": "project02-full-static-graph-relation-v2-v1",
+  "displayName": "项目02十实例完整静态语义图链（目录迁移）（目录迁移）",
+  "catalogDigest": "d79ee7c6fa854fd449524a9f481a0a3d1e0ee3b9947b9b4f17d585741f12fa7c",
+  "revision": 12,
+  "instances": [
+    {
+      "instanceId": "fl9a24d062a600-001-1-001",
+      "moduleDefinitionId": "cad/fl9a24d062a600-001-1/66606c07c8cf",
+      "displayName": "设备箱体与安装基座",
+      "instanceOrdinal": 1,
+      "declaredInstanceCapacity": 1,
+      "placementStatus": "base_context_unlocated"
+    },
+    {
+      "instanceId": "fl9a24d062a800-001-1-001",
+      "moduleDefinitionId": "cad/fl9a24d062a800-001-1/b11083d42500",
+      "displayName": "产品传输与载具定位模组",
+      "instanceOrdinal": 1,
+      "declaredInstanceCapacity": 1,
+      "placementStatus": "semantic_connection_planned"
+    },
+    {
+      "instanceId": "fl9a24d062a180-001-1-001",
+      "moduleDefinitionId": "cad/fl9a24d062a180-001-1/0651e5c708c1",
+      "displayName": "条码扫描模组",
+      "instanceOrdinal": 1,
+      "declaredInstanceCapacity": 1,
+      "placementStatus": "semantic_connection_planned"
+    },
+    {
+      "instanceId": "fl9a24d062a700-001-1-001",
+      "moduleDefinitionId": "cad/fl9a24d062a700-001-1/79fd0d032590",
+      "displayName": "清洁与称重组合模组",
+      "instanceOrdinal": 1,
+      "declaredInstanceCapacity": 1,
+      "placementStatus": "semantic_connection_planned"
+    },
+    {
+      "instanceId": "fl9a24d062a300-001-1-001",
+      "moduleDefinitionId": "cad/fl9a24d062a300-001-1/88a14e23c418",
+      "displayName": "排胶与废胶收集模组",
+      "instanceOrdinal": 1,
+      "declaredInstanceCapacity": 1,
+      "placementStatus": "semantic_connection_planned"
+    },
+    {
+      "instanceId": "fl9a24d062a500-001-1-001",
+      "moduleDefinitionId": "cad/fl9a24d062a500-001-1/3b8914a96909",
+      "displayName": "胶阀/喷嘴校准模组",
+      "instanceOrdinal": 1,
+      "declaredInstanceCapacity": 1,
+      "placementStatus": "semantic_connection_planned"
+    },
+    {
+      "instanceId": "a100-with-a150-slot0-rigid-v3-1-001",
+      "moduleDefinitionId": "cad/a100-with-a150-slot0-rigid-v3-1/25b91da11778",
+      "displayName": "XYZ龙门与双阀点胶执行模组",
+      "instanceOrdinal": 1,
+      "declaredInstanceCapacity": 1,
+      "placementStatus": "semantic_connection_planned"
+    },
+    {
+      "instanceId": "fl9a24d062a200-001-1-001",
+      "moduleDefinitionId": "cad/fl9a24d062a200-001-1/68545d32ccf9",
+      "displayName": "CCD视觉定位模组",
+      "instanceOrdinal": 1,
+      "declaredInstanceCapacity": 1,
+      "placementStatus": "semantic_connection_planned"
+    },
+    {
+      "instanceId": "t401aa-07388-0-001",
+      "moduleDefinitionId": "cad/t401aa-07388-0/56b94dcd5a77",
+      "displayName": "胶水供应模组",
+      "instanceOrdinal": 1,
+      "declaredInstanceCapacity": 2,
+      "placementStatus": "semantic_connection_planned"
+    },
+    {
+      "instanceId": "t401aa-07388-0-002",
+      "moduleDefinitionId": "cad/t401aa-07388-0/56b94dcd5a77",
+      "displayName": "胶水供应模组",
+      "instanceOrdinal": 2,
+      "declaredInstanceCapacity": 2,
+      "placementStatus": "semantic_connection_planned"
+    }
+  ],
+  "connections": [
+    {
+      "connectionId": "connection-001",
+      "instanceAId": "fl9a24d062a800-001-1-001",
+      "portAId": "cad/fl9a24d062a800-001-1/b11083d42500::port/a800-frame-installation/f04c7e20d8",
+      "instanceBId": "fl9a24d062a600-001-1-001",
+      "portBId": "cad/fl9a24d062a600-001-1/66606c07c8cf::port/a600-a800-installation/af36d9bd50",
+      "globalTemplateId": "template/project02/a800-to-a600-source-installation/cce929aa89",
+      "purpose": "installation",
+      "executionStatus": "planned_not_executed_in_cad"
+    },
+    {
+      "connectionId": "connection-002",
+      "instanceAId": "fl9a24d062a180-001-1-001",
+      "portAId": "cad/fl9a24d062a180-001-1/0651e5c708c1::port/a180-frame-installation/d099ee402c",
+      "instanceBId": "fl9a24d062a600-001-1-001",
+      "portBId": "cad/fl9a24d062a600-001-1/66606c07c8cf::port/a600-a180-installation/8b8d970508",
+      "globalTemplateId": "template/project02/a180-to-a600-source-installation/c1bed048b8",
+      "purpose": "installation",
+      "executionStatus": "planned_not_executed_in_cad"
+    },
+    {
+      "connectionId": "connection-003",
+      "instanceAId": "fl9a24d062a700-001-1-001",
+      "portAId": "cad/fl9a24d062a700-001-1/79fd0d032590::port/a700-frame-installation/4e8e68bea7",
+      "instanceBId": "fl9a24d062a600-001-1-001",
+      "portBId": "cad/fl9a24d062a600-001-1/66606c07c8cf::port/a600-a700-installation/224e2fb28d",
+      "globalTemplateId": "template/project02/a700-to-a600-source-installation/7d09e14acd",
+      "purpose": "installation",
+      "executionStatus": "planned_not_executed_in_cad"
+    },
+    {
+      "connectionId": "connection-004",
+      "instanceAId": "fl9a24d062a300-001-1-001",
+      "portAId": "cad/fl9a24d062a300-001-1/88a14e23c418::port/a300-frame-installation/f07d89efc5",
+      "instanceBId": "fl9a24d062a600-001-1-001",
+      "portBId": "cad/fl9a24d062a600-001-1/66606c07c8cf::port/a600-a300-installation/c845d444ec",
+      "globalTemplateId": "template/project02/a300-to-a600-source-installation/d04345c914",
+      "purpose": "installation",
+      "executionStatus": "planned_not_executed_in_cad"
+    },
+    {
+      "connectionId": "connection-005",
+      "instanceAId": "fl9a24d062a500-001-1-001",
+      "portAId": "cad/fl9a24d062a500-001-1/3b8914a96909::port/a500-frame-installation/ba4e28d6de",
+      "instanceBId": "fl9a24d062a600-001-1-001",
+      "portBId": "cad/fl9a24d062a600-001-1/66606c07c8cf::port/a600-a500-installation/466c74990f",
+      "globalTemplateId": "template/project02/a500-to-a600-source-installation/a41858abca",
+      "purpose": "installation",
+      "executionStatus": "planned_not_executed_in_cad"
+    },
+    {
+      "connectionId": "connection-006",
+      "instanceAId": "a100-with-a150-slot0-rigid-v3-1-001",
+      "portAId": "cad/a100-with-a150-slot0-rigid-v3-1/25b91da11778::port/a100-frame-installation/02e364146e",
+      "instanceBId": "fl9a24d062a600-001-1-001",
+      "portBId": "cad/fl9a24d062a600-001-1/66606c07c8cf::port/a600-a100-installation/97de5cd6db",
+      "globalTemplateId": "template/project02/a100-to-a600-source-installation/fedf680939",
+      "purpose": "installation",
+      "executionStatus": "planned_not_executed_in_cad"
+    },
+    {
+      "connectionId": "connection-007",
+      "instanceAId": "fl9a24d062a200-001-1-001",
+      "portAId": "cad/fl9a24d062a200-001-1/68545d32ccf9::port/a200-frame-installation/351e885d73",
+      "instanceBId": "fl9a24d062a600-001-1-001",
+      "portBId": "cad/fl9a24d062a600-001-1/66606c07c8cf::port/a600-a200-installation/24475eeac1",
+      "globalTemplateId": "template/project02/a200-to-a600-source-installation/7567741bf2",
+      "purpose": "installation",
+      "executionStatus": "planned_not_executed_in_cad"
+    },
+    {
+      "connectionId": "connection-008",
+      "instanceAId": "t401aa-07388-0-001",
+      "portAId": "cad/t401aa-07388-0/56b94dcd5a77::port/t401-t401-1-installation/b800e71108",
+      "instanceBId": "fl9a24d062a600-001-1-001",
+      "portBId": "cad/fl9a24d062a600-001-1/66606c07c8cf::port/a600-t401-1-installation/345c0200d0",
+      "globalTemplateId": "template/project02/t401-1-to-a600-source-installation/e14a088bb3",
+      "purpose": "installation",
+      "executionStatus": "planned_not_executed_in_cad"
+    },
+    {
+      "connectionId": "connection-009",
+      "instanceAId": "t401aa-07388-0-002",
+      "portAId": "cad/t401aa-07388-0/56b94dcd5a77::port/t401-t401-2-installation/9d73774756",
+      "instanceBId": "fl9a24d062a200-001-1-001",
+      "portBId": "cad/fl9a24d062a200-001-1/68545d32ccf9::port/a200-t401-2-installation/39dbbbc79f",
+      "globalTemplateId": "template/project02/t401-2-to-a200-source-installation/ceacd4da79",
+      "purpose": "installation",
+      "executionStatus": "planned_not_executed_in_cad"
+    }
+  ],
+  "history": [
+    {
+      "revision": 1,
+      "requirement": "先安装项目02的A600箱体",
+      "previewDigest": "06c73db768bd946571e9a720876994a2ecff119e460efa41f5424e832b4dad0a",
+      "operation": "add_base_instance",
+      "timestamp": "2026-10-10T12:03:18.428417+00:00"
+    },
+    {
+      "revision": 2,
+      "requirement": "将A800传输模组安装到A600",
+      "previewDigest": "b8d61a79a3a1d79a855c2ce62247beb88d7919e21924aaf7f477c0e8e6b2d61b",
+      "operation": "add_connected_instance",
+      "timestamp": "2026-10-10T12:03:18.433964+00:00"
+    },
+    {
+      "revision": 3,
+      "requirement": "将A180扫描模组安装到A600",
+      "previewDigest": "ed9b0d9579e4b90f0b011901f34ebb7af6af37b0785cedb90b01aeeae130650f",
+      "operation": "add_connected_instance",
+      "timestamp": "2026-10-10T12:03:18.436996+00:00"
+    },
+    {
+      "revision": 4,
+      "requirement": "将A700清洁称重模组安装到A600",
+      "previewDigest": "715f028f8816fc5ffcde9297ffe520a64942343fe3566439c7c86d0a06a8e021",
+      "operation": "add_connected_instance",
+      "timestamp": "2026-10-10T12:03:18.439904+00:00"
+    },
+    {
+      "revision": 5,
+      "requirement": "将A300排胶模组安装到A600",
+      "previewDigest": "d69a3c89b8a5105da097632cf8a5bbfba6bd85982359719bac4711b467f2d0f7",
+      "operation": "add_connected_instance",
+      "timestamp": "2026-10-10T12:03:18.442953+00:00"
+    },
+    {
+      "revision": 6,
+      "requirement": "将A500校准模组安装到A600",
+      "previewDigest": "4e0a3972b9c5844262a6700bba3be7ea51555a5de8250d6ac6160d0f64babb2e",
+      "operation": "add_connected_instance",
+      "timestamp": "2026-10-10T12:03:18.446059+00:00"
+    },
+    {
+      "revision": 7,
+      "requirement": "将A100龙门模组安装到A600",
+      "previewDigest": "cb25b03853ec132efc619dedd409d32a61e05b00c915a8b36522cee4bcfd0e2f",
+      "operation": "add_connected_instance",
+      "timestamp": "2026-10-10T12:03:18.449088+00:00"
+    },
+    {
+      "revision": 8,
+      "requirement": "将A200 CCD模组安装到A600",
+      "previewDigest": "5e45b0a8285ae7d390aab1d8042cfa1bd54c9b885bc46add237463307e0e4dac",
+      "operation": "add_connected_instance",
+      "timestamp": "2026-10-10T12:03:18.451106+00:00"
+    },
+    {
+      "revision": 9,
+      "requirement": "将第一套T401供胶系统安装到A600",
+      "previewDigest": "913e10fbbac6afd6e3064efad7fb86cfd8d12b735be0dc96b4f844c569f3f507",
+      "operation": "add_connected_instance",
+      "timestamp": "2026-10-10T12:03:18.454658+00:00"
+    },
+    {
+      "revision": 10,
+      "requirement": "将第二套T401供胶系统安装到A200",
+      "previewDigest": "2b0f389a25c9498894448ebb1fae64f2843f3d36d0e34321bdf2461809bae614",
+      "operation": "add_connected_instance",
+      "timestamp": "2026-10-10T12:03:18.458670+00:00"
+    },
+    {
+      "revision": 11,
+      "operation": "catalog_binding_migration",
+      "sourceContextId": "project02-full-static-graph-v1",
+      "sourceContextDigest": "d81c51a318cc43a2a8068fb02255840071cdb0679e73225aebd2c462b899b994",
+      "sourceCatalogDigest": "707e0cfcd85e6ea65acf76ee660ee14d1496ca1a3cb6014165627da56e2ea2a0",
+      "candidateCatalogDigest": "89169ae6223d932fe6119868809b3662b3fa842f579f0a105b382820c8a51ca8",
+      "assessmentDigest": "a289b8bb2a3cc419bb9809a237e53e83b8fe43c89c3eae04e1697b1bf9be4f96",
+      "timestamp": "2026-10-10T18:44:39.459947+00:00"
+    },
+    {
+      "revision": 12,
+      "operation": "catalog_binding_migration",
+      "sourceContextId": "project02-full-static-graph-catalog-refresh-v1",
+      "sourceContextDigest": "31106276617d5494a4c5fa5338cd877acfd6fb653d8169fb00b586bf4ece7a1e",
+      "sourceCatalogDigest": "89169ae6223d932fe6119868809b3662b3fa842f579f0a105b382820c8a51ca8",
+      "candidateCatalogDigest": "d79ee7c6fa854fd449524a9f481a0a3d1e0ee3b9947b9b4f17d585741f12fa7c",
+      "assessmentDigest": "ffb32b19a896cd13b35bd22eb6aca2038c004e2115d6b9637a8fd66e5daa07f3",
+      "timestamp": "2026-10-10T20:24:31.451342+00:00"
+    }
+  ],
+  "collisionAssessment": {
+    "status": "not_evaluated",
+    "reason": "collision_gate_development_deferred_by_user_scope"
+  },
+  "createdAt": "2026-10-10T12:03:18.425401+00:00",
+  "updatedAt": "2026-10-10T20:24:31.451342+00:00",
+  "contextDigest": "5f6cc9bd5ca21d36900fe2479dde2a0e514db844374ad330538fbb3654c90db2"
+}

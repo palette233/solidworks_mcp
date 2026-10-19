@@ -1,0 +1,231 @@
+{
+  "schemaVersion": "project-assembly-profile/v1",
+  "profileVersion": "2026-10-02.2",
+  "projectId": "project01",
+  "baseModule": "JJ00",
+  "validatedSequence": ["JJ00", "SS00", "FF00", "SM00", "GN00", "BD00", "GJ00", "LM00"],
+  "modules": {
+    "JJ00": {
+      "label": "箱体与回流固定环境",
+      "aliases": ["箱体", "机架", "固定环境"],
+      "componentName": "FL9C24N074JJ00.001",
+      "componentNames": ["FL9C24N074JJ00.001", "FL9C24N074HL00.001"],
+      "instanceCount": 2,
+      "sourceConfidence": "inferred-from-prototype"
+    },
+    "SS00": {
+      "label": "上层产品传输模组",
+      "aliases": ["传输模组", "输送模组"],
+      "componentName": "FL9C24N074SS00.001",
+      "instanceCount": 1,
+      "sourceConfidence": "inferred-from-prototype",
+      "assemblyPolicy": {
+        "requires": ["JJ00"],
+        "placementKind": "frame-anchored-primary",
+        "ruleSummary": "按项目01箱体安装基准固定传输模组。",
+        "acceptanceChecks": ["安装基准", "保存重开", "与箱体允许安装接触"],
+        "implementationStatus": "single_module_cad_validated",
+        "missingImplementation": null,
+        "engineeringLimitations": [
+          "当前基准由项目01原型配合恢复。",
+          "58 mm定位孔距尚未由厂商数据复核。",
+          "本步证据只声明相对原型未新增干涉，不声明绝对零接触。"
+        ],
+        "evidence": {
+          "workPacket": "demo/semantic_ports/project01_SS00_first_increment_v1/work_packet_summary.json",
+          "assembly": "demo/semantic_ports/project01_SS00_first_increment_v1/step01_JJ00_HL00_SS00_increment.SLDASM",
+          "closure": "demo/semantic_ports/project01_SS00_first_increment_v1/step01_SS00_incremental_closure.json"
+        }
+      }
+    },
+    "FF00": {
+      "label": "举升翻转定位模组",
+      "aliases": ["翻转模组", "举升定位模组"],
+      "componentName": "FL9C24N074FF00.001",
+      "instanceCount": 1,
+      "sourceConfidence": "inferred-from-prototype",
+      "assemblyPolicy": {
+        "requires": ["JJ00", "SS00"],
+        "placementKind": "frame-anchored-process-dependent",
+        "ruleSummary": "固定到箱体并校验与传输工作位的举升翻转关系。",
+        "acceptanceChecks": ["箱体安装接口", "工作位关系", "翻转扫掠空间"],
+        "implementationStatus": "single_module_static_cad_validated_dynamic_missing",
+        "missingImplementation": "FF00静态增量安装已闭环；尚需登记home/work/flip-25deg三状态并完成扫掠体干涉门禁。",
+        "engineeringLimitations": [
+          "25度翻转动作只具备原型工艺证据，尚未做动态实体闭环。",
+          "35 mm定位孔距由原型提取，尚未由厂商数据复核。"
+        ],
+        "evidence": {
+          "workPacket": "demo/semantic_ports/project01_FF00_second_increment_v1/work_packet_summary.json",
+          "assembly": "demo/semantic_ports/project01_FF00_second_increment_v1/step02_JJ00_HL00_SS00_FF00_increment.SLDASM",
+          "closure": "demo/semantic_ports/project01_FF00_second_increment_v1/step02_FF00_incremental_closure.json"
+        }
+      }
+    },
+    "SM00": {
+      "label": "双扫描器模组",
+      "aliases": ["扫描模组", "扫码模组"],
+      "componentName": "FL9C24N074SM00.001",
+      "instanceCount": 1,
+      "sourceConfidence": "inferred-from-prototype",
+      "assemblyPolicy": {
+        "requires": ["SS00"],
+        "placementKind": "transport-dependent-optical",
+        "ruleSummary": "按载具条码与产品条码侧定位双扫描器。",
+        "acceptanceChecks": ["双光轴", "200 mm原型光束", "视线无遮挡", "保存重开"],
+        "implementationStatus": "single_module_cad_validated",
+        "missingImplementation": null,
+        "engineeringLimitations": [
+          "22 mm安装孔距来自原型配合。",
+          "200 mm光束是原型CAD显式几何，不是厂商认证工作距离。",
+          "真实条码面、触发位置和产品扫描头行程端点尚未登记。"
+        ],
+        "evidence": {
+          "workPacket": "demo/semantic_ports/project01_SM00_third_increment_v1/work_packet_summary.json",
+          "assembly": "demo/semantic_ports/project01_SM00_third_increment_v1/step03_JJ00_HL00_SS00_FF00_SM00_increment.SLDASM",
+          "closure": "demo/semantic_ports/project01_SM00_third_increment_v1/step03_SM00_incremental_closure.json",
+          "opticalGeometry": "demo/layout_previews/project01_scanner_geometry.json"
+        }
+      }
+    },
+    "GN00": {
+      "label": "清洁称重排胶硬度测试组合模组",
+      "aliases": ["组合功能模组", "功能模组"],
+      "componentName": "FL9C24N074GN00.001",
+      "instanceCount": 1,
+      "sourceConfidence": "inferred-from-prototype",
+      "assemblyPolicy": {
+        "requires": ["JJ00", "SS00"],
+        "placementKind": "independent-rigid-multifunction",
+        "ruleSummary": "按操作面空间布置一个刚体组合模组，并分别校验各服务点。",
+        "acceptanceChecks": ["5个服务目标", "维护包络", "刚体状态", "实体分离"],
+        "implementationStatus": "single_module_cad_validated",
+        "missingImplementation": null,
+        "engineeringLimitations": [
+          "当前5个GN00服务目标来自项目01原型叶几何代理。",
+          "维护包络、喷嘴间隙和插入深度尚未工程确认。"
+        ],
+        "evidence": {
+          "workPacket": "demo/semantic_ports/project01_GN00_fourth_increment_v1/work_packet_summary.json",
+          "assembly": "demo/semantic_ports/project01_GN00_fourth_increment_v1/step04_JJ00_HL00_SS00_FF00_SM00_GN00_increment.SLDASM",
+          "closure": "demo/semantic_ports/project01_GN00_fourth_increment_v1/step04_GN00_incremental_closure.json",
+          "serviceTargets": "demo/layout_previews/project01_service_points.json"
+        }
+      }
+    },
+    "BD00": {
+      "label": "喷嘴校准模组",
+      "aliases": ["校准模组", "标定模组"],
+      "componentName": "FL9C24N074BD00.001",
+      "instanceCount": 1,
+      "sourceConfidence": "inferred-from-prototype",
+      "assemblyPolicy": {
+        "requires": ["JJ00", "GN00"],
+        "placementKind": "independent-rigid-calibration",
+        "ruleSummary": "布置在可维护服务区并保证双阀可达校准点。",
+        "acceptanceChecks": ["校准点可达", "维护入口", "与GN00分离"],
+        "implementationStatus": "single_module_cad_validated",
+        "missingImplementation": null,
+        "engineeringLimitations": [
+          "50 mm安装孔距来自原型配合。",
+          "棱镜校准点是BD00叶几何包络代理，不是已创建的设计基准。",
+          "针头插入深度、视觉标定精度和厂商公差尚未确认。"
+        ],
+        "evidence": {
+          "workPacket": "demo/semantic_ports/project01_BD00_fifth_increment_v1/work_packet_summary.json",
+          "assembly": "demo/semantic_ports/project01_BD00_fifth_increment_v1/step05_JJ00_HL00_SS00_FF00_SM00_GN00_BD00_increment.SLDASM",
+          "closure": "demo/semantic_ports/project01_BD00_fifth_increment_v1/step05_BD00_incremental_closure.json",
+          "calibrationTarget": "demo/layout_previews/project01_service_points.json"
+        }
+      }
+    },
+    "GJ00": {
+      "label": "供胶模组",
+      "aliases": ["供胶系统", "供胶组件"],
+      "componentName": "FL9C24N074GJ00.001",
+      "instanceCount": 1,
+      "sourceConfidence": "inferred-from-prototype",
+      "assemblyPolicy": {
+        "requires": ["JJ00"],
+        "placementKind": "service-side-rigid",
+        "ruleSummary": "布置在运动区外并保留供胶和维护路径。",
+        "acceptanceChecks": ["维护空间", "管路方向", "运动区隔离"],
+        "implementationStatus": "single_module_cad_validated",
+        "missingImplementation": null,
+        "engineeringLimitations": [
+          "220 mm安装孔距来自原型配合。",
+          "软管中心线、最小弯曲半径、连续扫掠和维护取放路径尚未验证。"
+        ],
+        "evidence": {
+          "workPacket": "demo/semantic_ports/project01_GJ00_sixth_increment_v1/work_packet_summary.json",
+          "assembly": "demo/semantic_ports/project01_GJ00_sixth_increment_v1/step06_JJ00_HL00_SS00_FF00_SM00_GN00_BD00_GJ00_increment.SLDASM",
+          "closure": "demo/semantic_ports/project01_GJ00_sixth_increment_v1/step06_GJ00_incremental_closure.json"
+        }
+      }
+    },
+    "LM00": {
+      "label": "龙门与双阀点胶运动组",
+      "aliases": ["龙门模组", "点胶龙门", "双阀运动组"],
+      "componentName": "FL9C24N074LM00.001",
+      "componentNames": ["FL9C24N074LM00.001", "FL9C24N074ZZ00.001"],
+      "instanceCount": 2,
+      "sourceConfidence": "inferred-from-prototype",
+      "assemblyPolicy": {
+        "requires": ["SS00", "FF00", "SM00", "GN00", "BD00", "GJ00"],
+        "placementKind": "coverage-solved-rigid-group",
+        "ruleSummary": "最后反求龙门位置，使双阀覆盖双工作位及全部服务目标。",
+        "acceptanceChecks": ["8个目标可达", "传输门洞", "静态碰撞门禁", "保存重开"],
+        "implementationStatus": "full_static_cad_validated_parent_context_snapshot",
+        "missingImplementation": "静态CAD已闭环；独立LM00/ZZ00运动配合尚不能唯一保持柔性内部行程状态。",
+        "engineeringLimitations": [
+          "公共行程为项目01原型等效范围，尚非厂商限位。",
+          "最终静态实体把LM00与ZZ00封装为一个父上下文快照，不代表独立运动学已重建。",
+          "真实三配合重建在保存重开后发生柔性内部状态漂移，生产动态门禁保持关闭。"
+        ],
+        "evidence": {
+          "staticContextSubset": "demo/semantic_ports/project01_LM00_ZZ00_static_context_v1/project01_LM00_ZZ00_static_context_v1.SLDASM",
+          "finalAssembly": "demo/semantic_ports/project01_final_static_snapshot_increment_v1/project01_full_10_functional_object_static_v1.SLDASM",
+          "closure": "demo/semantic_ports/project01_final_static_snapshot_increment_v1/project01_full_static_closure.json",
+          "failedDynamicAttempt": "demo/semantic_ports/project01_ZZ00_final_stage_action2_v1/step07b_ZZ00_increment_flexible_context_v6.result.json",
+          "reachEvidence": "demo/layout_previews/project01_dual_valve_reach.json"
+        }
+      }
+    }
+  },
+  "collisionPolicy": {
+    "default": "strictInflatedAabbSeparation",
+    "conditionalBrepPairs": [["SS00", "FF00"], ["SS00", "LM00"], ["SS00", "SM00"], ["FF00", "LM00"], ["FF00", "GN00"], ["FF00", "SM00"], ["LM00", "GN00"], ["LM00", "BD00"], ["LM00", "SM00"]],
+    "acceptedBaselinePairs": [["JJ00", "SS00"], ["JJ00", "FF00"], ["JJ00", "GJ00"], ["JJ00", "LM00"], ["GN00", "LM00"]]
+  },
+  "artifacts": {
+    "firstIncrementClosure": "demo/semantic_ports/project01_SS00_first_increment_v1/step01_SS00_incremental_closure.json",
+    "secondIncrementStaticClosure": "demo/semantic_ports/project01_FF00_second_increment_v1/step02_FF00_incremental_closure.json",
+    "thirdIncrementClosure": "demo/semantic_ports/project01_SM00_third_increment_v1/step03_SM00_incremental_closure.json",
+    "fourthIncrementClosure": "demo/semantic_ports/project01_GN00_fourth_increment_v1/step04_GN00_incremental_closure.json",
+    "fifthIncrementClosure": "demo/semantic_ports/project01_BD00_fifth_increment_v1/step05_BD00_incremental_closure.json",
+    "sixthIncrementClosure": "demo/semantic_ports/project01_GJ00_sixth_increment_v1/step06_GJ00_incremental_closure.json",
+    "orderedStepClosures": {
+      "SS00": "demo/semantic_ports/project01_SS00_first_increment_v1/step01_SS00_incremental_closure.json",
+      "FF00": "demo/semantic_ports/project01_FF00_second_increment_v1/step02_FF00_incremental_closure.json",
+      "SM00": "demo/semantic_ports/project01_SM00_third_increment_v1/step03_SM00_incremental_closure.json",
+      "GN00": "demo/semantic_ports/project01_GN00_fourth_increment_v1/step04_GN00_incremental_closure.json",
+      "BD00": "demo/semantic_ports/project01_BD00_fifth_increment_v1/step05_BD00_incremental_closure.json",
+      "GJ00": "demo/semantic_ports/project01_GJ00_sixth_increment_v1/step06_GJ00_incremental_closure.json",
+      "LM00": "demo/semantic_ports/project01_final_static_snapshot_increment_v1/project01_full_static_closure.json"
+    },
+    "orderedClosure": "demo/semantic_ports/project01_ordered_jobs/latest_ordered_closure.json",
+    "fullMachineClosure": "demo/semantic_ports/project01_final_static_snapshot_increment_v1/project01_full_static_closure.json",
+    "finalStaticAssembly": "demo/semantic_ports/project01_final_static_snapshot_increment_v1/project01_full_10_functional_object_static_v1.SLDASM",
+    "gantryStaticSubset": "demo/semantic_ports/project01_LM00_ZZ00_static_context_v1/project01_LM00_ZZ00_static_context_v1.SLDASM",
+    "fullLiveAdapterClosure": "demo/semantic_ports/project01_live_adapter_full_jobs/project01_full_live_adapter_closure.json",
+    "fullLiveAdapterAssembly": "demo/semantic_ports/project01_live_adapter_full_jobs/project01-job-87ef17fa93e0/cad-working/step-07-lm00-attempt1/step07_project01_full_10_functional_object_static.SLDASM",
+    "fullLiveAdapterTiming": "demo/semantic_ports/project01_live_adapter_full_jobs/project01-job-87ef17fa93e0/timing-report.json",
+    "fullLivePairCacheReuseAudit": "demo/semantic_ports/project01_live_adapter_full_jobs/cache_reuse_audit_v1/project01_live_pair_cache_reuse_audit.json"
+  },
+  "releaseBoundary": {
+    "staticDemoMayPass": true,
+    "liveCadApiMayStart": true,
+    "fullProjectLiveCadReady": true,
+    "productionDynamicRequires": ["FF00翻转扫掠", "LM00/ZZ00权威行程", "供胶软管维护证据", "原型推断端口转权威参数"]
+  }
+}

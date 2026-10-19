@@ -1,0 +1,124 @@
+{
+  "schemaVersion": "project-parameter-authority-registry/v1",
+  "registryVersion": "2026-09-30.1",
+  "projectId": "project02",
+  "requirements": [
+    {
+      "requirementId": "base-coordinate-system",
+      "label": "A600操作面、上安装面与项目坐标系",
+      "ownerModules": ["A600"],
+      "requiredForProduction": true,
+      "requiredValueKeys": ["operationFace", "topInstallationSurface", "coordinateFrame"],
+      "baseline": {
+        "authority": "cad-measured",
+        "evidencePaths": ["demo/project02_parameter_package.json"],
+        "summary": "当前由项目02原型CAD的A600几何与配合关系恢复。"
+      },
+      "decision": {"mode": "pending"}
+    },
+    {
+      "requirementId": "transport-installation-datum",
+      "label": "A800相对A600的XYZ安装基准与姿态",
+      "ownerModules": ["A800"],
+      "requiredForProduction": true,
+      "requiredValueKeys": ["installationDatumXYZMeters", "installationOrientation"],
+      "baseline": {
+        "authority": "prototype-calibrated",
+        "evidencePaths": ["demo/project02_parameter_package.json"],
+        "summary": "Y/Z与姿态由原型配合恢复，纵向剩余自由度由案例锚点封闭。"
+      },
+      "decision": {"mode": "pending"}
+    },
+    {
+      "requirementId": "scanner-optical-geometry",
+      "label": "A180扫描原点、光轴、工作距离和扫码停靠公差",
+      "ownerModules": ["A180"],
+      "requiredForProduction": true,
+      "requiredValueKeys": ["opticalOriginMeters", "opticalAxis", "workingDistanceRangeMeters", "scanStopToleranceMeters"],
+      "baseline": {
+        "authority": "prototype-calibrated",
+        "evidencePaths": ["demo/project02_parameter_package.json"],
+        "summary": "光学几何与动态扫码窗口来自项目02原型估计。"
+      },
+      "decision": {"mode": "pending"}
+    },
+    {
+      "requirementId": "service-module-states-and-maintenance",
+      "label": "A700清洁/称重状态、服务点与维护包络",
+      "ownerModules": ["A700"],
+      "requiredForProduction": true,
+      "requiredValueKeys": ["functionalStates", "servicePoints", "maintenanceEnvelopes"],
+      "baseline": {
+        "authority": "prototype-calibrated",
+        "evidencePaths": ["demo/project02_parameter_package.json", "demo/layout_previews/project02_a700_functional_split.json"],
+        "summary": "A700当前按一个刚体粗布局，内部清洁/称重点与维护包络来自原型。"
+      },
+      "decision": {"mode": "pending"}
+    },
+    {
+      "requirementId": "drain-service-interface",
+      "label": "A300排胶点、允许半空间与维护包络",
+      "ownerModules": ["A300"],
+      "requiredForProduction": true,
+      "requiredValueKeys": ["drainServicePoints", "signedPlacementHalfSpace", "maintenanceEnvelope"],
+      "baseline": {
+        "authority": "prototype-calibrated",
+        "evidencePaths": ["demo/project02_parameter_package.json"],
+        "summary": "排胶服务点和距离配合半空间分支来自原型位姿。"
+      },
+      "decision": {"mode": "pending"}
+    },
+    {
+      "requirementId": "calibration-installation-interface",
+      "label": "A500安装端口、标定点与维护入口",
+      "ownerModules": ["A500"],
+      "requiredForProduction": true,
+      "requiredValueKeys": ["installationPorts", "calibrationPoint", "maintenanceEnvelope"],
+      "baseline": {
+        "authority": "cad-measured",
+        "evidencePaths": ["demo/project02_parameter_package.json", "demo/semantic_ports/project02_A500_full_installation_v2/context_insert_v7_auto_closure/context_incremental_release_closure.json"],
+        "summary": "安装面与标定接口已由CAD配合和实体闭环验证，仍需工程签认生产适用性。"
+      },
+      "decision": {"mode": "pending"}
+    },
+    {
+      "requirementId": "dual-valve-motion-envelope",
+      "label": "A100左右阀XYZ限位、阀距与运动状态策略",
+      "ownerModules": ["A100"],
+      "requiredForProduction": true,
+      "requiredValueKeys": ["leftValveReachXYZ", "rightValveReachXYZ", "valveHeadSpacingMeters", "motionStatePolicy"],
+      "baseline": {
+        "authority": "prototype-calibrated",
+        "evidencePaths": ["demo/project02_parameter_package.json"],
+        "summary": "当前为原型包围盒内缩形成的乐观静态等效行程，不是机械限位。"
+      },
+      "decision": {"mode": "pending"}
+    },
+    {
+      "requirementId": "ccd-optical-geometry",
+      "label": "A200 CCD光轴、工作距离、视场与结构通道",
+      "ownerModules": ["A200"],
+      "requiredForProduction": true,
+      "requiredValueKeys": ["opticalOriginMeters", "opticalAxis", "workingDistanceRangeMeters", "fieldOfViewMeters"],
+      "baseline": {
+        "authority": "prototype-calibrated",
+        "evidencePaths": ["demo/project02_parameter_package.json"],
+        "summary": "CCD安装与结构通道已有案例证据，生产光学参数仍为原型推断。"
+      },
+      "decision": {"mode": "pending"}
+    },
+    {
+      "requirementId": "glue-supply-route-maintenance",
+      "label": "T401出胶接口、软管路径与维护包络",
+      "ownerModules": ["T401"],
+      "requiredForProduction": true,
+      "requiredValueKeys": ["outletPorts", "hoseRouteEnvelope", "maintenanceEnvelope"],
+      "baseline": {
+        "authority": "prototype-calibrated",
+        "evidencePaths": ["demo/project02_parameter_package.json"],
+        "summary": "双T401实例与静态位姿已验证，软管扫掠和维护包络尚未形成权威数据。"
+      },
+      "decision": {"mode": "pending"}
+    }
+  ]
+}

@@ -123,6 +123,12 @@ class McpClient:
                 for item in plan
             ]
         }
+        if self.command:
+            payload["serverCommand"] = self.command
+        if self.args:
+            payload["serverArguments"] = self.args
+        if self.cwd:
+            payload["workingDirectory"] = self.cwd
 
         completed = subprocess.run(
             [command, *args],
@@ -156,9 +162,6 @@ class McpClient:
         return results
 
     def _bridge_command(self) -> tuple[str, list[str]]:
-        if self.command:
-            return self.command, self.args
-
         workspace = Path(__file__).resolve().parents[5]
         runner = workspace / "apps" / "demo-backend" / "tools" / "McpToolRunner" / "bin" / "Release" / "net8.0" / "McpToolRunner.dll"
         return "dotnet", [str(runner)]
