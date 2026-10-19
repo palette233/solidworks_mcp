@@ -2133,3 +2133,339 @@ git diff --check
 - 14 组件目标装配体上的“移动/Replay 调用链”可以执行。
 - 但完整 Common Base 仍依赖真实底面映射；用任意面补映射会导致法向不一致和 replay 误差。
 - 下一步应优先解决真实项目中“底面候选自动识别/半自动确认”，而不是继续用任意面推进几何闭环。
+
+## 2026-07-20：修复 Generate Config 相对输出路径分歧
+
+- 在真实装配体 `FL9A24D062A000.001.SLDASM` 上完成 5 个选中组件的布局捕获：
+  - MCP 返回 `success=true`；
+  - 基准组件为 `FL9A24D062A500.001-1`；
+  - 5 个组件均生成了 `layout2d.x/y/thetaDegrees/thetaAxis`；
+  - 本次 SolidWorks 捕获耗时约 86.3 秒。
+- 发现问题：
+  - 前端输入 `demo/xxx.json` 相对路径时，MCP 会相对其 `win-x64` 工作目录写文件；
+  - 后端则相对仓库根目录解释同一路径；
+  - 因此曾出现 MCP 返回成功，但后端记录的 Layout JSON 实际不存在的假成功状态。
+- 后端修复：
+  - `DemoService.capture_project_layout()` 在调用 MCP 前，将 Output Layout 和 Project Config 路径统一转换为仓库绝对路径；
+  - 提前创建输出目录；
+  - MCP 成功返回后强制检查 Layout JSON 是否实际存在；
+  - 文件缺失时返回明确 `error`，且不再生成指向无效布局文件的 Project Config。
+- 测试：
+  - 新增 `apps/demo-backend/tests/test_demo_service_paths.py`；
+  - 覆盖相对路径解析到工作区绝对路径；
+  - 覆盖 MCP 返回成功但文件未落盘时的错误保护；
+  - 2 项单元测试通过；
+  - Python `compileall` 通过。
+- 现有测试数据恢复：
+  - 已将本次成功捕获的布局文件恢复到 `demo/FL9A24D062A000_5components_layout2d.json`；
+  - 后端 Layout 列表已识别该文件；
+  - `componentCount=5`，全部组件 `faceMappingFound=true`。
+
+## 2026-07-20：真实 5 组件 Common Base 与 Layout2D Replay 闭环通过
+
+- 测试输入：
+  - 源布局：`demo/FL9A24D062A000_5components_layout2d.json`；
+  - 目标装配体：`demo/FL9A24D062A000_replay_v3.SLDASM`；
+  - 组件数：5；
+  - 基准组件：`FL9A24D062A500.001-1`。
+- 启动配置修复：
+  - `scripts/start_demo_backend.cmd` 仅在环境变量未设置时使用默认值；
+  - 允许测试时覆盖 `DEMO_MCP_TIMEOUT_SECONDS=600`；
+  - 允许覆盖 `DEMO_INITIALIZE_BATCH_SIZE=2`；
+  - 修复脚本固定覆盖外部配置，导致 420 秒 timeout 设置无法真正调整的问题。
+- Initialize：
+  - 5 个组件分 3 批插入并保存；
+  - 3 批全部成功；
+  - 总耗时约 232 秒。
+- Verify Faces：
+  - 共执行 10 次面选择/探测调用；
+  - 失败数 0，缺失映射数 0；
+  - 5 个组件均取得有效 local/world normal。
+- Common Base：
+  - 使用 anchor + 单目标方式分 4 批执行；
+  - 4 批全部成功，`commonBaseReady=true`；
+  - `FL9A24D062A700.001-1` 与 `FL9A24D062A800.001-1` 均执行了 `-90 deg` 预配合朝向修正；
+  - 最终 5 个组件的 orientation check 均为 `matchesBase=true`、`dot=1`；
+  - 最慢批次约 390 秒，证明原 420 秒阈值对真实复杂组件余量不足。
+- Replay Layout：
+  - Replay MCP 主调用耗时约 561 秒；
+  - 自动回读实际 Layout2D 并完成逐组件误差校验；
+  - `replayValidation.success=true`；
+  - 最大 XY 误差为 `5.698078393147796e-15 m`；
+  - 最大 theta 误差为 `1.1368683772161603e-13 deg`；
+  - 5 个组件均通过 `1e-6 m / 1e-4 deg` 阈值。
+- 持久化：
+  - 通过 MCP `save_document` 显式保存回放后的目标装配体；
+  - SolidWorks 返回 `Errors=0`、`Warnings=0`；
+  - 文件修改时间更新为 `2026-07-20 18:45:56`。
+- 阶段结论：
+  - “源装配体布局捕获 -> 新装配体批量初始化 -> 底面验证 -> 共底面及朝向修正 -> x/y/theta 回放 -> 自动误差验证 -> 保存”已在真实 5 组件样本上完成一次完整闭环。
+  - 当前主要风险已从功能缺失转为性能与超时管理；后续需要继续降低 Common Base 和 Replay 的单次耗时，并提供更细粒度进度反馈。
+
+## 2026-07-22：T401 导入平面法向 fallback 完成
+
+- 问题：`T401AA-07388-0-1` 的已选底面面积较大且平坦，但 `ISurface.IsPlane/PlaneParams` 与原有三角化路径均未得到法向，映射中 `localNormal/worldNormal` 为 `null`。
+- `SelectionService.TryGetPlanarFaceNormal` 增加分层 fallback：
+  1. `IFace2.Normal` 直接平面法向；
+  2. `ISurface.EvaluateAtPoint`，仅在两个主曲率接近零时接受；
+  3. 原有三角化/边界点拟合法向；
+  4. 最后使用“单轴近零厚度的面包围盒 + 实体中心”推断轴对齐平面法向，中心面或非薄面会被拒绝。
+- 新增法向 fallback 单元测试，并补齐 MCP 测试代理缺少的两个接口转发；定向测试 `8/8` 通过。
+- Release MCP 构建通过，0 warning、0 error。
+- 真实 SolidWorks 回归：
+  - T401 通过 persistent reference 找回同一底面；
+  - 重新 probe 得到 `localNormal=[0,1,0]`，`worldNormal` 约为 `[0,1,0]`；
+  - 映射已重新记录到统一的 `artifacts/solidworks-mcp/face_mappings.json`；
+  - 五个选中组件再次执行 Verify Faces，全部成功，`missingFaceMappings=[]`。
+
+## 2026-07-22：包含 T401 的五组件复原闭环通过
+
+- 从真实源装配体捕获新的 Layout2D 和项目配置，五个组件均包含有效 `x/y/theta`，T401 的目标值为 `x=0.344`、`y=-1.231`、`theta=180°`。
+- 新目标装配体 `demo/FL9A24D062A000_5components_t401_replay.SLDASM` 按 `2/2/1` 三批初始化成功，耗时约 106.5 秒。
+- 目标上下文 Verify Faces 五项全部通过；T401 fallback 法向在新装配体中仍为 `[0,1,0]`。
+- Common Base 按四批完成，耗时约 442.7 秒；A800 自动执行 `-90°` 朝向修正，最终五个组件法向检查均为 `dot=1`。
+- Replay Layout 及自动回读验证耗时约 457.2 秒；五个组件全部通过：
+  - 最大 XY 误差 `5.461575137144001e-15 m`；
+  - 最大 theta 误差 `1.1368683772161603e-13°`。
+- 已生成截图和回读验证 JSON，并显式保存目标装配体，SolidWorks 返回 `Errors=0`、`Warnings=0`。
+
+## 2026-07-22：新增“约束生成合理布局”功能分支规划
+
+- 需求变更已完成澄清：除“采集原装配体 Layout2D 并 Replay”的复原分支外，新增“根据组件角色、包围盒和工程约束计算合理 Layout2D”的生成式布局分支。
+- 两条分支共享后半段能力：
+  - `Captured Layout -> Replay Layout` 用于复原已有布局；
+  - `Constraint Solver -> Constraint Layout2D -> Replay/Move` 用于没有参考布局时生成合理布局。
+- MVP 业务假设已确定：
+  - Common Base 已完成，底面法向为全局 `+Y`，组件 Y 高度保持不变；
+  - 组件只在 XZ 平面移动，允许绕 Y 轴旋转；第一版采用 `0/90/180/270°` 离散角度；
+  - 组件角色通过名称识别，JSON 映射可覆盖自动识别结果；
+  - 龙门包围盒投影作为布局容器，传输模组位于中央长轴区域，功能模组分布在传输模组两侧，供胶模组位于龙门外部且邻近龙门；
+  - 功能模组之间、功能模组与传输模组之间不得接触；边界间距初始为对应龙门边长的 5%，无解时允许逐级放宽；
+  - “尽量位于龙门包围盒内部”保持高优先级，实际实体碰撞最终由 SolidWorks interference check 验证。
+- 当前状态：方案与约束优先级已冻结，尚未开始代码实现；详细实施和测试计划已归档到 `docs/to_be_continued-CN.md`。
+## 2026-07-22 17:55 约束驱动布局分支：功能实现与真实几何验证
+
+### 已完成
+
+- C# 组件姿态数据新增可选 `BoundingBoxWorld`：
+  - `AssemblyService.ToComponentPoseInfo()` 使用 `IComponent2.GetBox(false, false)` 读取当前装配体坐标系下的近似包围盒。
+  - `DiscoverLayoutComponentsFromAssembly` 与 `CaptureCommonBaseLayoutFromAssembly` 均可返回 `boundingBoxWorld`。
+  - 字段为可选字段，旧 Layout JSON 与现有 Replay 仍可读取。
+- 新增纯 Python 约束求解模块 `demo_backend.constraint_layout`：
+  - 角色支持 `gantry / transport / functional / glue`。
+  - 角色优先级为：显式映射 > 名称关键字 > 几何启发式。
+  - 将世界 AABB 投影到 `baseFrame.uAxis/vAxis`，以底面中心作为布局锚点。
+  - 传输模组放在龙门长轴中央；功能模组优先放在传输通道两侧；供胶模组放在龙门外。
+  - 边界余量按 `5% -> 3% -> 1% -> 0%` 重试。
+  - 不重叠为硬约束；龙门包围功能模组为高优先级软约束。放不下时保留角色并记录 `containmentRelaxedComponents`。
+  - 求解无解时不会调用 Replay 或修改 CAD。
+- 新增后端接口 `POST /api/demo/generate-constraint-layout`：
+  - 先调用 MCP 捕获面中心、法向、Transform2 和包围盒。
+  - 求解成功后写出兼容现有 Replay 的 Constraint Layout2D JSON。
+  - 自动选中新 JSON，但不会自动移动组件。
+- 前端新增 `Constraint Layout` 区域：
+  - 可编辑角色覆盖、最小间距、供胶距离和输出路径。
+  - 可查看龙门组件、使用余量及求解验证状态。
+  - `Allow 90° rotation` 为显式开关，默认关闭。
+- Replay 稳定性补强：
+  - Constraint Layout 会固定 `baseComponentName` 的原始平面坐标，避免移动 SolidWorks 默认固定的首个组件。
+  - 目标位移接近零时跳过 Transform2 写入。
+  - Move/Rotate 支持延迟重建，高层 Replay 批量写入后统一重建。
+  - 仅对 `layoutKind=constraintGenerated` 尝试临时抑制顶层 MateGroup 中的 mate 子特征，普通 Captured Layout Replay 行为不变。
+
+### 自动测试
+
+- 后端约束布局与路径测试：7 项通过。
+- .NET 定向测试：20 项通过，包括共同底面数学、面法向 fallback、顶层 mate 抑制/恢复。
+- `SolidWorksMcpApp` Release 构建通过，0 warning / 0 error。
+- 前端 `npm.cmd run build` 通过。
+
+### 真实五组件验证
+
+- 测试装配体：`demo/FL9A24D062A000_5components_t401_replay.SLDASM`。
+- MCP Health 通过，活动文档、状态文件和 face mapping 路径一致。
+- 真实几何捕获成功，5 个组件均返回 `boundingBoxWorld`。
+- 自动角色结果：
+  - 龙门：`FL9A24D062A100.001-1`（世界包围盒体积最大）。
+  - 传输：`FL9A24D062A800.001-1`。
+  - 供胶：`T401AA-07388-0-1`。
+  - 功能：`FL9A24D062A500.001-1`、`FL9A24D062A200.001-1`。
+- A200 投影约为 `1.18 x 1.18 m`，龙门投影约为 `1.38 x 1.20 m`；放入中央传输模组后无法留在龙门内部，因此求解器在完成 5/3/1/0% 尝试后将 A200 标记为 containment relaxed。
+- 约束 JSON 已成功生成：`demo/FL9A24D062A000_5components_constraint_layout2d.json`。
+- 几何验证结果：5 个投影矩形、0 个重叠对，`validation.success=true`。
+
+### 尚未完成的真实闭环
+
+- 在同一 SolidWorks 会话中进行了多次 Replay 尝试，分别暴露：已配合组件旋转、固定基准组件移动、顶层 mate 求解阻塞。
+- 已完成对应代码修复，但反复强制终止直连 MCP 后，当前打开文档可能处于非干净约束求解状态；最后一次临时抑制 mate 的真实测试仍未返回。
+- 因此本阶段可以确认“真实几何捕获 -> 自动角色 -> 约束求解 -> Constraint Layout2D 输出”已闭环；“Constraint Layout2D -> SolidWorks 稳定移动 -> 读回误差验证”仍需在重启 SolidWorks、重新打开未保存的干净装配体后复测。
+## 2026-07-22 18:10 约束驱动布局真实闭环通过
+
+- 在重新打开的干净 `FL9A24D062A000_5components_t401_replay.SLDASM` 上完成真实闭环。
+- MCP Health 确认活动文档、目标装配体和 `face_mappings.json` 路径一致。
+- 重新采集 5 个组件的 Transform2、底面和世界包围盒，并生成：
+  - `demo/FL9A24D062A000_5components_constraint_geometry_clean.json`
+  - `demo/FL9A24D062A000_5components_constraint_layout2d_clean.json`
+- 角色配置：A100 为龙门，A800 为传输，T401AA 为供胶，A500/A200 为功能模组。
+- 约束验证通过，包围盒重叠对为 0；由于尺寸限制，A200 和固定锚点 A500 被记录为放宽龙门包围软约束。
+- Replay 成功完成 5/5 个组件移动，SolidWorks 最终重建成功，并生成 `demo/apply_captured_layout_result.png`。
+- Replay 后自动回采验证通过：最大 XY 误差 `1.9539925233402755E-14 m`，最大角度误差 `0 deg`。
+- 本次 Replay 用时约 224 秒。功能闭环成立，但大型嵌套装配体的 COM 调用和重建性能仍需继续优化。
+## 2026-07-23 架形组件 Portal 穿越约束
+
+### 已实现
+
+- 约束布局从“所有非龙门 AABB 不得重叠”扩展为支持架形 `portal` 语义。
+- 新增 `portalPassThrough` 配置，可声明例如：
+  - `FL9A24D062A200.001-1` 为架形功能模组；
+  - `FL9A24D062A800.001-1` 为允许穿越其净空的传输模组。
+- Portal 求解规则：
+  1. Portal 外包围盒必须位于龙门包围盒内；
+  2. 传输模组在 Portal 短轴方向必须落入估算净空；
+  3. 传输模组高度必须小于估算净空高度；
+  4. Portal/传输 AABB 允许重叠；
+  5. 其他未声明组件仍按保守的不重叠规则处理。
+- Layout JSON 新增 `constraintPlan.portalConstraints`、`allowedAabbOverlapPairs` 和 `requiresCadInterferenceValidation`。
+- Replay 后新增 SolidWorks 实体干涉检查。若 `CheckInterference` 检测到 Portal/传输实体相交，Replay 返回明确错误。
+- 前端 Functional 组件新增 `Pass-through` 选择框，并增加 Portal 宽度/高度比例配置。
+
+### A200/A800 几何验证
+
+- 使用 `FL9A24D062A000_5components_constraint_geometry_clean.json` 验证：
+  - A200 不再进入 `containmentRelaxedComponents`；
+  - A200 保持在龙门包围盒内；
+  - A200/A800 被记录为允许的 AABB 重叠对；
+  - 二维约束验证成功，普通重叠对为 0；
+  - A500 仍因当前侧带/自由空间规则被外置，与本次 Portal 功能分开处理。
+
+### 自动化测试
+
+- 后端测试：9/9 通过，其中新增 Portal 合法穿越和净空不足拒绝测试。
+- `WorkflowServiceTests`：19/19 通过，覆盖已有实体干涉检查工作流。
+- MCP Release 构建：0 warning / 0 error。
+- 前端生产构建：通过。
+
+### 真实闭环状态
+
+- 新构建 MCP 和当前发布 MCP 均被 Windows Device Guard 以 `0x800711C7` 阻止。
+- 历史 2026-06-25 MCP 可以启动 Hub，但与当前客户端的管道调用无法稳定完成握手/返回。
+- 因此“求解、JSON、前端、Replay 后自动干涉检查代码”已完成；A200/A800 的本机真实 B-Rep 干涉结果仍待系统允许新版 MCP 后补测。
+
+### 2026-07-23 17:10 真实执行复核
+
+- 已结束无可用管道的陈旧 Hub 进程，并以 `900s` MCP 超时启动后端。
+- 后端 `/api/health` 通过，确认目标装配体、Release DLL 工作目录和统一面映射路径均符合预期。
+- `/api/demo/mcp-health` 在 MCP 初始化阶段失败，尚未进入 SolidWorks API。
+- 直接执行新版 DLL 与 `dotnet run` 均稳定复现 `0x800711C7`。
+- Windows Code Integrity 日志给出事件 `3033/3077`：未签名的 `SolidWorksMcpApp.dll` 未达到企业签名级别，并被策略
+  `{0283ac0f-fff1-49ae-ada1-8a933130cad6}` 阻止。
+- 当前 DLL SHA-256：
+  `7A13AAB8829F3169391BE530A41E1A43BB961F8457225E6F397DD2C6562F7E52`。
+- 结论：Portal 功能的自动化测试与构建验证保持通过；真实 Replay/B-Rep 干涉验证只被企业代码完整性策略阻塞，未发现新的业务代码故障，也未修改 SolidWorks 装配体。
+
+## 2026-07-23 18:56 Portal Replay 真实闭环与超时修复
+
+- 进一步确认此前的代码完整性拦截来自本机 Windows Smart App Control，而不是学校或企业 MDM：
+  - 设备未加入 Azure AD、域或 Workplace 管理；
+  - `VerifiedAndReputablePolicyState` 原为 `1`；
+  - 用户关闭 Smart App Control 后变为 `0`，新版 MCP Health 随即通过。
+- 使用真实五组件装配体生成 Portal 约束布局成功：
+  - 输出 `demo/FL9A24D062A000_5components_portal_geometry.json`；
+  - 输出 `demo/FL9A24D062A000_5components_portal_layout2d.json`；
+  - A200/A800 为允许的 Portal AABB 重叠对，普通重叠数为 0。
+- 首次 Replay 在 `900s` 后超时。新增逐阶段日志后确认：
+  - 5/5 组件的当前姿态读取、持久引用选面、底面探测和移动全部成功；
+  - 4 个顶层配合成功恢复；
+  - 最终重建成功；
+  - 唯一卡点是重建后的 SolidWorks `CheckInterference`，该同步 COM 调用超过 13 分钟未返回。
+- 修复：
+  - `ApplyCapturedCommonBaseLayout` 新增 `validatePortalInterference` 参数，默认 `false`；
+  - Replay 主链路默认跳过高成本实体干涉检查；
+  - 后端显式传入 `false`，后续将干涉检查作为独立诊断执行。
+- 验证结果：
+  - `SolidWorksMcpApp` Release 构建通过，0 warning / 0 error；
+  - 后端回归测试 10/10 通过；
+  - 最新一次真实 Replay 与自动回采验证在约 124 秒内返回 `status=ok`；
+  - 5/5 组件均通过持久引用找回底面；
+  - 最大 XY 误差为 `6.744604874597826e-14 m`；
+  - 最大 theta 误差为 `0 deg`。
+- 阶段结论：Portal 约束布局的“生成 -> Replay -> XY/theta 回采验证”已真实闭环；Portal/A800 的 B-Rep 干涉验证仍需从主链路拆出并增加超时/隔离后补测。
+
+## 2026-07-29：A700/A300 七组件约束布局闭环
+
+- 在现有五组件项目上新增两个功能模组：
+  - `FL9A24D062A700.001-1`（A700）；
+  - `FL9A24D062A300.001-1`（A300）。
+- 新增七组件项目配置 `demo/FL9A24D062A000_7components_t401_project_config.json`，角色配置为：
+  - A100：龙门模组；
+  - A800：传输模组；
+  - T401AA：供胶模组；
+  - A500、A200、A700、A300：功能模组；
+  - A200 保留 Portal 穿越 A800 的声明。
+- 新增七组件求解回归测试，覆盖四个功能模组、Portal 穿越和可旋转候选；约束布局测试共 `8/8` 通过。
+- 真实 SolidWorks 闭环：
+  - Initialize 按 `4 + 3` 两批插入七个组件并成功创建目标装配体，耗时约 `178 s`；
+  - A300 人工选面后完成持久面映射记录；七组件 Verify Faces 全部通过；
+  - Common Base 第二批在客户端 `900 s` 超时，但只读回采表明七个底面已经共面：最大平面误差 `4.7e-16 m`，最小法向点积 `1.0`；
+  - 生成七组件 Constraint Layout2D 成功，二维约束校验通过；A500、A700、A300 因实际尺寸无法同时严格落入龙门内部而被明确标记为 containment relaxed；
+  - Replay 返回 `status=ok`，七组件自动回采验证通过：最大 XY 误差 `1.34378674922169e-15 m`，最大 theta 误差 `0 deg`；
+  - Replay 后再次 Verify Faces，最大底面平面误差 `1.7e-15 m`，最小法向点积 `1.0`。
+- 阶段结论：A700 与 A300 已加入约束布局和 Replay 链路，七组件几何闭环通过。当前主要风险已转为大型装配体的耗时、超时状态恢复和最终保存可靠性。
+
+## 2026-07-29：七组件求解装配体正式落盘
+
+- 修复 `DemoTools.ApplyCapturedCommonBaseLayoutCore()`：Replay 在完成 Transform2 写入、配合恢复、重建和截图后，立即在同一 MCP/COM 会话内调用 `SaveDocument()`。
+- `DemoApplyCapturedLayoutResult` 新增 `saveResult`；保存错误会使高层工具返回失败，避免只修改内存却报告完整成功。
+- Release 构建通过：`0 warning / 0 error`。
+- 对七组件约束布局执行最终 Replay 并保存：
+  - 七个组件移动全部成功，旋转操作无失败；
+  - `saveResult.errors=0`、`saveResult.warnings=0`；
+  - 目标文件 `demo/FL9A24D062A000_7components_t401_replay.SLDASM` 修改时间更新为 `2026-07-29 15:23:47`；
+  - 自动回采验证通过，最大 XY 误差 `1.0411174665059954e-14 m`，最大 theta 误差 `0 deg`；
+  - 保存后 Verify Faces 的 14 次调用全部成功，七个底面高度跨度 `1.72e-15 m`，法向均与全局 `+Y` 一致。
+- 阶段结论：七组件“约束求解 -> Replay -> 保存 -> 回采验证”已经形成可交付的完整装配体闭环。
+
+## 2026-08-05：扫描、CCD、校准、清洁、称重工艺约束闭环
+
+### 已实现
+
+- 新增 `process_constraints.py`，将模组从四类几何角色细化为龙门、点胶执行、上下层传输、供胶、扫描、CCD、校准、清洁、称重、载具和通用功能模组。
+- 支持组件局部 `U/V` 点位、矩形区域、允许旋转、首选侧和设备参数；语义类型会自动映射到兼容的几何角色，冲突配置会在移动 CAD 前阻止。
+- 自动生成并验证 Scanner 到条码点的工作距离/条码侧/二维视线、CCD 工作距离/二维视场/视线、点胶工作位与服务点的双阀可达性，以及清洁与 CCD/称重的隔离距离。
+- 新增显式 `pointDistance`、`pointInRegion`、`sameSide`、`moduleClearance` 和 `lineOfSight` 约束，可区分硬约束与软约束。
+- 求解器使用语义配置限制离散旋转、优先安排 Scanner/CCD/服务模组并遵守首选侧；工艺硬约束失败时不再输出可 Replay 的成功布局。
+- Layout JSON 新增 `moduleSemantics`、`processConstraints`、`processValidation` 和 `processHardFeasible` 诊断。
+- 前端增加语义 JSON、附加约束 JSON 和自动生成开关，并显示工艺约束通过数。
+
+### 验证
+
+- Python 编译检查通过。
+- 后端完整测试 `16/16` 通过，其中约束布局测试从 `8` 项扩展到 `12` 项，并新增服务层“采集 -> 求解 -> 写出语义诊断”闭环测试。
+- 新增合成工艺闭环覆盖 Scanner、CCD、校准、清洁、称重、双阀可达、缺参和硬约束失败阻断。
+- 前端 TypeScript + Vite 生产构建通过。
+
+### 当前结论
+
+- 软件闭环已从“二维不重叠即可成功”升级为“二维几何与工艺硬约束同时通过才成功”。
+- 真实七模组仍需确认部件编号对应的工艺类型，并补充条码点、CCD工作点、服务点、阀头可达区域和真实工作距离，之后才能进行真实CAD工艺闭环验证。
+- 配置格式和当前2.5D边界见 `docs/process_constraint_layout-CN.md`。
+
+## 2026-09-03：项目02加入A600固定箱体模组
+
+- A600由“只提供安装参数的外部证据”升级为Top-3中的第9个显式布局对象，角色为固定环境根，0自由度并保持原型捕获的世界变换。
+- 三个候选均增加A600安装硬门禁：A800锚点必须进入传输支承区，其余6个机内模组锚点必须进入安全安装边界；T401按外部供胶设施豁免平台包含。
+- 36组对象对已全覆盖：10组严格AABB、18组条件B-rep、8组A600安装接触/结构嵌套。A600关系不以“包围盒零接触”为目标，后续检查的是非法穿透。
+- Replay脚本已保护固定环境：保持A600原位，只向SolidWorks布局工具发送8个可动模组；离线投影则补入A600固定姿态，保证九对象宽相完整。
+- `reduced-prototype`实测通过A600 8/8、工艺21/21、空间13/13、交互64/64；A600门禁增加约0.012秒。前端以低透明度虚线框显示A600，避免遮挡内部模组。
+- 当前仍是粗布局闭环。A600捕获有2个无AABB实体和1个超大非凸结构包围盒，且尚未对新候选执行真实Replay/安装接触复核，不能宣称生产级无干涉。
+
+功能修改意义：使布局第一次明确回答“所有模组安装在哪个箱体环境中”，并用A600真实安装坐标约束方案，同时避免把正常安装接触误判为碰撞。
+
+## 2026-08-05：PPT 与 SolidWorks 联合模组识别
+
+- 以只读方式导出 A100、A200、A300、A500、A700、A800、A900 的六向正交图和等轴测图，并与 PPT 中的结构图逐项对照。
+- 高置信度识别：A100=双阀点胶 XYZ 龙门，A200=CCD 产品定位运动模组，A300=双接废胶杯，A500=针头校准，A700=自动针头清洁，A800=传输/载具定位总成。
+- A900 初步识别为另一层或另一段传输总成；A600 因完整装配解析耗时过长，本次未完成识别。
+- 修正关键误判：A300 不具备 WKC204C 称重平台结构，不能作为称重模组；A200 应在 `functional` 几何角色之上增加 `ccd` 工艺语义。
+- 发现真实建模边界：当前七组件中没有独立识别出的 Scanner/Weighing 顶层组件，后续需判断它们是 A600/A800/A900 的子装配，还是父组件内部固定功能点。
+- 证据、置信度和待测点位见 `docs/module_identification-CN.md`；导出图片位于 `demo/module_identification/`。

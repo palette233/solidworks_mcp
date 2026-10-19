@@ -1398,3 +1398,164 @@ Remaining validation:
 3. Run Replay Layout using `demo/test1_14_layout2d.json`.
 4. Run Replay Check.
    - If errors remain, classify them as face mapping, instance naming, theta/orientation replay, or mate/common-base issues.
+
+## 2026-07-22 To continue: MCP/SolidWorks desktop-session binding
+
+- A `--stdio-direct` client launched from a restricted session can attach to a different SolidWorks COM instance with no open documents, while the same call from the visible SolidWorks desktop session attaches correctly.
+- Add a backend Save endpoint or explicit SolidWorks process-ID selection so persistence does not depend on the caller's desktop session and implicit ROT resolution.
+
+## 2026-07-22 To implement: constraint-driven reasonable layout generation
+
+### Goal
+
+Add a branch parallel to captured-layout replay:
+
+```text
+Existing: source assembly -> Capture Layout2D -> Common Base -> Replay Layout
+New: roles/bounding boxes -> constraint solver -> Constraint Layout2D -> Replay/Move
+```
+
+The solver generates target planar positions and rotations only. Existing movement, read-back validation, screenshots, and persistence remain shared.
+
+### MVP model
+
+- Common Base has aligned every bottom-face normal to global `+Y`.
+- Y is fixed; decision variables are `(x, z, theta)`.
+- `theta` is restricted to `0/90/180/270 deg` for the first version.
+- Roles are `gantry`, `transport`, `functional`, and `glue`.
+- Name-based classification provides defaults; project JSON mappings override them.
+- Projected component bounding boxes are modeled as XZ rectangles. A 90/270-degree rotation swaps width and depth.
+
+### Constraint priority
+
+Hard constraints:
+
+1. Preserve Y height and common-base alignment.
+2. Functional modules may not overlap or touch each other.
+3. Functional modules may not overlap or touch transport modules.
+4. Glue modules must remain outside the gantry envelope.
+5. Every result must remain within configured global solver bounds.
+
+High-priority soft constraints:
+
+1. Transport stays near the gantry center and follows its long axis, with limited long-axis overhang allowed.
+2. Functional modules remain inside the gantry envelope and occupy the two sides of the transport corridor.
+3. Glue modules stay near the gantry at a configured target distance.
+
+Relaxable constraints:
+
+- Initial X/Z boundary margins are 5% of the corresponding gantry side.
+- Retry in the order `5% -> 3% -> 1% -> 0`, recording every relaxation.
+- Among feasible results, minimize total movement and improve compactness and side balance.
+
+The gantry bounding box is a layout envelope, not a complete solid obstacle. Final physical collision validation must use SolidWorks interference checking.
+
+### Integration output
+
+Emit an existing-compatible Layout2D document with additional `layoutSource`, component roles, solver status, applied margin, relaxed constraints, and validation diagnostics. Use the `baseFrame` tangent axes rather than hard-coding world XZ, even though the MVP assumes a `+Y` normal.
+
+### Implementation phases
+
+1. Add role-mapping configuration and projected bounding-box input models.
+2. Build a SolidWorks-independent solver core with discrete rotations, placement regions, non-overlap rules, and staged margin relaxation.
+3. Add a backend `generate-constraint-layout` endpoint returning Constraint Layout2D and diagnostics.
+4. Feed successful results into the existing Replay/Move path without changing Common Base or face mapping behavior.
+5. Add a frontend mode selector, role editor, solver parameters, result preview, and guarded Apply action.
+6. Validate by reading back Transform2/bounding boxes and running SolidWorks interference checks.
+
+### Test and acceptance plan
+
+- Unit-test role precedence, rotated rectangle dimensions, contact/overlap checks, corridor/side-region generation, glue external placement, relaxation order, and deterministic output.
+- Synthetic test: `1 gantry + 1 transport + 1 glue + 2-4 functional` must produce a layout with no hard violations.
+- Congested cases must either relax margins with diagnostics or return `infeasible`; they must never move CAD components after an unsolved result.
+- Real closed-loop acceptance requires successful Common Base, complete Constraint Layout2D output, replay errors within configured tolerances, no bounding-box hard violations, no forbidden SolidWorks interferences, and saved reports/screenshots/assembly.
+
+### Deferred beyond MVP
+
+- Arbitrary continuous rotation angles.
+- Multiple gantries or multiple transport corridors.
+- Exact B-Rep collision constraints inside the solver.
+- Automatic process-direction or assembly-sequence inference.
+- VLM-based role or layout-reasonableness decisions.
+## 2026-07-22 17:55 To continue: transactional Constraint Layout apply
+
+Real five-component geometry capture and constraint solving now succeed, but CAD apply still needs a clean-session validation and stronger transaction semantics:
+
+1. A timed-out direct MCP call can leave partial Transform2 mutations. Snapshot all target transforms before apply and provide explicit rollback on failure/cancellation.
+2. Large mated components may still trigger long SolidWorks solves. Rotation now defaults off; base pinning, zero-move skipping, batched rebuild, and temporary mate suppression are implemented but require a clean-session retest.
+3. Name Common Base mate features with a stable workflow prefix and suppress only those features instead of every child under the top-level MateGroup.
+4. Add per-stage/per-component progress logs and safe cancellation points around suppress, select/probe, transform write, restore, and rebuild.
+5. After stable apply, run SolidWorks interference checks; projected AABB non-overlap is not sufficient physical validation.
+
+Manual recovery for the next test: close the current target assembly without saving, restart SolidWorks, reopen the clean five-component target, then run Health -> Generate Constraint Layout with rotation disabled -> Replay Layout.
+## 2026-07-22 18:10 Follow-up after the successful real loop
+
+- Real Constraint Layout replay now succeeds and is no longer a functional blocker.
+- Remaining work is primarily performance and runtime stability:
+  1. Replay on the five-component nested assembly still takes about 224 seconds. Add per-component and per-stage timing for mate suppression, Transform2 writes, rebuild, and validation capture.
+  2. Multiple concurrent `SLDWORKS.exe` instances can make COM active-document selection ambiguous. Add process/document-instance diagnostics and a single-instance preflight check.
+  3. Constraint Layout currently suppresses the top-level MateGroup temporarily. Narrow this to mates that affect participating components and report restore outcomes explicitly.
+  4. The solver currently projects world AABBs. Consider OBBs, convex hulls, or SolidWorks interference checks to reduce conservative spacing and false overlap assumptions.
+## 2026-07-23 Portal follow-up
+
+1. Allow the updated `SolidWorksMcpApp.dll`/`SolidWorksMcpApp.exe` through the system policy, then run the real A200/A800 Replay and B-Rep interference validation.
+2. Portal clearance is currently estimated from outer AABB width/height ratios. Later extract support legs and the top beam from child parts, sections, or real-body geometry.
+3. `CheckInterference` proves non-intersection but not a positive minimum clearance. Add component-to-component minimum-distance measurement.
+4. A500 remains limited by fixed side-band partitioning. Add free-space packing inside the gantry and safe 90-degree candidate orientations.
+5. Add timing and resolved-component diagnostics to portal interference checks to avoid false positives from pre-existing interference inside nested subassemblies.
+
+### Information required for enterprise-policy allowlisting
+
+- Blocking subsystem: Windows Code Integrity, not AppLocker.
+- Event IDs: `3033` and `3077`.
+- Policy ID: `{0283ac0f-fff1-49ae-ada1-8a933130cad6}`.
+- Blocked file: `vendor/solidworks-mcp/app/SolidWorksMcpApp/bin/Release/net8.0-windows/win-x64/SolidWorksMcpApp.dll`.
+- Signature status: `NotSigned`.
+- SHA-256: `7A13AAB8829F3169391BE530A41E1A43BB961F8457225E6F397DD2C6562F7E52`.
+- Recommended resolution: have enterprise IT sign the release artifacts with a trusted code-signing certificate, or allow them in the identified Code Integrity policy by trusted publisher or controlled path. `Unblock-File`, copying the binary, and `dotnet run` do not bypass this policy.
+- Acceptance sequence after allowlisting: MCP Health, generate the Portal Constraint Layout, Replay, inspect `portalInterferenceChecks`, then validate XY/theta errors and save the screenshot.
+
+## 2026-07-23 18:56 Portal follow-up update
+
+- The earlier enterprise-policy diagnosis was superseded: the blocker was local Windows Smart App Control, and the device is not school- or enterprise-managed. The updated MCP runs after Smart App Control was disabled.
+- Portal generation, Replay, and XY/theta recapture validation now pass in a real SolidWorks loop.
+- The remaining blocker is `AssemblyService.CheckInterference()`, which may not return for the tested large nested component pair. Next steps:
+  1. Move Portal interference validation into a dedicated MCP tool and backend action, outside the Replay transaction.
+  2. Run it in an isolated process with a hard timeout and safe MCP-child termination.
+  3. Log resolved leaf components, body counts, elapsed time, and SolidWorks return diagnostics.
+  4. Until B-Rep validation is stable, keep Portal clearance rules and declared AABB overlap as the solver basis and report physical interference as not yet validated.
+  5. Sign formal MCP release artifacts instead of relying on Smart App Control being disabled.
+
+## 2026-07-29: engineering follow-up after the seven-component loop
+
+1. **Common Base timeout semantics**
+   - Batch 2 exceeded the `900 s` client timeout, while SolidWorks continued and completed the common-base operation and save.
+   - Add checkpoints, a background task ID, and result polling so a response timeout is not reported as a geometric failure.
+2. **Replay runtime is near the timeout ceiling**
+   - Seven-component Replay took about `898 s`.
+   - Add per-stage timing for pose reads, Persistent Reference face recovery, Transform2 writes, mate restoration, and rebuild; remove redundant COM and rebuild work.
+3. **Replay does not persist automatically**
+   - `ApplyCapturedCommonBaseLayoutCore()` returns after rebuild/screenshot without saving the target assembly.
+   - The geometry recapture passed, but the disk file still has the Common Base save timestamp. Add `saveAfterReplay` (default on) or make the backend invoke save explicitly after a successful Replay.
+4. **SolidWorks instance binding is ambiguous**
+   - A direct MCP save attempt started a blank `SLDWORKS.exe` instead of attaching to the Replay session.
+   - Add process ID, active-document path, and session diagnostics; block writes when the resolved target document does not match.
+5. **UTF-8 request handling needs a standard path**
+   - Windows PowerShell `Invoke-RestMethod` corrupted `底面` and Chinese source paths in one state update, causing false missing mappings.
+   - Standardize on UTF-8 no-BOM files plus `curl.exe --data-binary`, or ship a repository Python/CLI request wrapper.
+6. **Soft constraints need role-specific refinement**
+   - A500, A700, and A300 triggered containment relaxation in the seven-component layout.
+   - Add functional-module side zones, ordering, orientation, and priority constraints to improve business meaning beyond mathematical feasibility.
+
+### 2026-07-29 status update
+
+- The missing Replay persistence item is resolved. Saving now occurs in the same MCP/COM session and passed a real seven-component assembly test.
+- Remaining work is Replay/Common Base performance, timeout task-state polling, multi-instance SolidWorks preflight, and role-specific refinement for A500/A700/A300.
+
+## 2026-08-29 next checkpoint: Project02 optical evidence integrated
+
+- A180 CAD-inferred scan origin and A800 directly measured barcode face are now in the real request; the source/target 3D working-distance check is height-aware and passes.
+- The formal Top-3 preview is restored and the numerical gate passes (`23/23`, `13/13`, `37/37`). The backend at `127.0.0.1:8000` was restarted; the existing frontend at `127.0.0.1:5173` displays the new candidates.
+- Do not mark the scanner stage ready until the SR-X100 vendor working-distance range/dynamic carrier scan position and the directed optical axis are confirmed. The inferred central origin intentionally remains `scanOriginMeasured=false`.
+- Before another broad full-assembly check, Replay only the visually selected candidate and run conditional B-rep first on A500–A700 (28 leaf-AABB pre-hits). Reuse unchanged exact-pair evidence where relative transforms are identical; do not rerun all 28 top-level pairs blindly.
+- Keep `productionReady=false`: service-side capacity, actual dual-valve travel/work points, and remaining sequence-stage engineering inputs are still provisional.

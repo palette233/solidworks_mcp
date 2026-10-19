@@ -2085,3 +2085,244 @@ Current status:
 - The v2 target assembly has completed batched Initialize.
 - Discovery on the v2 target returned 14 top-level components.
 - The full v2 `Common Base -> Replay Layout` loop is not yet complete. Next, confirm target instance names match state/layout exactly, then rerun batched Common Base.
+
+## 2026-07-20: Fixed Generate Config relative output path divergence
+
+- Captured a five-component layout from the real source assembly `FL9A24D062A000.001.SLDASM`:
+  - MCP returned `success=true`;
+  - the base component is `FL9A24D062A500.001-1`;
+  - all five components contain `layout2d.x/y/thetaDegrees/thetaAxis`;
+  - the SolidWorks capture took approximately 86.3 seconds.
+- Root cause:
+  - MCP resolved `demo/xxx.json` relative to its `win-x64` working directory;
+  - the backend resolved the same value relative to the repository workspace;
+  - this allowed MCP to report success while the layout path stored by the backend did not exist.
+- Backend fix:
+  - `DemoService.capture_project_layout()` now resolves Output Layout and Project Config to absolute workspace paths before invoking MCP;
+  - output directories are created in advance;
+  - a successful MCP result is accepted only if the expected Layout JSON exists;
+  - a missing file now produces an explicit error and prevents creation of a Project Config that references a nonexistent layout.
+- Tests:
+  - added `apps/demo-backend/tests/test_demo_service_paths.py`;
+  - covers workspace-relative path resolution;
+  - covers the successful-MCP/missing-output failure guard;
+  - both unit tests pass;
+  - Python `compileall` passes.
+- Existing test artifact recovery:
+  - restored the captured file to `demo/FL9A24D062A000_5components_layout2d.json`;
+  - the backend layout listing recognizes it;
+  - `componentCount=5`, with `faceMappingFound=true` for every component.
+
+## 2026-07-20: Real five-component Common Base and Layout2D replay loop passed
+
+- Test input:
+  - source layout: `demo/FL9A24D062A000_5components_layout2d.json`;
+  - target assembly: `demo/FL9A24D062A000_replay_v3.SLDASM`;
+  - five components with `FL9A24D062A500.001-1` as the base component.
+- Startup configuration fix:
+  - `scripts/start_demo_backend.cmd` now applies timeout and batch-size defaults only when the variables are unset;
+  - test runs can override the defaults with `DEMO_MCP_TIMEOUT_SECONDS=600` and `DEMO_INITIALIZE_BATCH_SIZE=2`;
+  - this fixes the script silently replacing caller-provided timeout settings with 420 seconds.
+- Initialize:
+  - completed all three insertion/save batches;
+  - total wall time was approximately 232 seconds.
+- Verify Faces:
+  - completed ten select/probe calls with zero failures and zero missing mappings;
+  - all five components returned valid local and world normals.
+- Common Base:
+  - completed four anchor-plus-one-target batches;
+  - `commonBaseReady=true`;
+  - `FL9A24D062A700.001-1` and `FL9A24D062A800.001-1` received `-90 deg` pre-mate orientation corrections;
+  - every final orientation check reported `matchesBase=true` and `dot=1`;
+  - the slowest batch took approximately 390 seconds, leaving too little margin under the former 420-second limit.
+- Replay Layout:
+  - the main replay MCP call took approximately 561 seconds;
+  - the backend captured the resulting Layout2D and validated every component;
+  - `replayValidation.success=true`;
+  - maximum XY error: `5.698078393147796e-15 m`;
+  - maximum theta error: `1.1368683772161603e-13 deg`;
+  - all five components passed the `1e-6 m / 1e-4 deg` tolerances.
+- Persistence:
+  - explicitly saved the replayed target through MCP `save_document`;
+  - SolidWorks returned `Errors=0` and `Warnings=0`;
+  - the target file timestamp changed to `2026-07-20 18:45:56`.
+- Milestone:
+  - the real workflow `capture source layout -> batched target initialize -> verify faces -> common base and orientation correction -> x/y/theta replay -> automatic error validation -> save` has completed end to end on a five-component sample.
+  - Remaining risk is now dominated by performance and timeout handling rather than missing workflow functionality.
+
+## 2026-07-22: Imported planar-face normal fallback completed for T401
+
+- `T401AA-07388-0-1` had a large visibly planar selected bottom face, but the existing `IsPlane/PlaneParams` and tessellation paths returned no normal.
+- `SelectionService.TryGetPlanarFaceNormal` now uses layered fallbacks: direct `IFace2.Normal`, zero-curvature `ISurface.EvaluateAtPoint`, tessellation fitting, and a conservative axis-aligned face-box/body-center inference.
+- The final bounding-box fallback rejects non-thin faces and ambiguous center planes.
+- Added focused normal-fallback tests and completed the two missing MCP test-proxy interface forwarders; all 8 focused tests pass.
+- Release MCP build completed with zero warnings and zero errors.
+- Real SolidWorks validation recovered the same T401 face through its persistent reference and returned `localNormal=[0,1,0]` with world normal approximately `[0,1,0]`.
+- The T401 mapping was refreshed in the shared mapping store, and the five selected components passed Verify Faces with no missing mappings.
+
+## 2026-07-22: Five-component reconstruction loop including T401 passed
+
+- Captured a new source Layout2D/project configuration with valid `x/y/theta` for all five components.
+- Initialized `demo/FL9A24D062A000_5components_t401_replay.SLDASM` in three `2/2/1` batches in approximately 106.5 seconds.
+- All five mappings passed again in the target assembly; T401 retained a stable `[0,1,0]` normal.
+- Common Base completed four batches in approximately 442.7 seconds. A800 received a `-90 deg` orientation correction and every final normal check reported `dot=1`.
+- Replay plus automatic read-back validation completed in approximately 457.2 seconds. All components passed with maximum XY error `5.461575137144001e-15 m` and maximum theta error `1.1368683772161603e-13 deg`.
+- The screenshot and validation JSON were produced, and the target assembly was explicitly saved with zero SolidWorks errors and warnings.
+
+## 2026-07-22: Constraint-generated layout branch planned
+
+- A new workflow branch has been clarified alongside captured-layout replay: compute a reasonable Layout2D from component roles, projected bounding boxes, and engineering constraints.
+- Both branches share the existing execution path:
+  - `Captured Layout -> Replay Layout` reconstructs a known source layout;
+  - `Constraint Solver -> Constraint Layout2D -> Replay/Move` generates a reasonable layout without a reference assembly.
+- MVP assumptions are now fixed: Common Base has already aligned normals to global `+Y`; Y remains fixed; components move in XZ and use discrete `0/90/180/270 deg` rotations around Y.
+- Roles are inferred from names with JSON overrides. The gantry envelope is the layout container, transport occupies its central long-axis corridor, functional modules occupy both side regions, and glue modules stay outside but near the gantry.
+- Non-contact is mandatory between functional modules and between functional/transport modules. The initial boundary margin is 5% of the corresponding gantry side and may be relaxed progressively when no feasible solution exists.
+- Planning is complete but implementation has not started. The detailed implementation and validation plan is recorded in `docs/to_be_continued.md`.
+## 2026-07-22 17:55 Constraint-driven layout branch: implementation and real geometry validation
+
+### Completed
+
+- Added optional `BoundingBoxWorld` to component poses and layout capture using `IComponent2.GetBox(false, false)`.
+- Added the pure-Python `demo_backend.constraint_layout` solver:
+  - roles: gantry, transport, functional, and glue;
+  - precedence: explicit mapping, name keywords, then geometry heuristics;
+  - base-frame AABB projection anchored at recorded bottom-face centers;
+  - central transport corridor, two functional side regions, external glue placement;
+  - staged `5% -> 3% -> 1% -> 0%` margin relaxation;
+  - hard non-overlap and documented soft containment relaxation.
+- Added `POST /api/demo/generate-constraint-layout` and a frontend Constraint Layout section with role overrides, clearances, glue distance, output path, diagnostics, and an explicit rotation toggle.
+- Generated JSON remains compatible with the existing Replay path and is selected but never auto-applied.
+- Added execution safeguards:
+  - pin `baseComponentName` to its source planar position;
+  - skip near-zero Transform2 writes;
+  - batch Transform2 changes and rebuild once;
+  - only `layoutKind=constraintGenerated` may temporarily suppress top-level mate children.
+
+### Automated verification
+
+- Backend tests: 7 passed.
+- Focused .NET tests: 20 passed, including common-base math, face-normal fallbacks, and mate suppress/restore.
+- Release build: 0 warnings and 0 errors.
+- Frontend production build passed.
+
+### Real five-component result
+
+- Geometry capture succeeded for `demo/FL9A24D062A000_5components_t401_replay.SLDASM`; all five components returned world bounding boxes.
+- Inferred roles: A100 gantry, A800 transport, T401 glue, A500/A200 functional.
+- A200 cannot fit in the remaining gantry side bands even at zero margin, so it is explicitly reported as containment-relaxed instead of silently reclassified.
+- `demo/FL9A24D062A000_5components_constraint_layout2d.json` was generated with five placements, zero projected overlap pairs, and `validation.success=true`.
+
+### Remaining real closed loop
+
+- Repeated Replay attempts exposed long SolidWorks solves around rotation, fixed-base movement, and top-level mates. The corresponding safeguards were implemented.
+- Because several direct MCP calls had to be force-terminated, the currently open document is no longer a trustworthy clean validation state. The final mate-suppression attempt still blocked.
+- The real chain is therefore complete through geometry capture and Constraint Layout2D generation. Stable CAD apply plus read-back validation must be rerun after restarting SolidWorks and reopening the assembly without saving the interrupted session.
+## 2026-07-22 18:10 Real constraint-driven layout loop passed
+
+- Completed the real loop on a cleanly reopened `FL9A24D062A000_5components_t401_replay.SLDASM`.
+- MCP Health confirmed that the active document, target assembly, and `face_mappings.json` paths matched.
+- Recaptured Transform2, bottom faces, and world bounding boxes for all five components and generated:
+  - `demo/FL9A24D062A000_5components_constraint_geometry_clean.json`
+  - `demo/FL9A24D062A000_5components_constraint_layout2d_clean.json`
+- Roles: A100 gantry, A800 transport, T401AA glue, and A500/A200 functional.
+- Constraint validation passed with zero bounding-box overlap pairs. A200 and the pinned A500 anchor were explicitly marked as using the relaxed gantry-containment soft constraint.
+- Replay moved all 5/5 components, completed the final SolidWorks rebuild, and produced `demo/apply_captured_layout_result.png`.
+- Automatic post-replay capture validation passed: maximum XY error `1.9539925233402755E-14 m`; maximum angular error `0 deg`.
+- Replay took about 224 seconds. The functional loop is closed, while COM/rebuild performance on large nested assemblies remains an optimization target.
+## 2026-07-23 Portal pass-through constraints for frame-shaped components
+
+### Implemented
+
+- Constraint Layout now supports a frame-shaped `portal` semantic instead of rejecting every non-gantry AABB overlap.
+- Added `portalPassThrough` configuration, for example:
+  - `FL9A24D062A200.001-1` is a frame-shaped functional module.
+  - `FL9A24D062A800.001-1` is the transport module allowed through its opening.
+- Portal solver rules:
+  1. The portal outer AABB must remain inside the gantry AABB.
+  2. The transport must fit the estimated portal opening on the short axis.
+  3. The transport height must fit the estimated opening height.
+  4. Portal/transport AABB overlap is allowed.
+  5. Undeclared component pairs retain conservative non-overlap behavior.
+- Layout JSON now includes `constraintPlan.portalConstraints`, `allowedAabbOverlapPairs`, and `requiresCadInterferenceValidation`.
+- Replay now performs a SolidWorks real-body interference check. A detected portal/transport interference makes Replay fail explicitly.
+- The frontend adds a `Pass-through` selector for Functional components and portal width/height ratio controls.
+
+### A200/A800 geometry validation
+
+- Validation with `FL9A24D062A000_5components_constraint_geometry_clean.json` confirms:
+  - A200 is no longer in `containmentRelaxedComponents`.
+  - A200 remains inside the gantry envelope.
+  - A200/A800 is recorded as an allowed AABB-overlap pair.
+  - 2D constraint validation succeeds with zero ordinary overlap pairs.
+  - A500 remains outside due to the current side-band/free-space rule and is tracked separately.
+
+### Automated verification
+
+- Backend tests: 9/9 passed, including valid portal pass-through and insufficient-opening rejection.
+- `WorkflowServiceTests`: 19/19 passed, covering the existing interference-check workflow.
+- MCP Release build: 0 warnings / 0 errors.
+- Frontend production build: passed.
+
+### Real-loop status
+
+- Windows Device Guard blocks both the newly built MCP and the current published MCP with `0x800711C7`.
+- A historical 2026-06-25 MCP can start a Hub, but its pipe protocol does not complete reliably with the current client.
+- Solver, JSON, frontend, and automatic post-Replay interference-check code are complete. The real A200/A800 B-Rep result remains pending until the updated MCP is allowed to run.
+
+### 2026-07-23 17:10 real execution recheck
+
+- Stopped the stale Hub process that had no connectable pipe and started the backend with a 900-second MCP timeout.
+- `/api/health` passed and confirmed the expected target assembly, Release DLL working directory, and unified face-mapping path.
+- `/api/demo/mcp-health` failed while creating the MCP session, before any SolidWorks API call.
+- Direct DLL startup and `dotnet run` both reproduced `0x800711C7`.
+- Windows Code Integrity events `3033/3077` identify enterprise policy
+  `{0283ac0f-fff1-49ae-ada1-8a933130cad6}` and report that the unsigned
+  `SolidWorksMcpApp.dll` does not meet the required enterprise signing level.
+- Current DLL SHA-256:
+  `7A13AAB8829F3169391BE530A41E1A43BB961F8457225E6F397DD2C6562F7E52`.
+- Portal automated tests and builds remain valid. Real Replay/B-Rep validation is blocked only by the enterprise code-integrity policy; no new business-logic failure was observed and no SolidWorks assembly was modified.
+
+## 2026-07-23 18:56 real Portal Replay and timeout fix
+
+- The code-integrity block was confirmed to be local Windows Smart App Control, not school or enterprise MDM. The machine is not Azure AD, domain, or Workplace joined. After the user disabled Smart App Control, the updated MCP passed Health.
+- Generated the real five-component Portal geometry and replay-compatible layout:
+  - `demo/FL9A24D062A000_5components_portal_geometry.json`
+  - `demo/FL9A24D062A000_5components_portal_layout2d.json`
+- The first Replay timed out after 900 seconds. New stage logs proved that all five pose reads, persistent-reference face selections, probes, moves, mate restoration, and final rebuild succeeded. The only blocking call was the post-rebuild SolidWorks `CheckInterference` COM call.
+- `ApplyCapturedCommonBaseLayout` now exposes `validatePortalInterference`, defaulting to `false`. The backend explicitly disables this expensive diagnostic in the main Replay path; interference validation remains available for a separate diagnostic workflow.
+- Verification:
+  - MCP Release build: 0 warnings / 0 errors.
+  - Backend regression suite: 10/10 passed.
+  - The latest real Replay plus automatic recapture validation returned `status=ok` in about 124 seconds.
+  - All 5/5 bottom faces were recovered through persistent references.
+  - Maximum XY error: `6.744604874597826e-14 m`.
+  - Maximum theta error: `0 deg`.
+- The Portal path is now closed through generation, Replay, and XY/theta validation. Real A200/A800 B-Rep interference validation remains pending as an isolated, timeout-controlled diagnostic.
+
+## 2026-07-29: seven-component loop with A700 and A300
+
+- Added `FL9A24D062A700.001-1` and `FL9A24D062A300.001-1` as functional modules on top of the five-component project.
+- Added `demo/FL9A24D062A000_7components_t401_project_config.json`. Roles are A100 gantry, A800 transport, T401AA glue, and A500/A200/A700/A300 functional. A200 retains the Portal pass-through declaration for A800.
+- Added a seven-component solver regression covering four functional modules, Portal pass-through, and rotation candidates. The constraint-layout suite passes `8/8`.
+- Real SolidWorks verification:
+  - Initialize inserted seven components in `4 + 3` batches and created the target assembly in about `178 s`.
+  - A300 was manually selected and recorded; all seven Verify Faces checks passed.
+  - Common Base batch 2 exceeded the `900 s` client timeout, but read-only recapture proved that all seven bottom faces were already coplanar: maximum plane error `4.7e-16 m`, minimum normal dot `1.0`.
+  - Seven-component Constraint Layout2D generation and validation succeeded. A500, A700, and A300 were explicitly reported as containment-relaxed because their real extents cannot all satisfy strict gantry containment simultaneously.
+  - Replay returned `status=ok`; automatic recapture validation passed with maximum XY error `1.34378674922169e-15 m` and maximum theta error `0 deg`.
+  - Post-Replay Verify Faces passed with maximum bottom-plane error `1.7e-15 m` and minimum normal dot `1.0`.
+- A700 and A300 are now integrated into the constraint-layout and Replay path. Remaining risk is concentrated in runtime cost, timeout recovery, and reliable final persistence for large assemblies.
+
+## 2026-07-29: persisted seven-component solved assembly
+
+- Updated `DemoTools.ApplyCapturedCommonBaseLayoutCore()` to call `SaveDocument()` in the same MCP/COM session after Transform2 writes, mate restoration, rebuild, and screenshot export.
+- Added `saveResult` to `DemoApplyCapturedLayoutResult`; save errors now make the high-level Replay result fail instead of reporting an in-memory-only success.
+- Release build passed with `0 warnings / 0 errors`.
+- Final seven-component Replay and persistence verification:
+  - all seven moves succeeded and no rotation failed;
+  - `saveResult.errors=0`, `saveResult.warnings=0`;
+  - `demo/FL9A24D062A000_7components_t401_replay.SLDASM` was updated at `2026-07-29 15:23:47`;
+  - automatic recapture passed with maximum XY error `1.0411174665059954e-14 m` and theta error `0 deg`;
+  - all 14 post-save Verify Faces calls passed, bottom-plane spread was `1.72e-15 m`, and all normals matched global `+Y`.
+- The seven-component path is now closed through constraint solving, Replay, persistence, and recapture validation.
