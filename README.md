@@ -1,5 +1,23 @@
 # SOLIDWORKS API RAG and MCP Workspace
 
+## Current semantic-assembly mainline
+
+The active development mainline is natural-language, module-level cumulative
+assembly backed by semantic ports, editable mate graphs, and real SolidWorks
+mate reconstruction.  Start with the following Chinese documentation:
+
+- `docs/architecture-CN.md`: system layers and data flow;
+- `docs/capability_boundaries-CN.md`: verified abilities and non-claims;
+- `docs/development_execution_rules-CN.md`: development and validation rules;
+- `docs/repository_artifact_policy-CN.md`: source, experiment, and generated-artifact policy;
+- `docs/global_module_semantic_ports-CN.md`: module and semantic-port coverage;
+- `docs/prototype_module_inventory-CN.md`: prototype module inventory.
+
+In particular, a shared functional role or a matching mounting pattern does
+not prove process equivalence.  Cross-project substitutions must report the
+separate status of role, installation interface, CAD positioning, space, and
+process compatibility.
+
 This workspace starts with a crawler for SOLIDWORKS 2025 API Web Help pages.
 
 It now also contains a SolidWorks MCP server base from [just1step/solidworks-mcp](https://github.com/just1step/solidworks-mcp), with a local RAG-backed knowledge tool added on top.
