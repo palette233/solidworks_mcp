@@ -34,6 +34,123 @@ public class DocumentServiceTests
     // ─────────────────────────────────────────────────────────────
 
     [Fact]
+    public void InspectActiveDocumentConfigurations_ReturnsNamesAndActiveConfiguration()
+    {
+        var (manager, swApp) = ConnectedMocks();
+        var doc = new Mock<IModelDoc2>();
+        var configurationManager = new Mock<ConfigurationManager>();
+        var activeConfiguration = new Mock<Configuration>();
+
+        doc.Setup(d => d.GetConfigurationNames()).Returns(new object[] { "0度", "25度" });
+        doc.Setup(d => d.GetPathName()).Returns(@"C:\models\AD20.SLDASM");
+        doc.Setup(d => d.GetTitle()).Returns("AD20");
+        doc.SetupGet(d => d.ConfigurationManager).Returns(configurationManager.Object);
+        configurationManager.SetupGet(m => m.ActiveConfiguration).Returns(activeConfiguration.Object);
+        activeConfiguration.SetupGet(c => c.Name).Returns("0度");
+        swApp.SetupGet(s => s.IActiveDoc2).Returns(doc.Object);
+
+        var result = new DocumentService(manager.Object).InspectActiveDocumentConfigurations();
+
+        Assert.Equal("0度", result.ActiveConfiguration);
+        Assert.Equal(new[] { "0度", "25度" }, result.ConfigurationNames);
+        Assert.Equal(2, result.ConfigurationCount);
+        Assert.Equal(@"C:\models\AD20.SLDASM", result.Path);
+    }
+
+    [Fact]
+    public void InspectActiveDocumentConfigurations_NoActiveDocument_Throws()
+    {
+        var (manager, swApp) = ConnectedMocks();
+        swApp.SetupGet(s => s.IActiveDoc2).Returns((IModelDoc2?)null);
+
+        var service = new DocumentService(manager.Object);
+
+        Assert.Throws<InvalidOperationException>(service.InspectActiveDocumentConfigurations);
+    }
+
+    [Fact]
+    public void SetActiveDocumentConfiguration_SwitchesRebuildsAndReportsBothNames()
+    {
+        var (manager, swApp) = ConnectedMocks();
+        var doc = new Mock<IModelDoc2>();
+        var configurationManager = new Mock<ConfigurationManager>();
+        var zero = new Mock<Configuration>();
+        var twentyFive = new Mock<Configuration>();
+        zero.SetupGet(c => c.Name).Returns("0度");
+        twentyFive.SetupGet(c => c.Name).Returns("25度");
+        configurationManager.SetupSequence(m => m.ActiveConfiguration)
+            .Returns(zero.Object)
+            .Returns(twentyFive.Object);
+        doc.SetupGet(d => d.ConfigurationManager).Returns(configurationManager.Object);
+        doc.Setup(d => d.ShowConfiguration2("25度")).Returns(true);
+        doc.Setup(d => d.ForceRebuild3(false)).Returns(true);
+        swApp.SetupGet(s => s.IActiveDoc2).Returns(doc.Object);
+
+        var result = new DocumentService(manager.Object)
+            .SetActiveDocumentConfiguration("25度", rebuild: true);
+
+        Assert.True(result.Success);
+        Assert.Equal("0度", result.PreviousConfiguration);
+        Assert.Equal("25度", result.ActiveConfiguration);
+        Assert.True(result.RebuildRequested);
+        Assert.True(result.RebuildSucceeded);
+        doc.Verify(d => d.ShowConfiguration2("25度"), Times.Once);
+        doc.Verify(d => d.ForceRebuild3(false), Times.Once);
+    }
+
+    [Fact]
+    public void SetActiveDocumentConfiguration_EmptyName_ThrowsBeforeConnecting()
+    {
+        var (manager, _) = ConnectedMocks();
+        var service = new DocumentService(manager.Object);
+
+        Assert.Throws<ArgumentException>(() => service.SetActiveDocumentConfiguration(" "));
+        manager.Verify(m => m.EnsureConnected(), Times.Never);
+    }
+
+    [Fact]
+    public void SetActiveDocumentConfiguration_RebuildFalse_DoesNotInvalidateConfirmedSwitch()
+    {
+        var (manager, swApp) = ConnectedMocks();
+        var doc = new Mock<IModelDoc2>();
+        var configurationManager = new Mock<ConfigurationManager>();
+        var active = new Mock<Configuration>();
+        active.SetupGet(c => c.Name).Returns("0度");
+        configurationManager.SetupGet(m => m.ActiveConfiguration).Returns(active.Object);
+        doc.SetupGet(d => d.ConfigurationManager).Returns(configurationManager.Object);
+        // SolidWorks may report false when the requested configuration is already
+        // active. The effective active name is the authoritative no-op success.
+        doc.Setup(d => d.ShowConfiguration2("0度")).Returns(false);
+        doc.Setup(d => d.ForceRebuild3(false)).Returns(false);
+        swApp.SetupGet(s => s.IActiveDoc2).Returns(doc.Object);
+
+        var result = new DocumentService(manager.Object)
+            .SetActiveDocumentConfiguration("0度", rebuild: true);
+
+        Assert.True(result.Success);
+        Assert.False(result.RebuildSucceeded);
+        Assert.Equal("0度", result.ActiveConfiguration);
+    }
+
+    [Fact]
+    public void InspectDocumentConfigurations_UsesOpenDocumentWithoutActivation()
+    {
+        var (manager, swApp) = ConnectedMocks();
+        var doc = new Mock<IModelDoc2>();
+        const string path = @"C:\models\AD20.SLDASM";
+        doc.Setup(d => d.GetConfigurationNames()).Returns(new object[] { "0度", "25度" });
+        doc.Setup(d => d.GetPathName()).Returns(path);
+        doc.Setup(d => d.GetTitle()).Returns("AD20");
+        swApp.Setup(s => s.GetOpenModelDocument(path)).Returns(doc.Object);
+
+        var result = new DocumentService(manager.Object).InspectDocumentConfigurations(path);
+
+        Assert.Equal(2, result.ConfigurationCount);
+        swApp.Verify(s => s.OpenDoc(It.IsAny<string>()), Times.Never);
+        swApp.Verify(s => s.ActivateDoc(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
     public void NewDocument_Part_UsesDefaultPartTemplate()
     {
         var (manager, swApp) = ConnectedMocks();
@@ -230,6 +347,22 @@ public class DocumentServiceTests
     }
 
     [Fact]
+    public void SaveDocumentAsByTitle_DelegatesToWrapper()
+    {
+        var (manager, swApp) = ConnectedMocks();
+        const string sourceTitle = "model";
+        const string outputPath = @"C:\recovery\model.sldprt";
+        var expected = new SwSaveResult(string.Empty, outputPath, "sldprt", true, 0, 0);
+        swApp.Setup(s => s.SaveDocAsByTitle(outputPath, sourceTitle, true)).Returns(expected);
+
+        var svc = new DocumentService(manager.Object);
+        var result = svc.SaveDocumentAsByTitle(outputPath, sourceTitle, true);
+
+        Assert.Equal(expected, result);
+        swApp.Verify(s => s.SaveDocAsByTitle(outputPath, sourceTitle, true), Times.Once);
+    }
+
+    [Fact]
     public void GetActiveDocumentRebuildState_ReadsNeedsRebuild2()
     {
         var (manager, swApp) = ConnectedMocks();
@@ -309,13 +442,13 @@ public class DocumentServiceTests
         var (manager, swApp) = ConnectedMocks();
         const string outputPath = @"C:\exports\view.png";
         var expected = new SwImageExportResult(outputPath, "image/png", 800, 600, null);
-        swApp.Setup(s => s.ExportCurrentViewPng(outputPath, 800, 600, false)).Returns(expected);
+        swApp.Setup(s => s.ExportCurrentViewPng(outputPath, 800, 600, false, true)).Returns(expected);
 
         var svc = new DocumentService(manager.Object);
         var result = svc.ExportCurrentViewPng(outputPath, 800, 600, false);
 
         Assert.Equal(expected, result);
-        swApp.Verify(s => s.ExportCurrentViewPng(outputPath, 800, 600, false), Times.Once);
+        swApp.Verify(s => s.ExportCurrentViewPng(outputPath, 800, 600, false, true), Times.Once);
     }
 
     [Fact]

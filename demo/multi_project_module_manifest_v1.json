@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-17",
+  "purpose": "Cross-project major assembly to process-capability identification for layout solving",
+  "projects": [
+    {
+      "projectId": "01",
+      "pptPath": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\PPT\\01-PPT.pptx",
+      "sourceAssemblyPath": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\001-给港中文AI训练用资料_20260624\\项目01\\01-项目3D图纸\\CITLB24N074&CITLB24N075\\FL9C24N074AA00.001.SLDASM",
+      "family": "ab_glue_tunnel_with_rotation",
+      "modules": [
+        {"cadId": "FL9C24N074JJ00.001", "capabilities": ["frame_enclosure"], "confidence": "confirmed"},
+        {"cadId": "FL9C24N074LM00.001", "capabilities": ["gantry"], "confidence": "confirmed"},
+        {"cadId": "FL9C24N074ZZ00.001", "capabilities": ["dispense_head"], "confidence": "confirmed"},
+        {"cadId": "FL9C24N074FF00.001", "capabilities": ["lift_positioning", "rotation"], "confidence": "confirmed"},
+        {"cadId": "FL9C24N074SS00.001", "capabilities": ["transport"], "confidence": "confirmed"},
+        {"cadId": "FL9C24N074HL00.001", "capabilities": ["return_transport"], "confidence": "confirmed"},
+        {"cadId": "FL9C24N074GN00.001", "capabilities": ["cleaning", "weighing", "glue_drain", "glue_hardness_test"], "confidence": "high"},
+        {"cadId": "FL9C24N074BD00.001", "capabilities": ["calibration"], "confidence": "confirmed"},
+        {"cadId": "FL9C24N074SM00.001", "capabilities": ["scanner"], "confidence": "confirmed"},
+        {"cadId": "FL9C24N074GJ00.001", "capabilities": ["glue_supply"], "confidence": "confirmed"}
+      ]
+    },
+    {
+      "projectId": "02",
+      "pptPath": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\PPT\\02-PPT.pptx",
+      "sourceAssemblyPath": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\001-给港中文AI训练用资料_20260624\\项目02\\01-项目3D图纸\\FL9A24D062A000.001\\FL9A24D062A000.001.SLDASM",
+      "family": "epoxy_header_with_product_ccd",
+      "modules": [
+        {"cadId": "FL9A24D062A100.001", "capabilities": ["gantry", "dispense_head"], "confidence": "confirmed", "solverObject": true},
+        {"cadId": "FL9A24D062A180.001", "capabilities": ["scanner"], "confidence": "confirmed", "solverObject": true},
+        {"cadId": "FL9A24D062A200.001", "capabilities": ["ccd_product", "portal"], "confidence": "confirmed", "solverObject": true},
+        {"cadId": "FL9A24D062A300.001", "capabilities": ["glue_drain"], "confidence": "confirmed", "solverObject": true},
+        {"cadId": "FL9A24D062A500.001", "capabilities": ["calibration"], "confidence": "confirmed", "solverObject": true},
+        {"cadId": "FL9A24D062A700.001", "capabilities": ["cleaning", "weighing"], "confidence": "confirmed", "solverObject": true, "notes": "A730 is the weighing subassembly"},
+        {"cadId": "FL9A24D062A800.001", "capabilities": ["transport", "lift_positioning"], "confidence": "confirmed", "solverObject": true},
+        {"cadId": "T401AA-07388-0", "capabilities": ["glue_supply"], "confidence": "high", "solverObject": true},
+        {"cadId": "FL9A24D062A900.001", "capabilities": ["return_transport"], "confidence": "high", "solverObject": false},
+        {"cadId": "FL9A24D062A600.001", "capabilities": ["frame_enclosure"], "confidence": "high", "solverObject": false},
+        {"cadId": "FL9C24D062A400.001", "capabilities": ["auxiliary_support"], "confidence": "pending", "solverObject": false}
+      ]
+    },
+    {
+      "projectId": "03",
+      "pptPath": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\PPT\\03-PPT.pptx",
+      "sourceAssemblyPath": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\001-给港中文AI训练用资料_20260624\\项目03\\01-项目3D图纸\\FL9A24D063A000.001-0415\\FL9A24D063A000.001.SLDASM",
+      "family": "ab_glue_tunnel_with_rotation",
+      "modules": [
+        {"cadId": "FL9A24D063AA00.001", "capabilities": ["frame_enclosure"], "confidence": "high"},
+        {"cadId": "FL9A24D063AB00.001", "capabilities": ["gantry"], "confidence": "high"},
+        {"cadId": "FL9A24D063AC00.001", "capabilities": ["dispense_head"], "confidence": "high"},
+        {"cadId": "FL9A24D063AD00.001", "capabilities": ["lift_positioning", "rotation"], "confidence": "high"},
+        {"cadId": "FL9A24D063AE00.001", "capabilities": ["transport"], "confidence": "high"},
+        {"cadId": "FL9A24D063AF00.001", "capabilities": ["return_transport"], "confidence": "high"},
+        {"cadId": "FL9A24D063AG00.001", "capabilities": ["cleaning", "weighing", "glue_drain", "glue_hardness_test"], "confidence": "high"},
+        {"cadId": "FL9A24D063AH00.001", "capabilities": ["calibration"], "confidence": "high"},
+        {"cadId": "FL9A24D063AI00.001", "capabilities": ["scanner"], "confidence": "high"},
+        {"cadId": "FL9A24D063AJ00.001", "capabilities": ["glue_supply"], "confidence": "high"}
+      ]
+    },
+    {
+      "projectId": "05",
+      "pptPath": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\PPT\\05.pptx",
+      "sourceAssemblyPath": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\001-给港中文AI训练用资料_20260624\\项目05\\01-项目3D图纸\\1.CITLD254098_L3 Apply epoxy glue to CMC header [4台]\\1.CITLD254098_L3 Apply epoxy glue to CMC header [4台]\\FL9C254098AA00.001.SLDASM",
+      "family": "epoxy_header_with_product_ccd",
+      "modules": [
+        {"cadId": "FL9C254098A000.001", "capabilities": ["frame_enclosure"], "confidence": "confirmed"},
+        {"cadId": "FL9C254098B000.001", "capabilities": ["gantry"], "confidence": "confirmed"},
+        {"cadId": "FL9C254098Z000.001", "capabilities": ["dispense_head"], "confidence": "confirmed"},
+        {"cadId": "FL9C254098D000.001", "capabilities": ["transport"], "confidence": "confirmed"},
+        {"cadId": "FL9C254098E000.001", "capabilities": ["return_transport"], "confidence": "confirmed"},
+        {"cadId": "FL9C254098F000.001", "capabilities": ["scanner"], "confidence": "confirmed"},
+        {"cadId": "FL9C254098G000.001", "capabilities": ["calibration", "weighing"], "confidence": "high"},
+        {"cadId": "FL9C254098K000.001", "capabilities": ["lift_positioning"], "confidence": "confirmed"},
+        {"cadId": "FL9C254098M000.001", "capabilities": ["ccd_product"], "confidence": "confirmed"},
+        {"cadId": "FL9C251093N000.001", "capabilities": ["cleaning"], "confidence": "confirmed", "notes": "Reused source assembly number inside project 05"},
+        {"cadId": "FL9C254098P000.001", "capabilities": ["glue_drain"], "confidence": "confirmed"},
+        {"cadId": null, "capabilities": ["glue_supply"], "confidence": "pending", "notes": "Required by PPT but no independent numbered major assembly has been located"}
+      ]
+    },
+    {
+      "projectId": "06",
+      "pptPath": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\PPT\\06.pptx",
+      "sourceAssemblyPath": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\001-给港中文AI训练用资料_20260624\\项目06\\01-项目3D图纸\\2.CITLD254099_L3 Apply epoxy on header [2台]\\2.CITLD254099_L3 Apply epoxy on header [2台]\\FL9C254099AA00.001.SLDASM",
+      "family": "epoxy_header_with_product_ccd",
+      "modules": [
+        {"cadId": "FL9C254099A000.001", "capabilities": ["frame_enclosure"], "confidence": "confirmed"},
+        {"cadId": "FL9C254099B000.001", "capabilities": ["gantry"], "confidence": "confirmed"},
+        {"cadId": "FL9C254099Z000.001", "capabilities": ["dispense_head"], "confidence": "confirmed"},
+        {"cadId": "FL9C254099D000.001", "capabilities": ["transport"], "confidence": "confirmed"},
+        {"cadId": "FL9C254099E000.001/.002", "capabilities": ["return_transport"], "confidence": "confirmed"},
+        {"cadId": "FL9C254099F000.001", "capabilities": ["scanner"], "confidence": "confirmed"},
+        {"cadId": "FL9C254099G000.001", "capabilities": ["calibration", "weighing"], "confidence": "high"},
+        {"cadId": "FL9C254099K000.001", "capabilities": ["lift_positioning"], "confidence": "confirmed"},
+        {"cadId": "FL9C254099M000.001", "capabilities": ["ccd_product"], "confidence": "confirmed"},
+        {"cadId": "FL9C254099N000.001", "capabilities": ["cleaning"], "confidence": "confirmed"},
+        {"cadId": "FL9C254099P000.001/.003", "capabilities": ["glue_drain"], "confidence": "confirmed"},
+        {"cadId": null, "capabilities": ["glue_supply"], "confidence": "pending", "notes": "Required by PPT but no independent numbered major assembly has been located"}
+      ]
+    }
+  ]
+}

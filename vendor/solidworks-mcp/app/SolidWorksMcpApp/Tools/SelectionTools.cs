@@ -8,6 +8,33 @@ namespace SolidWorksMcpApp.Tools;
 [McpServerToolType]
 public class SelectionTools(StaDispatcher sta, ISelectionService selection)
 {
+    public record FaceMappingStoreInfo(
+        string MappingPath,
+        bool Exists,
+        long? Length,
+        DateTimeOffset? LastWriteTimeUtc,
+        string Source);
+
+    [McpServerTool, Description("Return the face mapping JSON path used by this MCP process. Use this to verify that backend and MCP are reading the same face_mappings.json file.")]
+    public async Task<string> GetFaceMappingStoreInfo()
+    {
+        var result = await sta.InvokeLoggedAsync(nameof(GetFaceMappingStoreInfo), null, () =>
+        {
+            var configured = Environment.GetEnvironmentVariable("DEMO_FACE_MAPPING_PATH");
+            var path = string.IsNullOrWhiteSpace(configured)
+                ? Path.Combine(AppContext.BaseDirectory, "face_mappings.json")
+                : Path.GetFullPath(configured);
+            var info = File.Exists(path) ? new FileInfo(path) : null;
+            return new FaceMappingStoreInfo(
+                path,
+                info is not null,
+                info?.Length,
+                info?.LastWriteTimeUtc,
+                string.IsNullOrWhiteSpace(configured) ? "app-base-directory" : "DEMO_FACE_MAPPING_PATH");
+        });
+        return JsonSerializer.Serialize(result);
+    }
+
     [McpServerTool, Description("Report whether the active document is currently editing a sketch or is otherwise in a safe state for FeatureManager tree reads and delete operations. Use this before ListFeatureTree, DeleteFeatureByName, or DeleteUnusedSketches; if IsEditing is true, finish the sketch first.")]
     public async Task<string> GetEditState()
     {
@@ -15,11 +42,21 @@ public class SelectionTools(StaDispatcher sta, ISelectionService selection)
         return JsonSerializer.Serialize(state);
     }
 
-    [McpServerTool, Description("List the active document's top-level FeatureManager tree items so modeling steps can be verified against the real tree state. This tool only works in non-edit state, so check GetEditState and finish any active sketch first.")]
+    [McpServerTool, Description("List only the active document's top-level FeatureManager tree items. Use this only when you already know the target component or feature is in the active document and do not need the full left-side navigation tree. This tool only works in non-edit state, so check GetEditState and finish any active sketch first.")]
     public async Task<string> ListFeatureTree()
     {
         var list = await sta.InvokeLoggedAsync(nameof(ListFeatureTree), null, selection.ListFeatureTree);
         return JsonSerializer.Serialize(list);
+    }
+
+    [McpServerTool, Description("Traverse the active SolidWorks document's FeatureManager tree exactly as shown in the left-side SolidWorks UI, including folders, components, features, and visible sub-items. Use this first when you need a faithful tree snapshot without opening every child part.")]
+    public async Task<string> TraverseActiveFeatureManagerTree()
+    {
+        var result = await sta.InvokeLoggedAsync(
+            nameof(TraverseActiveFeatureManagerTree),
+            null,
+            selection.TraverseActiveFeatureManagerTree);
+        return JsonSerializer.Serialize(result);
     }
 
     [McpServerTool, Description("Read the active document's sensor features, including alert thresholds, current values, and whether any alert is currently triggered. Use this when model health depends on SolidWorks sensors instead of only feature diagnostics.")]
@@ -66,6 +103,56 @@ public class SelectionTools(StaDispatcher sta, ISelectionService selection)
         return JsonSerializer.Serialize(list);
     }
 
+    [McpServerTool, Description("List face centers, planar normals, areas and persistent references for one leaf component in the active assembly. Use this to rank semantic face candidates without selecting every face in the UI.")]
+    public async Task<string> ListFaceGeometry(
+        [Description("Exact leaf component Name2 in the active assembly.")] string componentName,
+        [Description("When true, omit non-planar faces.")] bool planarOnly = true)
+    {
+        var result = await sta.InvokeLoggedAsync(
+            nameof(ListFaceGeometry),
+            new { componentName, planarOnly },
+            () => selection.ListFaceGeometry(componentName, planarOnly));
+        return JsonSerializer.Serialize(result);
+    }
+
+    [McpServerTool, Description("Select a face by its leaf-local index from ListFaceGeometry. This is bounded to one leaf component and avoids whole-assembly topology traversal.")]
+    public async Task<string> SelectFaceGeometry(
+        [Description("Exact leaf component Name2 or a unique ASCII token in the active assembly.")] string componentName,
+        [Description("Zero-based leaf-local face index from ListFaceGeometry.")] int faceIndex,
+        [Description("Append to current selection instead of replacing it.")] bool append = false,
+        [Description("Selection mark value (default 0).")] int mark = 0)
+    {
+        var result = await sta.InvokeLoggedAsync(
+            nameof(SelectFaceGeometry),
+            new { componentName, faceIndex, append, mark },
+            () => selection.SelectFaceGeometry(componentName, faceIndex, append, mark));
+        return JsonSerializer.Serialize(result);
+    }
+
+    [McpServerTool, Description("Activate the referenced part or subassembly document for a leaf component selected by exact Name2 or unique ASCII token.")]
+    public async Task<string> ActivateLeafComponentDocument(
+        [Description("Exact leaf component Name2 or a unique ASCII token in the active assembly.")] string componentName)
+    {
+        var result = await sta.InvokeLoggedAsync(
+            nameof(ActivateLeafComponentDocument),
+            new { componentName },
+            () => selection.ActivateLeafComponentDocument(componentName));
+        return JsonSerializer.Serialize(result);
+    }
+
+    [McpServerTool, Description("Select a face by body-order index in the active standalone part document. Useful for visually confirming a leaf face in a standard view.")]
+    public async Task<string> SelectActivePartFaceGeometry(
+        [Description("Zero-based face index using the same body/face order as ListFaceGeometry.")] int faceIndex,
+        [Description("Append to current selection instead of replacing it.")] bool append = false,
+        [Description("Selection mark value (default 0).")] int mark = 0)
+    {
+        var result = await sta.InvokeLoggedAsync(
+            nameof(SelectActivePartFaceGeometry),
+            new { faceIndex, append, mark },
+            () => selection.SelectActivePartFaceGeometry(faceIndex, append, mark));
+        return JsonSerializer.Serialize(result);
+    }
+
     [McpServerTool, Description("List reference planes from the active document feature tree. The returned names are localized to the current SolidWorks language.")]
     public async Task<string> ListReferencePlanes()
     {
@@ -109,6 +196,16 @@ public class SelectionTools(StaDispatcher sta, ISelectionService selection)
         return JsonSerializer.Serialize(result);
     }
 
+    [McpServerTool, Description("Record the first solid-body face found under a component as a face mapping. This is a demo fallback when any stable face is acceptable and the user cannot easily locate the component in the UI.")]
+    public async Task<string> RecordFirstFaceMapping(
+        [Description("Human-readable name for this face, e.g. '底面' or 'top_face'")] string faceName,
+        [Description("Component instance name to search under, e.g. 'Part1-1'")] string componentName)
+    {
+        var result = await sta.InvokeLoggedAsync(nameof(RecordFirstFaceMapping), new { faceName, componentName },
+            () => selection.RecordFirstFaceMapping(faceName, componentName));
+        return JsonSerializer.Serialize(result);
+    }
+
     [McpServerTool, Description("Select a face that was previously recorded with record_face_mapping, by its human-readable name. Matching uses component-local coordinates and is stable across move/rotate/mate operations.")]
     public async Task<string> SelectFaceByName(
         [Description("Human-readable name of the face, e.g. '底面'")] string faceName,
@@ -118,6 +215,16 @@ public class SelectionTools(StaDispatcher sta, ISelectionService selection)
     {
         var result = await sta.InvokeLoggedAsync(nameof(SelectFaceByName), new { faceName, componentName, append, mark },
             () => selection.SelectFaceByName(faceName, componentName, append, mark));
+        return JsonSerializer.Serialize(result);
+    }
+
+    [McpServerTool, Description("Return the mapping-style geometry fingerprint for the currently selected face without writing face_mappings.json. Use this to verify record/select accuracy.")]
+    public async Task<string> GetSelectedFaceMappingProbe(
+        [Description("Optional human-readable face name used only in the returned metadata.")] string? faceName = null,
+        [Description("Optional component instance name used only in the returned metadata.")] string? componentName = null)
+    {
+        var result = await sta.InvokeLoggedAsync(nameof(GetSelectedFaceMappingProbe), new { faceName, componentName },
+            () => selection.GetSelectedFaceMappingProbe(faceName, componentName));
         return JsonSerializer.Serialize(result);
     }
 
@@ -172,5 +279,15 @@ public class SelectionTools(StaDispatcher sta, ISelectionService selection)
     {
         await sta.InvokeLoggedAsync(nameof(ClearSelection), null, selection.ClearSelection);
         return "Selection cleared.";
+    }
+
+    [McpServerTool, Description("Zoom the active SolidWorks view to the current selection. Useful for visually reviewing an automatically selected face candidate.")]
+    public async Task<string> ZoomToSelection()
+    {
+        var result = await sta.InvokeLoggedAsync(
+            nameof(ZoomToSelection),
+            null,
+            selection.ZoomToSelection);
+        return JsonSerializer.Serialize(result);
     }
 }

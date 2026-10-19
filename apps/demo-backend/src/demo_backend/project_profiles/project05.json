@@ -1,0 +1,173 @@
+{
+  "schemaVersion": "project-assembly-profile/v1",
+  "profileVersion": "2026-10-01.5",
+  "projectId": "project05",
+  "baseModule": "A000",
+  "validatedSequence": ["A000", "D000", "K000", "F000", "M000", "G000", "N000", "P000", "B000"],
+  "modules": {
+    "A000": {
+      "label": "机架与回流固定环境",
+      "aliases": ["机架", "箱体", "固定环境", "回流模组"],
+      "componentName": "FL9C254098A000.001",
+      "componentNames": ["FL9C254098A000.001", "FL9C254098E000.001"],
+      "instanceCount": 2,
+      "sourceConfidence": "inferred-from-prototype"
+    },
+    "D000": {
+      "label": "上层产品输送模组",
+      "aliases": ["传输模组", "输送模组"],
+      "componentName": "FL9C254098D000.001",
+      "instanceCount": 1,
+      "sourceConfidence": "measured-from-cad",
+      "assemblyPolicy": {
+        "requires": ["A000"],
+        "placementKind": "frame-anchored-primary",
+        "ruleSummary": "先按机架安装面和原型配合证据确定上层输送基准。",
+        "acceptanceChecks": ["机架安装基准", "输送方向", "保存重开", "安装接触分类"],
+        "implementationStatus": "single_module_cad_validated",
+        "missingImplementation": "静态位姿插入、保存重开和碰撞分级验收已完成；厂商XYZ安装基准仍待权威化。",
+        "engineeringLimitations": ["安装框架来自原型配合图，厂商XYZ基准尚未确认。"]
+      }
+    },
+    "K000": {
+      "label": "双工位顶升定位模组",
+      "aliases": ["顶升定位模组", "顶升模组", "定位模组"],
+      "componentName": "FL9C254098K000.001",
+      "instanceCount": 1,
+      "sourceConfidence": "measured-from-cad",
+      "assemblyPolicy": {
+        "requires": ["A000", "D000"],
+        "placementKind": "transport-dependent-rigid",
+        "ruleSummary": "依据输送路径确定两个顶升工作位。",
+        "acceptanceChecks": ["两个工作位", "415 mm原型工位间距", "载具通道", "静态实体分离"],
+        "implementationStatus": "single_module_cad_validated",
+        "missingImplementation": "静态工作位建装、保存重开和原型基线碰撞验收已完成；动态顶升状态仍待验证。",
+        "engineeringLimitations": ["工位中心是CAD几何推断值，尚未由工艺工程师确认。"]
+      }
+    },
+    "F000": {
+      "label": "双读头条码扫描模组",
+      "aliases": ["扫描模组", "扫码模组", "条码扫描模组"],
+      "componentName": "FL9C254098F000.001",
+      "instanceCount": 1,
+      "sourceConfidence": "inferred-from-prototype",
+      "assemblyPolicy": {
+        "requires": ["D000", "K000"],
+        "placementKind": "transport-dependent-optical",
+        "ruleSummary": "在输送缓冲位布置载具与产品读头，分别覆盖载具条码及四个产品条码。",
+        "acceptanceChecks": ["缓冲扫描位", "两条光轴", "条码目标侧", "无遮挡", "工作距离"],
+        "implementationStatus": "single_module_cad_validated",
+        "missingImplementation": "静态CAD与碰撞闭环已完成；精确SR-X100距离和真实条码面仍待权威化。",
+        "engineeringLimitations": ["PPT中的条码位置明确标注为暂定。"]
+      }
+    },
+    "M000": {
+      "label": "产品定位CCD模组",
+      "aliases": ["CCD模组", "视觉模组", "产品CCD"],
+      "componentName": "FL9C254098M000.001",
+      "instanceCount": 1,
+      "sourceConfidence": "inferred-from-prototype",
+      "assemblyPolicy": {
+        "requires": ["D000", "K000"],
+        "placementKind": "transport-dependent-optical",
+        "ruleSummary": "使CCD依次覆盖两个顶升工作位上的产品定位特征。",
+        "acceptanceChecks": ["双工作位覆盖", "19×14.25 mm视场", "110±2 mm相机工作距离", "20±5 mm光源距离"],
+        "implementationStatus": "single_module_cad_validated",
+        "missingImplementation": "静态CAD与碰撞闭环已完成；精确镜头端口、视场和工作距离仍待权威化。",
+        "engineeringLimitations": ["PPT给出光学参数，但CAD中的权威光学基准尚未登记。"]
+      }
+    },
+    "G000": {
+      "label": "校准与称重组合模组",
+      "aliases": ["功能模组", "校准称重模组", "标定称重模组"],
+      "componentName": "FL9C254098G000.001",
+      "instanceCount": 1,
+      "sourceConfidence": "inferred-from-prototype",
+      "assemblyPolicy": {
+        "requires": ["A000"],
+        "placementKind": "independent-rigid-multifunction",
+        "ruleSummary": "在操作侧优先布置刚性组合模组，并分别保留校准点、称重点和维护空间。",
+        "acceptanceChecks": ["校准点", "称重点", "操作侧空间", "维护包络", "实体分离"],
+        "implementationStatus": "single_module_cad_validated",
+        "missingImplementation": "静态CAD与碰撞闭环已完成；维护包络、校准和称重精度仍待权威化。",
+        "engineeringLimitations": ["校准与称重能力来自PPT及目录语义，具体服务点仍待CAD证据。"]
+      }
+    },
+    "N000": {
+      "label": "自动针头清洁模组",
+      "aliases": ["清洁模组", "针头清洁模组"],
+      "componentName": "FL9C251093N000.001",
+      "instanceCount": 1,
+      "sourceConfidence": "inferred-from-prototype",
+      "assemblyPolicy": {
+        "requires": ["A000"],
+        "placementKind": "independent-rigid-service-pair",
+        "ruleSummary": "布置自动针头清洁模组，并保留双阀插入与维护空间。",
+        "acceptanceChecks": ["清洁服务点", "双阀插入通道", "维护包络", "实体分离"],
+        "implementationStatus": "single_module_cad_validated",
+        "missingImplementation": "静态CAD与碰撞闭环已完成；针头插入深度和动态清洁工况仍待验证。",
+        "engineeringLimitations": ["项目05复用了FL9C251093N000装配编号，身份已确认但工艺点未确认。"]
+      }
+    },
+    "P000": {
+      "label": "双杯排胶模组",
+      "aliases": ["排胶模组", "排胶杯", "废胶收集模组"],
+      "componentName": "FL9C254098P000.001",
+      "instanceCount": 1,
+      "sourceConfidence": "inferred-from-prototype",
+      "assemblyPolicy": {
+        "requires": ["A000"],
+        "placementKind": "independent-rigid-service-pair",
+        "ruleSummary": "布置一个含两个杯口的排胶模组，并使两个杯口成为可达服务目标。",
+        "acceptanceChecks": ["两个杯口", "阀头可达", "更换维护空间", "实体分离"],
+        "implementationStatus": "single_module_cad_validated",
+        "missingImplementation": "静态CAD与碰撞闭环已完成；阀头插入深度和杯体更换包络仍待验证。",
+        "engineeringLimitations": ["当前仅确认排胶功能和原型实例数，未确认阀头插入深度。"]
+      }
+    },
+    "B000": {
+      "label": "龙门与双阀Z轴运动组",
+      "aliases": ["龙门模组", "点胶龙门", "Z轴模组", "双阀运动组"],
+      "componentName": "FL9C254098B000.001",
+      "componentNames": ["FL9C254098B000.001", "FL9C254098Z000.001"],
+      "instanceCount": 2,
+      "sourceConfidence": "inferred-from-prototype",
+      "assemblyPolicy": {
+        "requires": ["D000", "K000", "F000", "M000", "G000", "N000", "P000"],
+        "placementKind": "coverage-solved-rigid-group",
+        "ruleSummary": "最后反求龙门位置，使双阀公共行程覆盖两个点胶工作位及全部服务点。",
+        "acceptanceChecks": ["双工作位可达", "校准称重可达", "双清洁可达", "双排胶可达", "传输门洞", "静态碰撞门禁"],
+        "implementationStatus": "single_module_cad_validated",
+        "missingImplementation": "B000/Z000静态组合位姿、保存重开和碰撞闭环已完成；权威限位与动态状态仍待验证。",
+        "engineeringLimitations": ["目前只有原型顶层位姿和配合图，不能替代权威机械限位。"]
+      }
+    }
+  },
+  "collisionPolicy": {
+    "default": "strictInflatedMultiAabbSeparation",
+    "conditionalBrepPairs": [["D000", "K000"], ["D000", "B000"], ["D000", "F000"], ["D000", "M000"], ["K000", "B000"], ["K000", "F000"], ["K000", "M000"], ["B000", "F000"], ["B000", "G000"], ["B000", "M000"], ["B000", "N000"], ["B000", "P000"], ["F000", "M000"]],
+    "installationContactPairs": [["A000", "D000"], ["A000", "K000"], ["A000", "B000"], ["A000", "F000"], ["A000", "G000"], ["A000", "M000"], ["A000", "N000"], ["A000", "P000"]]
+  },
+  "artifacts": {
+    "parameterPackage": "demo/project05_parameter_package.json",
+    "processSemantics": "demo/layout_previews/project05_process_semantics.json",
+    "moduleMateGraph": "demo/layout_previews/project05_module_mate_graph.json",
+    "orderedClosure": "demo/semantic_ports/project05_ordered_jobs/latest_ordered_closure.json",
+    "fullMachineClosure": "demo/semantic_ports/project05_ordered_direct_rank1_v7/project05_static_collision_release_closure.json",
+    "liveAdapterClosure": "demo/semantic_ports/project05_live_adapter_jobs/project05_live_adapter_closure.json",
+    "liveAdapterFinalAssembly": "demo/semantic_ports/project05_live_adapter_full_jobs/project05-job-8accc910d933/cad-working/step-08-b000-attempt1/step08_B000_cumulative.SLDASM",
+    "liveAdapterUninterruptedSummary": "demo/semantic_ports/project05_live_adapter_full_jobs/latest_uninterrupted.json",
+    "liveAdapterTiming": "demo/semantic_ports/project05_live_adapter_full_jobs/project05-job-8accc910d933/timing-report.json",
+    "finalAssembly": "demo/semantic_ports/project05_ordered_direct_rank1_v7/step08_B000_cumulative.SLDASM",
+    "pipelineTiming": "demo/semantic_ports/project05_ordered_direct_rank1_v7/project05_end_to_end_timing.json"
+  },
+  "releaseBoundary": {
+    "planPreviewMayPass": true,
+    "cadExecutionMayStart": true,
+    "staticDemoMayPass": true,
+    "staticCadClosureStatus": "PROJECT05_FULL_11_MODULE_STATIC_DEMO_CLOSED",
+    "liveCadApiMayStart": true,
+    "liveCadActionClosureStatus": "PROJECT05_LIVE_ADAPTER_UNINTERRUPTED_FULL_CHAIN_CLOSED",
+    "productionDynamicRequires": ["完整安装端口", "F000扫描光学基准", "M000 CCD光学基准", "全部服务点", "B000/Z000权威行程", "完整多包围盒", "逐步CAD闭环"]
+  }
+}

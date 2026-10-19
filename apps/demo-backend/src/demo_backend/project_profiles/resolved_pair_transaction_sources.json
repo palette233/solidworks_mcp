@@ -1,0 +1,107 @@
+{
+  "schemaVersion": "resolved-pair-transaction-sources/v1",
+  "projects": {
+    "project01": {
+      "enabled": true,
+      "sourceAssemblyPath": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\001-给港中文AI训练用资料_20260624\\项目01\\01-项目3D图纸\\CITLB24N074&CITLB24N075\\FL9C24N074AA00.001.SLDASM"
+    },
+    "project02": {
+      "enabled": true,
+      "sourceAssemblyPath": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\001-给港中文AI训练用资料_20260624\\项目02\\01-项目3D图纸\\FL9A24D062A000.001\\FL9A24D062A000.001.SLDASM",
+      "independentPairInstallations": [
+        {
+          "targetModuleToken": "A800",
+          "contextModuleToken": "A600",
+          "constraintRequirement": "fully_constrained",
+          "sourceAssemblyPath": "demo/semantic_ports/project02_ordered_true_increment_v1/step00_A600_base_V3.SLDASM",
+          "effectiveMateGraphPath": "demo/semantic_ports/project02_A800_case_anchored_installation_v1/assembly_plan_effective.json",
+          "evidenceBoundary": "A600-only independent base plus fresh A800 source insertion; longitudinal residual DOF uses the declared Project02 case anchor."
+        },
+        {
+          "targetModuleToken": "A180",
+          "contextModuleToken": "A600",
+          "constraintRequirement": "fully_constrained",
+          "sourcePolicy": "prior_pair_checkpoint",
+          "requiredSeedModuleToken": "A800",
+          "effectiveMateGraphPath": "demo/semantic_ports/project02_A180_scanner_installation_v1/assembly_plan_effective.json",
+          "evidenceBoundary": "Fresh A180 is inserted into an attested A600+A800 checkpoint; the source slot relation remains read-only and the declared Project02 case anchor closes residual DOF."
+        },
+        {
+          "targetModuleToken": "A700",
+          "contextModuleToken": "A600",
+          "constraintRequirement": "accepted_flexible_or_fully_constrained",
+          "sourcePolicy": "prior_pair_checkpoint",
+          "requiredSeedModuleToken": "A180",
+          "effectiveMateGraphPath": "demo/semantic_ports/project02_service_installations_v1/A700/static_installation_effective.json",
+          "evidenceBoundary": "Fresh flexible A700 is inserted into the attested A600+A800+A180 checkpoint. Its six real installation mates must solve cleanly; a Project02-calibrated non-vendor root anchor and two internal state anchors select the demonstrated static branch required by downstream service-module spacing."
+        },
+        {
+          "targetModuleToken": "A300",
+          "contextModuleToken": "A600",
+          "constraintRequirement": "fully_constrained",
+          "sourcePolicy": "prior_pair_checkpoint",
+          "requiredSeedModuleToken": "A700",
+          "effectiveMateGraphPath": "demo/semantic_ports/project02_service_installations_v1/A300/assembly_plan_effective.json",
+          "evidenceBoundary": "Fresh A300 is inserted into the attested A600+A800+A180+A700 checkpoint; three real installation mates plus the declared Project02 case anchor must produce a clean fully-constrained target."
+        },
+        {
+          "targetModuleToken": "A500",
+          "contextModuleToken": "A600",
+          "constraintRequirement": "fully_constrained",
+          "sourcePolicy": "prior_pair_checkpoint",
+          "requiredSeedModuleToken": "A300",
+          "effectiveMateGraphPath": "demo/semantic_ports/project02_A500_full_installation_v2/assembly_plan_effective.json",
+          "evidenceBoundary": "Fresh A500 is inserted into the attested A600+A800+A180+A700+A300 checkpoint. Its coincident, width and distance installation relations must solve cleanly and fully constrain the target while preserving the installed A700 context."
+        },
+        {
+          "targetModuleToken": "A100",
+          "contextModuleToken": "A600",
+          "constraintRequirement": "fully_constrained",
+          "sourcePolicy": "prior_pair_checkpoint",
+          "requiredSeedModuleToken": "A500",
+          "effectiveMateGraphPath": "demo/semantic_ports/project02_service_installations_v1/A100/top_level_installation_effective.json",
+          "evidenceBoundary": "Fresh A100 is inserted into the attested six-module checkpoint and located by its three real A100/A600 installation mates. This gate covers the top-level gantry installation only; internal gantry motion state, travel limits and process-pose coverage remain explicitly unverified."
+        },
+        {
+          "targetModuleToken": "A200",
+          "contextModuleToken": "A600",
+          "constraintRequirement": "fully_constrained",
+          "sourcePolicy": "prior_pair_checkpoint",
+          "requiredSeedModuleToken": "A100",
+          "effectiveMateGraphPath": "demo/semantic_ports/project02_full_machine_increment_v1/a200_increment_effective.json",
+          "evidenceBoundary": "Fresh A200 is inserted into the attested seven-module checkpoint. One coincident mate, two ordered slot mates and a Project02-calibrated non-vendor case anchor must reconstruct a clean fully-constrained static installation. CCD working distance, field of view and optical-channel clearance remain explicitly unverified."
+        },
+        {
+          "targetModuleToken": "T401",
+          "contextModuleToken": "A600",
+          "constraintRequirement": "fully_constrained",
+          "sourcePolicy": "prior_pair_checkpoint",
+          "requiredSeedModuleToken": "A200",
+          "effectiveMateGraphPath": "demo/semantic_ports/project02_full_machine_increment_v1/t401-1_increment_effective.json",
+          "evidenceBoundary": "The first fresh T401 occurrence is inserted into the attested checkpoint through its A600 coincident and distance relations plus a Project02-calibrated non-vendor case anchor. Hose routing and maintenance access remain explicitly unverified."
+        },
+        {
+          "targetModuleToken": "T401",
+          "contextModuleToken": "A200",
+          "constraintRequirement": "fully_constrained",
+          "sourcePolicy": "prior_pair_checkpoint",
+          "requiredSeedModuleToken": "T401",
+          "effectiveMateGraphPath": "demo/semantic_ports/project02_full_machine_increment_v1/t401-2_increment_effective.json",
+          "evidenceBoundary": "A second occurrence of the shared T401 CAD definition is inserted after the first occurrence and installed against A200 by the real distance relation plus a Project02-calibrated non-vendor case anchor. The occurrence-specific hierarchy path must prevent replacement of the first T401; hose routing and maintenance access remain explicitly unverified."
+        }
+      ]
+    },
+    "project03": {
+      "enabled": true,
+      "sourceAssemblyPath": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\001-给港中文AI训练用资料_20260624\\项目03\\01-项目3D图纸\\FL9A24D063A000.001-0415\\FL9A24D063A000.001.SLDASM"
+    },
+    "project05": {
+      "enabled": true,
+      "sourceAssemblyPath": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\001-给港中文AI训练用资料_20260624\\项目05\\01-项目3D图纸\\1.CITLD254098_L3 Apply epoxy glue to CMC header [4台]\\1.CITLD254098_L3 Apply epoxy glue to CMC header [4台]\\FL9C254098AA00.001.SLDASM"
+    },
+    "project06": {
+      "enabled": false,
+      "blocker": "Project06 is identity-only and has no authoritative executable mate transaction."
+    }
+  }
+}

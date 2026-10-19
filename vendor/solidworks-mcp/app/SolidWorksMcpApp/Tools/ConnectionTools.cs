@@ -1,6 +1,7 @@
 using ModelContextProtocol.Server;
 using SolidWorksBridge.SolidWorks;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Text.Json;
 
 namespace SolidWorksMcpApp.Tools;
@@ -41,6 +42,55 @@ public class ConnectionTools(StaDispatcher sta, ISwConnectionManager connection)
     {
         await sta.InvokeLoggedAsync(nameof(SolidWorksDisconnect), null, connection.Disconnect);
         return "Disconnected from SolidWorks.";
+    }
+
+    [McpServerTool, Description("Exit the connected SolidWorks application after the caller confirms every open document has already been saved. This is intended for deterministic cleanup after an isolated CAD batch; it refuses to run without explicit confirmation.")]
+    public async Task<string> ExitSolidWorks(bool confirmAllDocumentsSaved = false)
+    {
+        if (!confirmAllDocumentsSaved)
+        {
+            throw new ArgumentException(
+                "ExitSolidWorks requires confirmAllDocumentsSaved=true.",
+                nameof(confirmAllDocumentsSaved));
+        }
+
+        var result = await sta.InvokeLoggedAsync(nameof(ExitSolidWorks), null, () =>
+        {
+            connection.EnsureConnected();
+            var app = connection.SwApp
+                ?? throw new InvalidOperationException("SolidWorks is not connected.");
+            var openDocuments = app.GetDocuments();
+            var processCountBefore = Process.GetProcessesByName("SLDWORKS").Length;
+            app.ExitApplication();
+            connection.Disconnect();
+
+            var processCountAfter = processCountBefore;
+            var stopwatch = Stopwatch.StartNew();
+            while (stopwatch.Elapsed < TimeSpan.FromSeconds(15))
+            {
+                processCountAfter = Process.GetProcessesByName("SLDWORKS").Length;
+                if (processCountAfter < processCountBefore)
+                {
+                    break;
+                }
+                Thread.Sleep(250);
+            }
+            var processExitObserved = processCountAfter < processCountBefore;
+            return new
+            {
+                success = processExitObserved,
+                exitRequested = true,
+                processExitObserved,
+                processCountBefore,
+                processCountAfter,
+                openDocumentsAtExit = openDocuments,
+                message = processExitObserved
+                    ? "SolidWorks process count decreased after ExitApp."
+                    : "ExitApp returned, but no SolidWorks process exit was observed within 15 seconds.",
+            };
+        });
+
+        return JsonSerializer.Serialize(result);
     }
 
     [McpServerTool, Description("Report the running SolidWorks revision, build metadata, executable path, and this bridge's compatibility classification relative to the compiled interop baseline. Use this before claiming 2025 or 2026 compatibility in a workflow.")]

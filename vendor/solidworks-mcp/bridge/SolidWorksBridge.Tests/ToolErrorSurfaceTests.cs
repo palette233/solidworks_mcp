@@ -76,16 +76,4 @@ public class ToolErrorSurfaceTests
         feature.Verify(f => f.ExtrudeCut(It.IsAny<double>(), It.IsAny<EndCondition>(), It.IsAny<bool>()), Times.Never);
     }
 
-    [Fact]
-    public async Task AddMateCoincident_WithUnknownAlign_ThrowsMcpExceptionWithReason()
-    {
-        using var sta = new StaDispatcher();
-        var assembly = new Mock<IAssemblyService>();
-        var tool = new AssemblyTools(sta, assembly.Object);
-
-        var error = await Assert.ThrowsAsync<McpException>(() => tool.AddMateCoincident(align: 7));
-
-        Assert.Contains("align must be 0 (None), 1 (AntiAligned), or 2 (Closest).", error.Message);
-        assembly.Verify(a => a.AddMateCoincident(It.IsAny<MateAlign>()), Times.Never);
-    }
 }

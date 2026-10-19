@@ -447,6 +447,92 @@ public class SelectionServiceTests
     }
 
     [Fact]
+    public void TraverseActiveFeatureManagerTree_ReturnsUiTreeNodesWithFeatureAndComponentMetadata()
+    {
+        var feature = new Mock<Feature>();
+        feature.Setup(f => f.Name).Returns("Boss-Extrude1");
+        feature.Setup(f => f.GetTypeName2()).Returns("BossExtrude");
+
+        var component = new Mock<Component2>();
+        component.Setup(c => c.Name2).Returns("SquareTube-1");
+        component.Setup(c => c.GetPathName()).Returns(@"C:\Models\SquareTube.sldprt");
+
+        var featureNode = new Mock<TreeControlItem>();
+        featureNode.SetupGet(n => n.Text).Returns("Boss-Extrude1");
+        featureNode.SetupGet(n => n.ObjectType).Returns(101);
+        featureNode.SetupGet(n => n.Object).Returns(feature.Object);
+        featureNode.SetupGet(n => n.IsRoot).Returns(false);
+        featureNode.SetupGet(n => n.Expanded).Returns(false);
+        featureNode.Setup(n => n.GetFirstChild()).Returns((TreeControlItem)null!);
+        featureNode.Setup(n => n.GetNext()).Returns((TreeControlItem)null!);
+
+        var componentNode = new Mock<TreeControlItem>();
+        componentNode.SetupGet(n => n.Text).Returns("SquareTube-1");
+        componentNode.SetupGet(n => n.ObjectType).Returns(202);
+        componentNode.SetupGet(n => n.Object).Returns(component.Object);
+        componentNode.SetupGet(n => n.IsRoot).Returns(false);
+        componentNode.SetupGet(n => n.Expanded).Returns(true);
+        componentNode.Setup(n => n.GetFirstChild()).Returns(featureNode.Object);
+        componentNode.Setup(n => n.GetNext()).Returns((TreeControlItem)null!);
+
+        var rootNode = new Mock<TreeControlItem>();
+        rootNode.SetupGet(n => n.Text).Returns("TopAsm");
+        rootNode.SetupGet(n => n.ObjectType).Returns(1);
+        rootNode.SetupGet(n => n.Object).Returns((object?)null);
+        rootNode.SetupGet(n => n.IsRoot).Returns(true);
+        rootNode.SetupGet(n => n.Expanded).Returns(true);
+        rootNode.Setup(n => n.GetFirstChild()).Returns(componentNode.Object);
+        rootNode.Setup(n => n.GetNext()).Returns((TreeControlItem)null!);
+
+        var featureManager = new Mock<IFeatureManager>();
+        featureManager.Setup(fm => fm.GetFeatureTreeRootItem2(It.IsAny<int>())).Returns(rootNode.Object);
+
+        var (manager, swApp, doc) = ConnectedWithDoc();
+        doc.Setup(d => d.GetActiveSketch2()).Returns((object?)null);
+        doc.Setup(d => d.GetTitle()).Returns("TopAsm");
+        doc.Setup(d => d.GetPathName()).Returns(@"C:\Models\TopAsm.sldasm");
+        doc.Setup(d => d.GetType()).Returns((int)swDocumentTypes_e.swDocASSEMBLY);
+        swApp.Setup(s => s.FeatureManager).Returns(featureManager.Object);
+
+        var result = new SelectionService(manager.Object).TraverseActiveFeatureManagerTree();
+
+        Assert.Equal("TopAsm", result.DocumentTitle);
+        Assert.Equal(Path.GetFullPath(@"C:\Models\TopAsm.sldasm"), result.DocumentPath);
+        Assert.Equal(3, result.NodeCount);
+        Assert.Collection(result.Nodes,
+            root =>
+            {
+                Assert.Equal(0, root.NodeIndex);
+                Assert.Equal(0, root.Depth);
+                Assert.Equal("TopAsm", root.Text);
+                Assert.True(root.IsRoot);
+                Assert.Equal("0:TopAsm", root.GraphPath);
+                Assert.Null(root.ParentGraphPath);
+            },
+            componentItem =>
+            {
+                Assert.Equal(1, componentItem.NodeIndex);
+                Assert.Equal(1, componentItem.Depth);
+                Assert.Equal("SquareTube-1", componentItem.Text);
+                Assert.Equal("component", componentItem.ObjectKind);
+                Assert.Equal("SquareTube-1", componentItem.ComponentName);
+                Assert.Equal(Path.GetFullPath(@"C:\Models\SquareTube.sldprt"), componentItem.ComponentPath);
+                Assert.Equal("0:TopAsm/0:SquareTube-1", componentItem.GraphPath);
+            },
+            featureItem =>
+            {
+                Assert.Equal(2, featureItem.NodeIndex);
+                Assert.Equal(2, featureItem.Depth);
+                Assert.Equal("Boss-Extrude1", featureItem.Text);
+                Assert.Equal("feature", featureItem.ObjectKind);
+                Assert.Equal("Boss-Extrude1", featureItem.FeatureName);
+                Assert.Equal("BossExtrude", featureItem.FeatureTypeName);
+                Assert.False(featureItem.IsSketch);
+                Assert.Equal("0:TopAsm/0:SquareTube-1/0:Boss-Extrude1", featureItem.GraphPath);
+            });
+    }
+
+    [Fact]
     public void ListModelHealthSensors_ReturnsStructuredSensorMetadata()
     {
         var sensor = new Mock<ISensor>();

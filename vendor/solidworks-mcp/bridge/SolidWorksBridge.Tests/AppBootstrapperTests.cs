@@ -175,7 +175,6 @@ public class AppBootstrapperTests
             "sw.assembly.add_mate_coincident", "sw.assembly.add_mate_concentric",
             "sw.assembly.add_mate_parallel",
             "sw.assembly.add_mate_distance", "sw.assembly.add_mate_angle",
-            "sw.assembly.list_components", "sw.assembly.list_components_recursive",
             "sw.assembly.check_interference", "sw.assembly.replace_component",
             "sw.workflow.diagnose_active_document_health",
             "sw.workflow.replace_nested_component_and_verify_persistence",
@@ -189,6 +188,24 @@ public class AppBootstrapperTests
     // ─────────────────────────────────────────────────────────────
     // sw.connect / sw.disconnect
     // ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void RegisterHandlers_DoesNotExposeComponentListSearchMethods()
+    {
+        var (bootstrapper, _, _, handler) = Build();
+        bootstrapper.RegisterHandlers();
+
+        var removed = new[]
+        {
+            "sw.assembly.list_components",
+            "sw.assembly.list_components_recursive",
+            "sw.assembly.resolve_component_target",
+            "sw.assembly.analyze_shared_part_edit_impact",
+        };
+
+        foreach (var method in removed)
+            Assert.False(handler.HasMethod(method), $"Method '{method}' should not be registered");
+    }
 
     [Fact]
     public async Task Handler_SwConnect_CallsConnect_ReturnsConnectedTrue()
@@ -674,12 +691,12 @@ public class AppBootstrapperTests
         bootstrapper.RegisterHandlers();
         const string outputPath = @"C:\exports\view.png";
         var expected = new SwImageExportResult(outputPath, "image/png", 1024, 768, null);
-        docSvc.Setup(d => d.ExportCurrentViewPng(outputPath, 1024, 768, false)).Returns(expected);
+        docSvc.Setup(d => d.ExportCurrentViewPng(outputPath, 1024, 768, false, true)).Returns(expected);
 
         var response = await handler.HandleAsync(Req("sw.view.export_png", new { outputPath, width = 1024, height = 768, includeBase64Data = false }));
 
         Assert.Null(response.Error);
-        docSvc.Verify(d => d.ExportCurrentViewPng(outputPath, 1024, 768, false), Times.Once);
+        docSvc.Verify(d => d.ExportCurrentViewPng(outputPath, 1024, 768, false, true), Times.Once);
     }
 
     // ─────────────────────────────────────────────────────────────
