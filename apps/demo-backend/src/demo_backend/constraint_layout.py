@@ -464,6 +464,37 @@ def generate_constraint_layout(
             "relativeConstraintsRemainSourceIndependent": options.source_position_independent,
         }
 
+    # Some modules (notably Project02 A100) are positioned by inverse process
+    # coverage and then the complete layout is translated into the case
+    # installation frame.  A module-only CAD calibration must therefore be
+    # applied *after* that common translation; using postSolveAnchorBiasU/V
+    # before case anchoring would move every other module in the opposite
+    # direction when the case anchor is restored.
+    post_case_anchor_biases: list[dict[str, Any]] = []
+    if options.source_position_independent:
+        adjusted: list[Placement] = []
+        for placement in placements:
+            semantic = semantics.get(placement.component_name)
+            parameters = semantic.parameters if semantic else {}
+            delta_u = float(parameters.get("postCaseAnchorBiasU", 0.0))
+            delta_v = float(parameters.get("postCaseAnchorBiasV", 0.0))
+            adjusted.append(_translate_placement(placement, delta_u, delta_v))
+            if not (
+                math.isclose(delta_u, 0.0, abs_tol=1e-15)
+                and math.isclose(delta_v, 0.0, abs_tol=1e-15)
+            ):
+                post_case_anchor_biases.append(
+                    {
+                        "componentName": placement.component_name,
+                        "delta": [delta_u, delta_v],
+                    }
+                )
+        placements = adjusted
+        _apply_post_case_anchor_bias_to_joint_search_solutions(
+            joint_search_report,
+            semantics,
+        )
+
     by_name = {item.component_name: item for item in placements}
     footprint_by_name = {item.component_name: item for item in footprints}
     spatial_validation = _evaluate_spatial_hard_constraints(
@@ -505,6 +536,16 @@ def generate_constraint_layout(
         )
     except ProcessConstraintConfigurationError as exc:
         raise ConstraintLayoutError(str(exc)) from exc
+    if not process_validation["hardFeasible"]:
+        failures = [
+            str(item.get("id") or item.get("type") or "unknown-process-constraint")
+            for item in process_validation.get("diagnostics", [])
+            if item.get("hard", True) and not item.get("success", False)
+        ]
+        raise ConstraintLayoutError(
+            "Final layout violates hard process constraints after post-solve "
+            "translation/bias: " + ", ".join(failures[:8])
+        )
     inverse_gantry_coverage = _inverse_gantry_anchor_report(
         placements,
         semantics,
@@ -636,6 +677,7 @@ def generate_constraint_layout(
                 ),
                 "keepTopLevelMatesSuppressed": options.source_position_independent,
                 "caseAnchor": case_anchor_report,
+                "postCaseAnchorBiases": post_case_anchor_biases,
                 "inverseGantryCoverage": inverse_gantry_coverage,
                 "allowedProjectedOverlapPairs": [
                     sorted(pair) for pair in sorted(explicit_overlap_pairs, key=lambda item: sorted(item))
@@ -773,6 +815,50 @@ def _apply_post_solve_bias_to_joint_search_solutions(
             )
         if applied:
             solution["postSolveAnchorBiases"] = applied
+
+
+def _apply_post_case_anchor_bias_to_joint_search_solutions(
+    joint_search_report: dict[str, Any],
+    semantics: dict[str, ModuleSemantic],
+) -> None:
+    """Apply module-only CAD calibration after common case anchoring.
+
+    Keeping Top-K records aligned with the primary placement is mandatory:
+    candidate approval materializes a solution from these records rather than
+    from the primary list returned by the solver.
+    """
+    for solution in joint_search_report.get("solutions") or []:
+        applied: list[dict[str, Any]] = []
+        for item in solution.get("placements") or []:
+            component_name = str(item.get("componentName") or "")
+            semantic = semantics.get(component_name)
+            parameters = semantic.parameters if semantic else {}
+            delta_u = float(parameters.get("postCaseAnchorBiasU", 0.0))
+            delta_v = float(parameters.get("postCaseAnchorBiasV", 0.0))
+            if math.isclose(delta_u, 0.0, abs_tol=1e-15) and math.isclose(
+                delta_v,
+                0.0,
+                abs_tol=1e-15,
+            ):
+                continue
+            item["x"] = float(item["x"]) + delta_u
+            item["y"] = float(item["y"]) + delta_v
+            bounds = item.get("bounds")
+            if isinstance(bounds, list) and len(bounds) == 4:
+                item["bounds"] = [
+                    float(bounds[0]) + delta_u,
+                    float(bounds[1]) + delta_v,
+                    float(bounds[2]) + delta_u,
+                    float(bounds[3]) + delta_v,
+                ]
+            applied.append(
+                {
+                    "componentName": component_name,
+                    "delta": [delta_u, delta_v],
+                }
+            )
+        if applied:
+            solution["postCaseAnchorBiases"] = applied
 
 
 def _inverse_gantry_anchor_report(
@@ -2694,6 +2780,49 @@ def _joint_place_functionals(
         candidate_counts[item.component_name] = max(candidate_counts.get(item.component_name, 0), len(ordered))
 
         search_candidates = list(ordered)
+        feedback_priority_count = int(
+            semantic.parameters.get("collisionFeedbackPriorityCandidateCount", 0)
+            if semantic
+            else 0
+        )
+        if feedback_priority_count < 0 or feedback_priority_count > 64:
+            raise ConstraintLayoutError(
+                f"Functional component '{item.component_name}' "
+                "collisionFeedbackPriorityCandidateCount must be between 0 and 64."
+            )
+        # Directional feedback candidates are inserted at the beginning of the
+        # geometry list. Preserve their identity across optional repair-candidate
+        # prepending so the later soft B-Rep ordering cannot starve them.
+        feedback_priority_pose_keys = {
+            pose_key(candidate)
+            for candidate in search_candidates[:feedback_priority_count]
+        }
+        warm_start_priority_pose_keys: set[tuple[int, int, int]] = set()
+        if (
+            semantic
+            and bool(semantic.parameters.get("prioritizeWarmStartCandidate", False))
+            and item.component_name in warm_start_by_name
+        ):
+            warm_start = warm_start_by_name[item.component_name]
+            try:
+                warm_theta = float(warm_start["thetaDegrees"])
+                warm_quarters = int(
+                    round((warm_theta - item.source_theta) / 90.0)
+                ) % 4
+                if warm_quarters in _rotation_candidates(item, allow_rotation, semantic):
+                    warm_start_priority_pose_keys.add(
+                        pose_key(
+                            _placement_at_anchor(
+                                item,
+                                "functional",
+                                warm_quarters,
+                                gantry.anchor_u + float(warm_start["x"]),
+                                gantry.anchor_v + float(warm_start["y"]),
+                            )
+                        )
+                    )
+            except (KeyError, TypeError, ValueError):
+                pass
         repair_seed_limit = (
             0
             if item.component_name in locked_warm_start_names
@@ -2904,6 +3033,11 @@ def _joint_place_functionals(
         search_candidates = sorted(
             enumerate(search_candidates),
             key=lambda item_with_index: (
+                0
+                if pose_key(item_with_index[1]) in feedback_priority_pose_keys
+                else 1
+                if pose_key(item_with_index[1]) in warm_start_priority_pose_keys
+                else 2,
                 _conditional_brep_overlap_count(
                     item_with_index[1],
                     placed,
@@ -3392,6 +3526,8 @@ def _constraint_component_names(constraint: dict[str, Any]) -> set[str]:
         "sameSide": ("component", "referenceComponent"),
         "moduleClearance": ("firstComponent", "secondComponent"),
         "relativeAnchorWindow": ("component", "referenceComponent"),
+        "relativeAnchorExclusionWindow": ("component", "referenceComponent"),
+        "anchorExclusionWindow": ("component",),
         "lineOfSight": ("sourceComponent", "targetComponent"),
         "directedPointing": ("sourceComponent", "targetComponent"),
     }

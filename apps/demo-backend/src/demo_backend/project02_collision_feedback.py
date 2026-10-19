@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -121,13 +122,32 @@ def build_collision_feedback(
         str(item["componentCode"]): set(item["forbiddenRotationDegrees"])
         for item in restrictions
     }
+    collision_policies = [
+        policy
+        for policy in (
+            (request or {}).get("staticCollisionPolicy"),
+            (rejected_preview or {}).get("staticCollisionPolicy"),
+            ((rejected_preview or {}).get("constraintPlan") or {}).get(
+                "staticCollisionPolicy"
+            ),
+        )
+        if isinstance(policy, dict)
+    ]
     conditional_pairs = {
         frozenset((component_code(str(pair[0])), component_code(str(pair[1]))))
-        for pair in ((request or {}).get("staticCollisionPolicy") or {}).get(
-            "brepOnAabbOverlapPairs", []
-        )
+        for policy in collision_policies
+        for pair in policy.get("brepOnAabbOverlapPairs", [])
         if isinstance(pair, list) and len(pair) == 2
     }
+    installation_contact_pairs = {
+        frozenset((component_code(str(pair[0])), component_code(str(pair[1]))))
+        for policy in collision_policies
+        for pair in policy.get("installationContactPairs", [])
+        if isinstance(pair, list) and len(pair) == 2
+    }
+    fixed_environment_code = component_code(
+        str(((request or {}).get("fixedEnvironment") or {}).get("componentCode") or "")
+    )
     rejected_modules_by_code = {
         str(item["componentCode"]): item
         for item in (rejected_signature or {}).get("modules") or []
@@ -151,7 +171,14 @@ def build_collision_feedback(
             for code in (row["firstCode"], row["secondCode"])
         }
         pair_key = frozenset((row["firstCode"], row["secondCode"]))
-        pose_local = not excluded_by and pair_key in conditional_pairs
+        is_installation_contact = pair_key in installation_contact_pairs
+        # Both non-convex conditional pairs and nominal installation-contact
+        # pairs require local repair.  A confirmed material penetration at one
+        # A500/A600 pose must not become a global "never overlap" rule because
+        # the module still needs to sit on the enclosure installation plane.
+        pose_local = not excluded_by and (
+            pair_key in conditional_pairs or pair_key in installation_contact_pairs
+        )
         row["globalHardeningEligible"] = not excluded_by and not pose_local
         row["poseLocalExclusionEligible"] = pose_local
         row["excludedByForbiddenOrientationCodes"] = excluded_by
@@ -163,31 +190,83 @@ def build_collision_feedback(
             else "global-pair-hardening"
         )
         if pose_local:
-            first_pose = rejected_modules_by_code.get(row["firstCode"])
-            second_pose = rejected_modules_by_code.get(row["secondCode"])
-            if first_pose is None or second_pose is None:
+            moving_code = row["firstCode"]
+            reference_code = row["secondCode"]
+            if row["firstCode"] == fixed_environment_code:
+                moving_code = row["secondCode"]
+                reference_code = row["firstCode"]
+            moving_pose = rejected_modules_by_code.get(moving_code)
+            reference_pose = rejected_modules_by_code.get(reference_code)
+            if moving_pose is None or reference_pose is None:
                 raise ValueError(
                     "Conditional B-rep collision feedback requires both rejected module poses."
                 )
-            delta_u = float(first_pose["center"][0]) - float(second_pose["center"][0])
-            delta_v = float(first_pose["center"][1]) - float(second_pose["center"][1])
+            delta_u = float(moving_pose["center"][0]) - float(reference_pose["center"][0])
+            delta_v = float(moving_pose["center"][1]) - float(reference_pose["center"][1])
             exact_offsets: list[list[float]] | None = None
             exact_detail_path = Path(str(row.get("sourceResultPath") or ""))
             if not exact_detail_path.is_absolute():
                 exact_detail_path = batch_path.parent / exact_detail_path
             projection_frame = base_frame or (rejected_preview or {}).get("baseFrame") or {}
-            if exact_detail_path.is_file() and projection_frame:
+            if (
+                not is_installation_contact
+                and exact_detail_path.is_file()
+                and projection_frame
+            ):
                 exact_detail = json.loads(
                     exact_detail_path.read_text(encoding="utf-8-sig")
                 )
                 exact_offsets = derive_common_axis_clearance_offsets(
                     exact_detail,
                     projection_frame,
-                    moving_component_code=row["firstCode"],
+                    moving_component_code=moving_code,
                     clearance_meters=float(
                         (request or {}).get("minimumClearanceMeters", 0.01)
                     ),
                 )
+
+            # A prototype-validated clear installation anchor can be closer
+            # than the generic 5 mm local exclusion radius.  In that case the
+            # old square window rejected both the failed pose and the known
+            # clear pose, so feedback could never produce a publishable
+            # candidate.  Shrink only the affected axis to less than half the
+            # measured failed-to-clear distance.  The failed pose remains
+            # strictly inside the window, while the clear anchor remains
+            # outside it.  This is only an exclusion-window calibration; all
+            # process, reach and occupancy hard constraints still apply.
+            adaptive_half_u = exclusion_half_width
+            adaptive_half_v = exclusion_half_width
+            moving_semantic = next(
+                (
+                    value
+                    for name, value in ((request or {}).get("moduleSemantics") or {}).items()
+                    if component_code(str(name)) == moving_code
+                ),
+                {},
+            )
+            fixed_clear_anchor = (moving_semantic.get("parameters") or {}).get(
+                "fixedEnvironmentClearAnchor"
+            )
+            if (
+                is_installation_contact
+                and isinstance(fixed_clear_anchor, list)
+                and len(fixed_clear_anchor) == 2
+            ):
+                clear_delta_u = float(fixed_clear_anchor[0]) - float(
+                    moving_pose["center"][0]
+                )
+                clear_delta_v = float(fixed_clear_anchor[1]) - float(
+                    moving_pose["center"][1]
+                )
+                minimum_half_width = 1e-6
+                if 1e-12 < abs(clear_delta_u) <= exclusion_half_width:
+                    adaptive_half_u = max(
+                        minimum_half_width, abs(clear_delta_u) * 0.45
+                    )
+                if 1e-12 < abs(clear_delta_v) <= exclusion_half_width:
+                    adaptive_half_v = max(
+                        minimum_half_width, abs(clear_delta_v) * 0.45
+                    )
 
             # A complete leaf-level result can describe a much larger forbidden
             # relative-pose region than the small generic neighbourhood.  The
@@ -197,34 +276,46 @@ def build_collision_feedback(
             # rectangle: a candidate must leave it along at least one axis.
             u_negative = min(
                 (item[0] for item in exact_offsets or [] if item[0] < 0.0),
-                default=-exclusion_half_width,
+                default=-adaptive_half_u,
             )
             u_positive = max(
                 (item[0] for item in exact_offsets or [] if item[0] > 0.0),
-                default=exclusion_half_width,
+                default=adaptive_half_u,
             )
             v_negative = min(
                 (item[1] for item in exact_offsets or [] if item[1] < 0.0),
-                default=-exclusion_half_width,
+                default=-adaptive_half_v,
             )
             v_positive = max(
                 (item[1] for item in exact_offsets or [] if item[1] > 0.0),
-                default=exclusion_half_width,
+                default=adaptive_half_v,
             )
             row["relativePoseExclusion"] = {
-                "componentCode": row["firstCode"],
-                "referenceComponentCode": row["secondCode"],
+                "componentCode": moving_code,
+                "referenceComponentCode": reference_code,
                 "minDeltaU": delta_u + u_negative,
                 "maxDeltaU": delta_u + u_positive,
                 "minDeltaV": delta_v + v_negative,
                 "maxDeltaV": delta_v + v_positive,
                 "halfWidthMeters": exclusion_half_width,
+                "effectiveHalfWidthMeters": [adaptive_half_u, adaptive_half_v],
                 "derivation": (
                     "exact-leaf-aabb-common-axis-clearance"
                     if exact_offsets
+                    else "fixed-installation-local-neighbourhood"
+                    if is_installation_contact
                     else "generic-local-neighbourhood"
                 ),
                 "candidateEscapeOffsetsMeters": exact_offsets,
+                "caseAnchorAppliedTranslation": [
+                    float(value)
+                    for value in (
+                        ((rejected_preview or {}).get("caseAnchor") or {}).get(
+                            "appliedTranslation"
+                        )
+                        or [0.0, 0.0]
+                    )[:2]
+                ],
             }
     confirmed_pairs.sort(key=lambda row: (row["firstCode"], row["secondCode"]))
 
@@ -276,6 +367,16 @@ def apply_collision_feedback(
         if code in names_by_code:
             raise ValueError(f"Multiple semantic modules resolve to component code {code}.")
         names_by_code[code] = name
+    fixed_environment_code = component_code(
+        str((hardened.get("fixedEnvironment") or {}).get("componentCode") or "")
+    )
+    known_codes = set(names_by_code)
+    if fixed_environment_code:
+        known_codes.add(fixed_environment_code)
+    rejected_modules_by_code = {
+        str(item.get("componentCode") or ""): item
+        for item in (feedback.get("rejectedCandidate") or {}).get("modules") or []
+    }
 
     applied_pairs = []
     orientation_scoped_pairs = []
@@ -286,9 +387,10 @@ def apply_collision_feedback(
     for row in feedback.get("confirmedCollisionPairs") or []:
         first_code = str(row.get("firstCode") or "")
         second_code = str(row.get("secondCode") or "")
-        if first_code not in names_by_code or second_code not in names_by_code:
+        if first_code not in known_codes or second_code not in known_codes:
             raise ValueError(
-                f"Feedback pair {first_code}-{second_code} is absent from module semantics."
+                f"Feedback pair {first_code}-{second_code} is absent from module semantics "
+                "and the declared fixed environment."
             )
         if row.get("poseLocalExclusionEligible"):
             exclusion = row.get("relativePoseExclusion") or {}
@@ -303,19 +405,102 @@ def apply_collision_feedback(
                 f"cad-feedback-exclude-{first_code.lower()}-"
                 f"{second_code.lower()}-{evidence_tag}"
             )
+            if component_code_value not in names_by_code:
+                raise ValueError(
+                    f"Feedback moving component {component_code_value} is not solvable."
+                )
             constraint = {
                 "id": constraint_id,
-                "type": "relativeAnchorExclusionWindow",
                 "component": names_by_code[component_code_value],
-                "referenceComponent": names_by_code[reference_code_value],
-                "minDeltaU": float(exclusion["minDeltaU"]),
-                "maxDeltaU": float(exclusion["maxDeltaU"]),
-                "minDeltaV": float(exclusion["minDeltaV"]),
-                "maxDeltaV": float(exclusion["maxDeltaV"]),
                 "hard": True,
                 "retainInReducedPrototype": True,
                 "source": "complete exact CAD B-rep rejected relative pose",
             }
+            if reference_code_value == fixed_environment_code:
+                fixed_pose = rejected_modules_by_code.get(reference_code_value)
+                if fixed_pose is None:
+                    raise ValueError(
+                        f"Fixed reference {reference_code_value} has no rejected-candidate pose."
+                    )
+                fixed_u = float(fixed_pose["center"][0])
+                fixed_v = float(fixed_pose["center"][1])
+                case_translation = list(
+                    exclusion.get("caseAnchorAppliedTranslation") or [0.0, 0.0]
+                )
+                if len(case_translation) != 2:
+                    raise ValueError(
+                        "Fixed-environment collision feedback requires a two-value "
+                        "case-anchor translation."
+                    )
+                translation_u = float(case_translation[0])
+                translation_v = float(case_translation[1])
+                post_case_window = {
+                    "minU": fixed_u + float(exclusion["minDeltaU"]),
+                    "maxU": fixed_u + float(exclusion["maxDeltaU"]),
+                    "minV": fixed_v + float(exclusion["minDeltaV"]),
+                    "maxV": fixed_v + float(exclusion["maxDeltaV"]),
+                }
+                # The bounded search runs before the case-anchor translation
+                # that moves A800 onto the A600 installation datum.  Exact CAD
+                # feedback is measured after that translation.  Rebase the
+                # forbidden post-Replay anchor window into the pre-translation
+                # solver frame; otherwise the search can accept the same failed
+                # pose and only the final diagnostics notice the violation.
+                for existing in hardened.get("processConstraints") or []:
+                    if (
+                        existing.get("type") == "anchorExclusionWindow"
+                        and existing.get("fixedReferenceCode") == reference_code_value
+                        and existing.get("source")
+                        == "complete exact CAD B-rep rejected relative pose"
+                        and not existing.get("coordinateFrame")
+                    ):
+                        existing_post_window = {
+                            key: float(existing[key])
+                            for key in ("minU", "maxU", "minV", "maxV")
+                        }
+                        existing.update(
+                            {
+                                "minU": existing_post_window["minU"] - translation_u,
+                                "maxU": existing_post_window["maxU"] - translation_u,
+                                "minV": existing_post_window["minV"] - translation_v,
+                                "maxV": existing_post_window["maxV"] - translation_v,
+                                "coordinateFrame": "pre-case-anchor-solver",
+                                "postCaseAnchorWindow": existing_post_window,
+                                "caseAnchorAppliedTranslation": [
+                                    translation_u,
+                                    translation_v,
+                                ],
+                                "legacyCoordinateFrameMigrated": True,
+                            }
+                        )
+                constraint.update(
+                    {
+                        "type": "anchorExclusionWindow",
+                        "minU": post_case_window["minU"] - translation_u,
+                        "maxU": post_case_window["maxU"] - translation_u,
+                        "minV": post_case_window["minV"] - translation_v,
+                        "maxV": post_case_window["maxV"] - translation_v,
+                        "fixedReferenceCode": reference_code_value,
+                        "fixedReferenceAnchor": [fixed_u, fixed_v],
+                        "coordinateFrame": "pre-case-anchor-solver",
+                        "postCaseAnchorWindow": post_case_window,
+                        "caseAnchorAppliedTranslation": [
+                            translation_u,
+                            translation_v,
+                        ],
+                    }
+                )
+            else:
+                constraint.update(
+                    {
+                        "type": "relativeAnchorExclusionWindow",
+                        "referenceComponent": names_by_code[reference_code_value],
+                        "minDeltaU": float(exclusion["minDeltaU"]),
+                        "maxDeltaU": float(exclusion["maxDeltaU"]),
+                        "minDeltaV": float(exclusion["minDeltaV"]),
+                        "maxDeltaV": float(exclusion["maxDeltaV"]),
+                    }
+                )
             if constraint_id not in existing_constraint_ids:
                 hardened.setdefault("processConstraints", []).append(constraint)
                 existing_constraint_ids.add(constraint_id)
@@ -326,6 +511,29 @@ def apply_collision_feedback(
                 repair_parameters.get("candidateDirectionalOffsetsMeters") or []
             )
             exact_offsets = list(exclusion.get("candidateEscapeOffsetsMeters") or [])
+            fixed_clear_anchor = repair_parameters.get(
+                "fixedEnvironmentClearAnchor"
+            )
+            if (
+                constraint["type"] == "anchorExclusionWindow"
+                and isinstance(fixed_clear_anchor, list)
+                and len(fixed_clear_anchor) == 2
+            ):
+                rejected_pose = rejected_modules_by_code.get(component_code_value)
+                if rejected_pose is None:
+                    raise ValueError(
+                        f"Moving component {component_code_value} has no rejected pose."
+                    )
+                current_u = float(rejected_pose["center"][0])
+                current_v = float(rejected_pose["center"][1])
+                exact_offsets = [[
+                    float(fixed_clear_anchor[0]) - current_u,
+                    float(fixed_clear_anchor[1]) - current_v,
+                ]]
+                constraint["prototypeClearAnchor"] = [
+                    float(fixed_clear_anchor[0]),
+                    float(fixed_clear_anchor[1]),
+                ]
             # Repeated exact failures at adjacent poses mean that a fixed
             # 5.1 mm nudge has reached a collision-count plateau. Escalate the
             # next candidate step by the number of already-recorded exclusions
@@ -335,14 +543,45 @@ def apply_collision_feedback(
                 1
                 for item in hardened.get("processConstraints") or []
                 if item is not constraint
-                and item.get("type") == "relativeAnchorExclusionWindow"
+                and item.get("type")
+                in {"relativeAnchorExclusionWindow", "anchorExclusionWindow"}
                 and item.get("component") == constraint["component"]
-                and item.get("referenceComponent")
-                == constraint["referenceComponent"]
+                and (
+                    item.get("referenceComponent") == constraint.get("referenceComponent")
+                    if constraint["type"] == "relativeAnchorExclusionWindow"
+                    else item.get("fixedReferenceCode") == reference_code_value
+                )
             )
             if exact_offsets:
-                escalated_offsets = exact_offsets
-                escape_strategy = "exact-leaf-aabb-common-axis-clearance"
+                # Exact leaf-AABB offsets land on the boundary of the closed
+                # exclusion window.  Add a small outward numerical margin so
+                # the deterministic candidate is strictly outside instead of
+                # being rejected again by an inclusive comparison.
+                boundary_margin = (
+                    0.0 if constraint.get("prototypeClearAnchor") else 0.0001
+                )
+                escalated_offsets = [
+                    [
+                        float(offset[0])
+                        + (
+                            math.copysign(boundary_margin, float(offset[0]))
+                            if abs(float(offset[0])) > 1e-12
+                            else 0.0
+                        ),
+                        float(offset[1])
+                        + (
+                            math.copysign(boundary_margin, float(offset[1]))
+                            if abs(float(offset[1])) > 1e-12
+                            else 0.0
+                        ),
+                    ]
+                    for offset in exact_offsets
+                ]
+                escape_strategy = (
+                    "prototype-validated-fixed-environment-clear-anchor"
+                    if constraint.get("prototypeClearAnchor")
+                    else "exact-leaf-aabb-common-axis-clearance"
+                )
             else:
                 escape_step = float(exclusion.get("halfWidthMeters") or 0.005) + 0.0001
                 escape = escape_step * (previous_pair_exclusions + 1)
@@ -359,6 +598,66 @@ def apply_collision_feedback(
             # candidate. Preserve them only as provenance, then replace them.
             repair_parameters["previousCollisionFeedbackOffsetsMeters"] = existing_offsets
             repair_parameters["candidateDirectionalOffsetsMeters"] = escalated_offsets
+            # These offsets are not generic soft preferences: they are the
+            # deterministic exits derived from a confirmed exact CAD collision.
+            # Let the joint solver validate them before its normal conditional
+            # B-Rep minimisation ordering, otherwise a large candidate grid can
+            # consume the search budget before reaching the known clear side.
+            repair_parameters["collisionFeedbackPriorityCandidateCount"] = len(
+                escalated_offsets
+            )
+            coupled_components: list[str] = []
+            service_cluster_id = str(
+                repair_parameters.get("serviceClusterId") or ""
+            ).strip()
+            if constraint.get("prototypeClearAnchor") and service_cluster_id:
+                # A fixed-environment collision can only be repaired at the
+                # prototype-validated installation anchor when tightly related
+                # service modules move with the failing component.  Project02's
+                # A500/A700/A300 process constraints intentionally preserve the
+                # internal service-cluster geometry; moving A500 alone makes the
+                # clear-anchor candidate infeasible and the deterministic search
+                # falls back to another adjacent collision pose.  Give every
+                # member of the explicitly declared cluster the same warm-start
+                # delta.  The normal hard process constraints remain authoritative
+                # and can still reject the coupled candidate.
+                for peer_name, peer_semantic in semantics.items():
+                    if peer_name == constraint["component"]:
+                        continue
+                    peer_parameters = peer_semantic.setdefault("parameters", {})
+                    if (
+                        str(peer_parameters.get("serviceClusterId") or "").strip()
+                        != service_cluster_id
+                    ):
+                        continue
+                    peer_existing_offsets = list(
+                        peer_parameters.get("candidateDirectionalOffsetsMeters") or []
+                    )
+                    peer_parameters[
+                        "previousCollisionFeedbackOffsetsMeters"
+                    ] = peer_existing_offsets
+                    peer_parameters["candidateDirectionalOffsetsMeters"] = copy.deepcopy(
+                        escalated_offsets
+                    )
+                    peer_parameters["collisionFeedbackPriorityCandidateCount"] = len(
+                        escalated_offsets
+                    )
+                    peer_parameters[
+                        "collisionFeedbackCoupledSourceComponent"
+                    ] = constraint["component"]
+                    peer_parameters["collisionFeedbackCoupledServiceClusterId"] = (
+                        service_cluster_id
+                    )
+                    coupled_components.append(peer_name)
+                if coupled_components:
+                    constraint["coupledServiceClusterId"] = service_cluster_id
+                    constraint["coupledCandidateComponents"] = sorted(
+                        coupled_components
+                    )
+            constraint["rawCandidateEscapeOffsetsMeters"] = exact_offsets
+            constraint["escapeBoundaryMarginMeters"] = (
+                boundary_margin if exact_offsets else 0.0
+            )
             constraint["candidateEscapeOffsetsMeters"] = escalated_offsets
             constraint["escapeEscalationIndex"] = previous_pair_exclusions + 1
             constraint["escapeStrategy"] = escape_strategy

@@ -1,0 +1,169 @@
+{
+  "schemaVersion": "project-assembly-profile/v1",
+  "profileVersion": "2026-09-30.1",
+  "projectId": "project02",
+  "baseModule": "A600",
+  "validatedSequence": ["A600", "A800", "A180", "A700", "A300", "A500", "A100", "A200", "T401"],
+  "modules": {
+    "A600": {
+      "label": "设备箱体与安装基座",
+      "aliases": ["箱体", "箱体模组"],
+      "componentName": "FL9A24D062A600.001-1",
+      "instanceCount": 1,
+      "sourceConfidence": "measured-from-cad"
+    },
+    "A800": {
+      "label": "产品传输与载具定位模组",
+      "aliases": ["传输模组", "输送模组"],
+      "componentName": "FL9A24D062A800.001-1",
+      "instanceCount": 1,
+      "sourceConfidence": "inferred-from-prototype",
+      "assemblyPolicy": {
+        "requires": ["A600"],
+        "placementKind": "source_installation_interface_case_anchor",
+        "ruleSummary": "用A600/A800原型安装接口重建重合与宽度配合，并以项目02案例锚点封闭纵向剩余自由度。",
+        "acceptanceChecks": ["重合35", "宽度9", "案例锚点位姿", "保存重开", "AABB/条件B-rep"],
+        "implementationStatus": "single_module_cad_validated",
+        "missingImplementation": null,
+        "engineeringLimitations": ["仍以项目02案例锚点封闭原型安装接口留下的纵向自由度。"]
+      }
+    },
+    "A180": {
+      "label": "条码扫描模组",
+      "aliases": ["扫描模组", "扫码模组"],
+      "componentName": "FL9A24D062A180.001-1",
+      "instanceCount": 1,
+      "sourceConfidence": "inferred-from-prototype",
+      "assemblyPolicy": {
+        "requires": ["A800"],
+        "placementKind": "mechanical_installation_with_provisional_optical_gate",
+        "ruleSummary": "先按A600安装端口插入A180，再验证其与A800条码目标的粗布局光学关系。",
+        "acceptanceChecks": ["重合34", "距离24", "案例锚点位姿", "保存重开", "条码工作距离", "A180/A800条件B-rep"],
+        "implementationStatus": "single_module_cad_validated",
+        "missingImplementation": null,
+        "engineeringLimitations": ["槽口3尚未作为驱动配合重建。", "扫描原点由对称照明窗口推断，光轴符号、PLC停靠点和生产视线仍待确认。"]
+      }
+    },
+    "A700": {
+      "label": "清洁与称重组合模组",
+      "aliases": ["清洁模组", "称重模组", "清洁称重模组"],
+      "componentName": "FL9A24D062A700.001-1",
+      "instanceCount": 1,
+      "sourceConfidence": "inferred-from-prototype",
+      "assemblyPolicy": {
+        "requires": ["A600", "A180"],
+        "placementKind": "service_side_and_valve_reach",
+        "ruleSummary": "优先布置在操作面侧，空间不足时转到对侧，并保证清洁/称重点可达。",
+        "acceptanceChecks": ["操作面侧容量", "清洁点可达", "称重点可达", "维护间隙"],
+        "implementationStatus": "single_module_cad_validated",
+        "missingImplementation": null,
+        "engineeringLimitations": ["A700必须在创建配合前恢复为柔性；刚性会使健康的宽度10/距离29表现为过定义。", "清洁/称重维护包络仍为项目02原型坐标下的粗估，模组移动后必须重算。"]
+      }
+    },
+    "A300": {
+      "label": "排胶与废胶收集模组",
+      "aliases": ["排胶模组", "废胶收集模组"],
+      "componentName": "FL9A24D062A300.001-1",
+      "instanceCount": 1,
+      "sourceConfidence": "inferred-from-prototype",
+      "assemblyPolicy": {
+        "requires": ["A600", "A700"],
+        "placementKind": "service_side_and_valve_reach",
+        "ruleSummary": "按操作面剩余空间布置，并保证排胶点进入胶阀可达区。",
+        "acceptanceChecks": ["操作面侧空间", "排胶点可达", "维护间隙", "实体分离"],
+        "implementationStatus": "single_module_cad_validated",
+        "missingImplementation": null,
+        "engineeringLimitations": ["当前用项目02原型位姿选择距离配合的正确半空间分支；后续应由厂商安装基准或有符号半空间规则替代。"]
+      }
+    },
+    "A500": {
+      "label": "胶阀/喷嘴校准模组",
+      "aliases": ["标定模组", "校准模组"],
+      "componentName": "FL9A24D062A500.001-1",
+      "instanceCount": 1,
+      "sourceConfidence": "measured-from-cad",
+      "assemblyPolicy": {
+        "requires": ["A600", "A700"],
+        "placementKind": "semantic_port_mate_plan",
+        "ruleSummary": "用A600安装端口完成定位，并把A500/A700间距作为只验证关系。",
+        "acceptanceChecks": ["3条驱动配合", "完全约束", "50 mm实测", "条件B-rep"],
+        "implementationStatus": "single_module_cad_validated",
+        "missingImplementation": null,
+        "engineeringLimitations": []
+      }
+    },
+    "A100": {
+      "label": "XYZ龙门与双阀点胶执行模组",
+      "aliases": ["龙门模组", "点胶龙门"],
+      "componentName": "A100_WITH_A150_SLOT0_RIGID_V3-1",
+      "instanceCount": 1,
+      "sourceConfidence": "inferred-from-prototype",
+      "assemblyPolicy": {
+        "requires": ["A800", "A180", "A700", "A300", "A500"],
+        "placementKind": "dual_valve_reach_coverage",
+        "ruleSummary": "最后反求龙门位置，使双胶阀覆盖传输工作区和已布置功能模组。",
+        "acceptanceChecks": ["工作位1/2覆盖", "功能点覆盖", "门洞通道", "静态实体安全"],
+        "implementationStatus": "single_module_cad_validated",
+        "missingImplementation": null,
+        "engineeringLimitations": ["A100顶层3条安装配合、完全约束、保存重开已通过。", "静态Demo将A100顶层和内部A150均设为刚性，并固定A150的Slot2=0%工作状态。", "A100/A600新增干涉已消除；剩余接触均与原型基准一致。", "该闭环只证明静态工作状态，不替代双胶阀全行程运动仿真。"]
+      }
+    },
+    "A200": {
+      "label": "CCD视觉定位模组",
+      "aliases": ["CCD模组", "视觉模组"],
+      "componentName": "FL9A24D062A200.001-1",
+      "instanceCount": 1,
+      "sourceConfidence": "inferred-from-prototype",
+      "assemblyPolicy": {
+        "requires": ["A800"],
+        "placementKind": "vision_workstation_alignment",
+        "ruleSummary": "让CCD视场覆盖传输工作位，并保持结构通道和维护空间。",
+        "acceptanceChecks": ["工作位覆盖", "视场范围", "工作距离", "结构通道"],
+        "implementationStatus": "single_module_cad_validated",
+        "missingImplementation": null,
+        "engineeringLimitations": ["当前3条安装配合使用项目02源位姿锚点封闭残余自由度；CCD光学端口仍是项目02案例参数。", "已完成保存重开与逐步装配；生产光学参数仍待确认。"]
+      }
+    },
+    "T401": {
+      "label": "胶水供应模组",
+      "aliases": ["供胶模组", "供胶系统"],
+      "componentName": "T401AA-07388-0",
+      "instanceCount": 2,
+      "sourceConfidence": "inferred-from-prototype",
+      "assemblyPolicy": {
+        "requires": ["A600", "A200"],
+        "placementKind": "supply_access_and_hose_route",
+        "ruleSummary": "布置在龙门外侧可维护区域，并保留供胶管路连接空间。",
+        "acceptanceChecks": ["供胶维护空间", "管路连接方向", "与运动区隔离"],
+        "implementationStatus": "single_module_cad_validated",
+        "missingImplementation": null,
+        "engineeringLimitations": ["T401在自然语言层表示两套同源实例，执行时按T401-1、T401-2两个CAD动作插入。", "当前安装配合与源位姿锚点来自项目02；软管扫掠和最终维护包络尚未验证。"]
+      }
+    }
+  },
+  "collisionPolicy": {
+    "default": "strictInflatedAabbSeparation",
+    "conditionalBrepPairs": [
+      ["A600", "A800"],
+      ["A100", "A600"],
+      ["A200", "A600"]
+    ],
+    "acceptedBaselinePairs": [
+      ["A600", "A800"],
+      ["A100", "A600"],
+      ["A200", "A600"],
+      ["A700", "A600"],
+      ["T401", "A600"]
+    ]
+  },
+  "artifacts": {
+    "positioningStandard": "apps/demo-backend/src/demo_backend/project_profiles/project02_positioning_standard.json",
+    "orderedClosure": "demo/semantic_ports/project02_ordered_true_increment_v1/project02_ordered_true_increment_closure.json",
+    "fullMachineClosure": "demo/semantic_ports/project02_full_machine_increment_v1/project02_full_machine_closure.json"
+  },
+  "releaseBoundary": {
+    "staticDemoMayPass": true,
+    "liveCadApiMayStart": true,
+    "productionDynamicRequires": ["A700真实状态或静态功能区工程确认", "A100左右阀权威XYZ限位", "连续扫掠与软管维护空间证据"]
+  }
+}

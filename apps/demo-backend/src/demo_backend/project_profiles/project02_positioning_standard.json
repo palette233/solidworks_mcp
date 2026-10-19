@@ -1,0 +1,152 @@
+{
+  "schemaVersion": "project02-inferred-positioning-standard/v1",
+  "standardVersion": "2026-10-11.1",
+  "projectId": "project02",
+  "scope": "project02-only",
+  "purpose": "在缺少厂商完整安装基准时，用需求文件、真实CAD配合、几何推定和原型测量形成可替换的A800/A180粗定位标准。",
+  "authorityPolicy": [
+    {"rank": 1, "authority": "vendor-confirmed", "productionCapable": true},
+    {"rank": 2, "authority": "engineer-confirmed", "productionCapable": true},
+    {"rank": 3, "authority": "cad-mate-measured", "productionCapable": false},
+    {"rank": 4, "authority": "cad-geometry-inferred", "productionCapable": false},
+    {"rank": 5, "authority": "prototype-calibrated", "productionCapable": false},
+    {"rank": 6, "authority": "requirements-derived", "productionCapable": false},
+    {"rank": 7, "authority": "temporary-estimate", "productionCapable": false}
+  ],
+  "sourceSnapshot": {
+    "requirementsWorkbook": {
+      "fileName": "双阀点胶方案需求描述文件_20260908.xlsx",
+      "sha256": "be2adc59fbc55e06aa78a0b8774218ebf3d6df78400acCB58BBA295ABC7BE89F",
+      "sheet": "Sheet1",
+      "facts": [
+        {"cell": "C6", "id": "upper-conveyor-height", "valueMeters": [0.92, 0.96]},
+        {"cell": "C6", "id": "upper-conveyor-inner-frame-width", "valueMeters": 0.334},
+        {"cell": "C6", "id": "operator-side-guard-offset", "valueMeters": 0.412},
+        {"cell": "C8", "id": "station-order", "value": ["barcode-scan", "dispense-01", "dispense-02"]}
+      ]
+    },
+    "parameterAuthorityRegistry": "apps/demo-backend/src/demo_backend/project_profiles/project02_parameter_authorities.json"
+  },
+  "coordinateFrame": {
+    "frameName": "A600_INSTALLATION_FRAME",
+    "baseModule": "A600",
+    "axes": {
+      "X": "transport longitudinal / product flow axis",
+      "Y": "transport transverse axis",
+      "Z": "up axis"
+    },
+    "operationSide": "defined by the recorded A600 operation-face evidence"
+  },
+  "modules": {
+    "A800": {
+      "ruleId": "A600-A800-inferred-positioning-v1",
+      "authorityRequirementIds": ["transport-installation-datum"],
+      "mechanical": {
+        "baseModule": "A600",
+        "targetPortId": "A800.frame_installation",
+        "basePortId": "A600.a800_installation",
+        "drivingRelations": [
+          {
+            "mateName": "重合35",
+            "relation": "coincident-support-planes",
+            "authority": "cad-mate-measured",
+            "effect": "locks support height Z and support-plane tilt"
+          },
+          {
+            "mateName": "宽度9",
+            "relation": "width-centering",
+            "authority": "cad-mate-measured",
+            "effect": "centres A800 transversely and locks the remaining orientation"
+          }
+        ],
+        "residualDofClosure": {
+          "dof": "translation-along-X",
+          "method": "installation-frame-anchor",
+          "authority": "prototype-calibrated",
+          "anchorPointFrameMeters": [0.5787999999966689, 0.5349999999999828, 0.11522499999580159],
+          "scope": "project02-only",
+          "replaceWith": "vendor end-face, locating-pin or mounting-hole datum"
+        }
+      },
+      "requirementChecks": {
+        "upperConveyingHeightRangeMeters": [0.92, 0.96],
+        "innerFrameWidthMeters": 0.334,
+        "operatorSideGuardOffsetMeters": 0.412,
+        "flowDirectionMustMatchLine": true,
+        "mirrorOrUpsideDownForbidden": true
+      },
+      "evidencePaths": [
+        "demo/layout_previews/project02_module_mate_graph_v6_all_bodies.json",
+        "demo/project02_engineering_inputs.json",
+        "demo/semantic_ports/project02_ordered_jobs/project02-job-e6ffd79bb6e6/cad-working/step-01-a800-attempt1-action1.SLDASM"
+      ]
+    },
+    "A180": {
+      "ruleId": "A600-A180-mechanical-A800-optical-positioning-v1",
+      "authorityRequirementIds": ["scanner-optical-geometry"],
+      "mechanical": {
+        "baseModule": "A600",
+        "targetPortId": "A180.frame_installation",
+        "basePortId": "A600.a180_installation",
+        "drivingRelations": [
+          {
+            "mateName": "重合34",
+            "relation": "coincident-support-planes",
+            "authority": "cad-mate-measured"
+          },
+          {
+            "mateName": "距离24",
+            "relation": "longitudinal-distance",
+            "distanceMeters": 0.272,
+            "authority": "cad-mate-measured"
+          }
+        ],
+        "readOnlyRelations": [
+          {
+            "mateName": "槽口3",
+            "relation": "slot-location",
+            "authority": "cad-mate-measured",
+            "status": "read-only-until-slot-driver-is-enabled"
+          }
+        ],
+        "residualDofClosure": {
+          "method": "source-pose-case-anchor",
+          "authority": "prototype-calibrated",
+          "scope": "project02-only",
+          "replaceWith": "enabled slot driver or engineer-confirmed locating feature"
+        }
+      },
+      "functional": {
+        "targetModule": "A800",
+        "sourcePortId": "A180.scan_optical",
+        "targetPortId": "A800.barcode_target",
+        "workingDistanceMeters": {
+          "minimum": 0.1,
+          "preferred": 0.12708543038417208,
+          "maximum": 0.16
+        },
+        "requiresLineOfSight": true,
+        "requiresBarcodeSide": true,
+        "stationMustPrecedeDispensing": true,
+        "opticalAxisSignConfirmed": false,
+        "authority": "cad-geometry-inferred"
+      },
+      "evidencePaths": [
+        "demo/layout_previews/project02_module_mate_graph_v6_all_bodies.json",
+        "demo/layout_previews/project02_scanner_optical_face_review.json",
+        "demo/layout_previews/project02_scanner_barcode_points.json",
+        "demo/semantic_ports/project02_ordered_jobs/project02-job-b96f2dade86b/cad-working/step-02-a180-attempt1-action1.SLDASM"
+      ]
+    }
+  },
+  "releaseBoundary": {
+    "coarseLayoutUseAllowed": true,
+    "productionUseAllowed": false,
+    "coarseLayoutLabel": "PROJECT02_INFERRED_POSITIONING_STANDARD",
+    "productionBlockers": [
+      "A800沿X方向仍使用Project02原型测量锚点",
+      "A180槽口3尚未作为驱动配合",
+      "A180光轴方向符号与量产扫码停靠公差尚未确认"
+    ]
+  }
+}

@@ -643,6 +643,26 @@ def evaluate_process_constraints(
                 "excludedMaxDeltaV": maximum_v,
                 "insideExcludedWindow": inside_failed_window,
             }
+        elif kind == "anchorExclusionWindow":
+            component = by_name[constraint["component"]]
+            minimum_u = float(constraint["minU"])
+            maximum_u = float(constraint["maxU"])
+            minimum_v = float(constraint["minV"])
+            maximum_v = float(constraint["maxV"])
+            inside_failed_window = (
+                minimum_u - 1e-9 <= component.anchor_u <= maximum_u + 1e-9
+                and minimum_v - 1e-9 <= component.anchor_v <= maximum_v + 1e-9
+            )
+            success = not inside_failed_window
+            measured = {
+                "anchorU": component.anchor_u,
+                "anchorV": component.anchor_v,
+                "excludedMinU": minimum_u,
+                "excludedMaxU": maximum_u,
+                "excludedMinV": minimum_v,
+                "excludedMaxV": maximum_v,
+                "insideExcludedWindow": inside_failed_window,
+            }
         elif kind == "lineOfSight":
             first = _world_point(constraint["sourceComponent"], constraint["sourcePoint"], semantics, by_name)
             second = _world_point(constraint["targetComponent"], constraint["targetPoint"], semantics, by_name)
@@ -808,6 +828,7 @@ def _normalize_explicit_constraint(component_names: list[str], raw: dict[str, An
         "moduleClearance",
         "relativeAnchorWindow",
         "relativeAnchorExclusionWindow",
+        "anchorExclusionWindow",
         "lineOfSight",
         "directedPointing",
     }
@@ -862,6 +883,13 @@ def _normalize_explicit_constraint(component_names: list[str], raw: dict[str, An
             "minDeltaV",
             "maxDeltaV",
         ),
+        "anchorExclusionWindow": (
+            "component",
+            "minU",
+            "maxU",
+            "minV",
+            "maxV",
+        ),
         "lineOfSight": ("sourceComponent", "sourcePoint", "targetComponent", "targetPoint"),
         "directedPointing": (
             "sourceComponent",
@@ -905,6 +933,19 @@ def _normalize_explicit_constraint(component_names: list[str], raw: dict[str, An
         if values["minDeltaU"] > values["maxDeltaU"] or values["minDeltaV"] > values["maxDeltaV"]:
             raise ProcessConstraintConfigurationError(
                 f"Process constraint '{item['id']}' has inverted relative-anchor limits."
+            )
+    elif item["type"] == "anchorExclusionWindow":
+        values = {
+            key: float(item[key])
+            for key in ("minU", "maxU", "minV", "maxV")
+        }
+        if not all(math.isfinite(value) for value in values.values()):
+            raise ProcessConstraintConfigurationError(
+                f"Process constraint '{item['id']}' anchor limits must be finite."
+            )
+        if values["minU"] > values["maxU"] or values["minV"] > values["maxV"]:
+            raise ProcessConstraintConfigurationError(
+                f"Process constraint '{item['id']}' has inverted anchor limits."
             )
     elif item["type"] == "directedPointing":
         direction = item["expectedDirectionLocal"]

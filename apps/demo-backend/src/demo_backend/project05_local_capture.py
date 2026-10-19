@@ -52,6 +52,8 @@ def map_standalone_capture_to_project05_world(
         and item.get("XAxis") is not None
         and item.get("YAxis") is not None
         and item.get("ZAxis") is not None
+        and isinstance(item.get("BoundingBoxWorld"), list)
+        and len(item.get("BoundingBoxWorld")) == 6
     ]
     if len(candidates) != 1:
         raise ValueError(
@@ -87,4 +89,80 @@ def map_standalone_capture_to_project05_world(
         "coverageComplete": True,
         "bodies": mapped_bodies,
         "method": "transform all eight standalone AABB corners by the captured top-level module pose",
+    }
+
+
+def map_standalone_capture_to_project05_world_instances(
+    capture: dict[str, Any],
+    top_level_poses: dict[str, Any],
+    module_token: str,
+) -> dict[str, Any]:
+    """Map one standalone module capture to every active top-level instance.
+
+    Project05 can record suppressed alternate instances beside active ones.
+    Loading and traversing the identical source assembly more than once is
+    unnecessary; one complete local capture is transformed only by poses that
+    have an active world bounding box, while keeping the instance identity on
+    every body.
+    """
+
+    candidates = [
+        item
+        for item in top_level_poses.get("components") or []
+        if module_token.casefold() in str(item.get("Name") or "").casefold()
+        and item.get("Translation") is not None
+        and item.get("XAxis") is not None
+        and item.get("YAxis") is not None
+        and item.get("ZAxis") is not None
+        and isinstance(item.get("BoundingBoxWorld"), list)
+        and len(item.get("BoundingBoxWorld")) == 6
+    ]
+    if not candidates:
+        raise ValueError(f"Module token {module_token!r} did not resolve to an active top-level pose")
+    captures = capture.get("captures") or []
+    if len(captures) != 1:
+        raise ValueError("Standalone capture must contain exactly one @root result")
+    root_capture = captures[0]
+    if not bool(root_capture.get("CoverageComplete", root_capture.get("coverageComplete"))):
+        raise ValueError("Standalone capture coverage is incomplete")
+
+    bodies = root_capture.get("Bodies", root_capture.get("bodies", []))
+    instance_captures = []
+    combined = []
+    for pose in sorted(candidates, key=lambda row: str(row.get("Name") or "")):
+        mapped_bodies = []
+        for body in bodies:
+            local_box = body.get("BoundingBoxWorld", body.get("boundingBoxWorld"))
+            if local_box is None:
+                raise ValueError("Captured body is missing BoundingBoxWorld")
+            mapped = dict(body)
+            mapped["TopLevelInstanceName"] = str(pose.get("Name") or "")
+            mapped["BoundingBoxStandaloneModule"] = [float(value) for value in local_box]
+            mapped["BoundingBoxWorld"] = transform_aabb(local_box, pose)
+            mapped_bodies.append(mapped)
+            combined.append(mapped)
+        instance_captures.append({
+            "instanceName": str(pose.get("Name") or ""),
+            "moduleTopLevelPose": pose,
+            "bodyCount": len(mapped_bodies),
+            "bodies": mapped_bodies,
+        })
+
+    return {
+        "schemaVersion": "project05-standalone-capture-world-instances/v1",
+        "projectId": "project05",
+        "moduleToken": module_token,
+        "sourceStandaloneAssemblyPath": capture.get("assemblyPath"),
+        "sourcePrototypeAssemblyPath": top_level_poses.get("sourceAssemblyPath"),
+        "instanceCount": len(instance_captures),
+        "instanceNames": [item["instanceName"] for item in instance_captures],
+        "leafComponentCountPerInstance": root_capture.get(
+            "LeafComponentCount", root_capture.get("leafComponentCount")
+        ),
+        "bodyCountPerInstance": len(bodies),
+        "bodyCount": len(combined),
+        "coverageComplete": True,
+        "instanceCaptures": instance_captures,
+        "bodies": combined,
+        "method": "one complete standalone capture transformed by every recorded active top-level instance pose",
     }

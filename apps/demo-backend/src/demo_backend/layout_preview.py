@@ -21,6 +21,7 @@ from .project02_fixed_environment import (
     augment_project02_collision_policy,
 )
 from .project03_layout import solve_project03_top3
+from .project05_layout import solve_project05_top3
 
 
 CASE_DEFINITIONS = {
@@ -45,6 +46,13 @@ CASE_DEFINITIONS = {
         "previewPath": "demo/layout_previews/project03_preview.json",
         "selectedSolutionPath": "demo/layout_previews/project03_selected_solution.json",
         "verificationPlanPath": "demo/layout_previews/project03_verification_plan.json",
+    },
+    "project05": {
+        "title": "项目05 · 原型标定通用顺序约束Top-3",
+        "solutionPath": "demo/layout_previews/project05_solution.json",
+        "previewPath": "demo/layout_previews/project05_preview.json",
+        "selectedSolutionPath": "demo/layout_previews/project05_selected_solution.json",
+        "verificationPlanPath": "demo/layout_previews/project05_verification_plan.json",
     }
 }
 
@@ -138,7 +146,11 @@ def apply_project02_solve_profile(
     # The generic service-side, reach, access and collision rules remain active.
     policy.pop("functionalAnchorBiasV", None)
 
-    removed_types = {"relativeAnchorWindow", "relativeAnchorExclusionWindow"}
+    removed_types = {
+        "relativeAnchorWindow",
+        "relativeAnchorExclusionWindow",
+        "anchorExclusionWindow",
+    }
     kept_constraints: list[dict[str, Any]] = []
     removed_ids: list[str] = []
     for constraint in profiled.get("processConstraints") or []:
@@ -238,17 +250,35 @@ def _load_solver_warm_start(
         )
     gantry_x = float(gantry_layout["x"])
     gantry_y = float(gantry_layout["y"])
+    semantics = request.get("moduleSemantics", {})
+    gantry_parameters = (
+        semantics.get(gantry_name, {}).get("parameters", {})
+        if gantry_name
+        else {}
+    )
+    gantry_bias_u = float(gantry_parameters.get("postSolveAnchorBiasU", 0.0))
+    gantry_bias_v = float(gantry_parameters.get("postSolveAnchorBiasV", 0.0))
     normalized: list[dict[str, Any]] = []
     for item in components:
         layout = item.get("layout2d") if isinstance(item, dict) else None
         name = item.get("componentName") if isinstance(item, dict) else None
         if not name or not isinstance(layout, dict):
             continue
+        parameters = semantics.get(str(name), {}).get("parameters", {})
+        component_bias_u = float(parameters.get("postSolveAnchorBiasU", 0.0))
+        component_bias_v = float(parameters.get("postSolveAnchorBiasV", 0.0))
         normalized.append(
             {
                 "componentName": str(name),
-                "x": float(layout["x"]) - gantry_x,
-                "y": float(layout["y"]) - gantry_y,
+                # Replay solutions store post-solve biases. Candidate generation
+                # runs before those biases are applied, so reverse the relative
+                # component/gantry bias here to avoid applying it twice.
+                "x": float(layout["x"])
+                - gantry_x
+                - (component_bias_u - gantry_bias_u),
+                "y": float(layout["y"])
+                - gantry_y
+                - (component_bias_v - gantry_bias_v),
                 "thetaDegrees": float(layout.get("thetaDegrees", 0.0)),
                 "sourcePath": str(path),
             }
@@ -580,7 +610,7 @@ def solve_case_preview(
     if definition is None:
         raise LayoutPreviewError(f"Unknown layout case '{case_id}'.")
 
-    if case_id in {"project01", "project03"}:
+    if case_id in {"project01", "project03", "project05"}:
         readiness_path = workspace / f"demo/layout_previews/{case_id}_migration_readiness.json"
         if not readiness_path.is_file():
             raise LayoutPreviewError(f"{case_id} migration readiness has not been generated.")
@@ -597,14 +627,24 @@ def solve_case_preview(
         def load(relative: str) -> dict[str, Any]:
             return json.loads((workspace / relative).read_text(encoding="utf-8-sig"))
 
-        solver = solve_project01_top3 if case_id == "project01" else solve_project03_top3
-        generated = solver(
-            load(f"demo/layout_previews/{case_id}_module_occupancy.json"),
-            load(f"demo/layout_previews/{case_id}_work_positions.json"),
-            load(f"demo/layout_previews/{case_id}_service_points.json"),
-            load(f"demo/layout_previews/{case_id}_dual_valve_reach.json"),
-            load(f"demo/layout_previews/{case_id}_scanner_geometry.json"),
-        )
+        if case_id == "project05":
+            generated = solve_project05_top3(
+                load("demo/layout_previews/project05_module_occupancy.json"),
+                load("demo/layout_previews/project05_work_positions.json"),
+                load("demo/layout_previews/project05_service_points.json"),
+                load("demo/layout_previews/project05_dual_valve_reach.json"),
+                load("demo/layout_previews/project05_optical_geometry.json"),
+                load("demo/layout_previews/project05_operation_side.json"),
+            )
+        else:
+            solver = solve_project01_top3 if case_id == "project01" else solve_project03_top3
+            generated = solver(
+                load(f"demo/layout_previews/{case_id}_module_occupancy.json"),
+                load(f"demo/layout_previews/{case_id}_work_positions.json"),
+                load(f"demo/layout_previews/{case_id}_service_points.json"),
+                load(f"demo/layout_previews/{case_id}_dual_valve_reach.json"),
+                load(f"demo/layout_previews/{case_id}_scanner_geometry.json"),
+            )
         solution_path = (workspace / definition["solutionPath"]).resolve()
         preview_path = (workspace / definition["previewPath"]).resolve()
         preview = build_preview_payload(
@@ -620,11 +660,18 @@ def solve_case_preview(
                 {"severity": "info", "title": "Top-3候选差异", "message": "候选1为项目01原型参数下的最小位移基线；候选2/3分别对综合功能模组或标定模组作30 mm离散调整，均重新通过同一套硬约束筛选。"},
                 {"severity": "warning", "title": "当前只到粗布局", "message": "操作面、扫描光束和双阀刻度行程采用项目01原型基线；选中候选后才允许Replay和9组条件B-rep。"},
             ]
-        else:
+        elif case_id == "project03":
             review_items = [
                 {"severity": "pass", "title": "项目03顺序求解", "message": "AE00安装基准固定，AD00/AI00保持工作与扫描关系，AG00/AH00/AJ00先排布，再反求AB00+AC00公共覆盖。"},
                 {"severity": "info", "title": "项目03自主选案原则", "message": "优先选择满足全部硬约束、严格AABB为零命中且总位移最小的候选；分数相同时再比较条件宽相数量与服务区分散度。"},
                 {"severity": "warning", "title": "粗布局证据边界", "message": "20 mm安装边缘容差、100 mm扫描光束与双阀尺度来自项目03原型；精确操作面、维护空间及身份头角色仍待工程确认。"},
+            ]
+        else:
+            review_items = [
+                {"severity": "pass", "title": "项目05顺序求解", "message": "A000/E000固定，D000/K000/F000/M000保留已提取安装关系，G000/N000/P000在操作侧服务带离散求解，最后反求B000+Z000覆盖8个目标。"},
+                {"severity": "pass", "title": "严格碰撞前置门禁", "message": "15组普通模组对直接使用完整叶实体膨胀AABB筛选；门洞、嵌套和安装接触不在求解阶段误判为实体干涉。"},
+                {"severity": "info", "title": "Top-3候选差异", "message": "候选1为项目05原型标定下的最小位移基线；候选2/3移动不同服务模组30 mm，并重新通过操作侧、严格碰撞和双阀公共可达硬约束。"},
+                {"severity": "warning", "title": "仍非生产结论", "message": "当前依赖项目05原型安装参数；选案后仍需Replay、13组条件B-rep、8组安装接触复核以及逐步保存重开。"},
             ]
         preview["reviewItems"] = [*review_items, *preview.get("reviewItems", [])]
         if persist:

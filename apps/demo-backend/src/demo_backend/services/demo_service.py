@@ -183,6 +183,54 @@ class DemoService:
             ]
         )
 
+    async def insert_component_in_assembly_context(
+        self,
+        source_assembly_path: Path,
+        effective_graph_path: Path,
+        output_assembly_path: Path,
+        target_module_token: str,
+    ) -> OperationResult:
+        workspace = self._workspace().resolve()
+        source_assembly_path = source_assembly_path.resolve()
+        effective_graph_path = effective_graph_path.resolve()
+        output_assembly_path = output_assembly_path.resolve()
+        try:
+            effective_graph_path.relative_to(workspace)
+            output_assembly_path.relative_to(workspace)
+        except ValueError:
+            return OperationResult(
+                status="blocked",
+                message="Effective graph and output paths must remain inside the workspace.",
+            )
+        if not source_assembly_path.is_file():
+            return OperationResult(
+                status="error",
+                message=f"Source context assembly was not found: {source_assembly_path}",
+            )
+        if not effective_graph_path.is_file():
+            return OperationResult(
+                status="error",
+                message=f"Effective mate graph was not found: {effective_graph_path}",
+            )
+        if output_assembly_path.exists():
+            return OperationResult(
+                status="blocked",
+                message=f"Refusing to overwrite existing assembly: {output_assembly_path}",
+            )
+        return await self.mcp.run_plan(
+            [
+                ToolCallPlan(
+                    tool="insert_component_in_assembly_context_from_mate_graph",
+                    arguments={
+                        "sourceAssemblyPath": str(source_assembly_path),
+                        "effectiveMateGraphPath": str(effective_graph_path),
+                        "outputAssemblyPath": str(output_assembly_path),
+                        "targetModuleToken": target_module_token,
+                    },
+                )
+            ]
+        )
+
     def list_layout_json_files(self) -> list[LayoutJsonInfo]:
         workspace = self._workspace()
         candidates = [

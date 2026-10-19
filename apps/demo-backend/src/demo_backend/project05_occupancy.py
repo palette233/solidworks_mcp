@@ -121,6 +121,7 @@ def build_project05_occupancy_and_collision_policy(
     first_stage_geometry: dict[str, Any],
     k000_world_capture: dict[str, Any] | None = None,
     *,
+    world_captures_by_code: dict[str, dict[str, Any]] | None = None,
     inflation_per_side_meters: float = 0.001,
 ) -> dict[str, Any]:
     frame = first_stage_geometry["installationFrame"]
@@ -136,6 +137,10 @@ def build_project05_occupancy_and_collision_policy(
     if missing:
         raise ValueError(f"Project05 active top-level poses missing: {missing}")
 
+    captures = dict(world_captures_by_code or {})
+    if k000_world_capture is not None:
+        captures.setdefault("K000", k000_world_capture)
+
     modules: dict[str, dict[str, Any]] = {}
     for code in sorted(_REQUIRED_CODES):
         pose = poses[code]
@@ -146,29 +151,50 @@ def build_project05_occupancy_and_collision_policy(
             "installationBoundsMeters": top_box,
             "leafBodyCount": None,
         }]
+        leaf_body_boxes = list(boxes)
         leaf_complete = False
         leaf_body_count = 0
-        if code == "K000" and k000_world_capture:
-            if not k000_world_capture.get("coverageComplete"):
-                raise ValueError("Project05 K000 world capture is incomplete")
+        capture = captures.get(code)
+        if capture:
+            if not capture.get("coverageComplete"):
+                raise ValueError(f"Project05 {code} world capture is incomplete")
             grouped: dict[str, list[list[float]]] = {}
-            for body in k000_world_capture.get("bodies") or []:
+            for body in capture.get("bodies") or []:
                 component = body.get("Component") or {}
                 hierarchy = str(component.get("HierarchyPath") or component.get("Name") or "")
                 bounds = body.get("BoundingBoxWorld")
                 if isinstance(bounds, list) and len(bounds) == 6:
                     grouped.setdefault(hierarchy.split("/")[0], []).append([float(v) for v in bounds])
+            if not grouped:
+                raise ValueError(f"Project05 {code} complete world capture contains no usable bodies")
             boxes = []
             for subtree, values in sorted(grouped.items()):
                 union = [min(box[i] for box in values) for i in range(3)] + [
                     max(box[i + 3] for box in values) for i in range(3)
                 ]
                 boxes.append({
-                    "id": f"K000-{subtree}",
+                    "id": f"{code}-{subtree}",
                     "subtree": subtree,
                     "source": "complete-leaf-subtree-union",
                     "installationBoundsMeters": _project_box(union, frame),
                     "leafBodyCount": len(values),
+                })
+            leaf_body_boxes = []
+            for body_index, body in enumerate(capture.get("bodies") or []):
+                bounds = body.get("BoundingBoxWorld")
+                if not isinstance(bounds, list) or len(bounds) != 6:
+                    continue
+                component = body.get("Component") or {}
+                hierarchy = str(component.get("HierarchyPath") or component.get("Name") or "leaf")
+                leaf_body_boxes.append({
+                    "id": f"{code}-body-{body_index}",
+                    "subtree": hierarchy.split("/")[0],
+                    "hierarchyPath": hierarchy,
+                    "bodyIndex": body.get("BodyIndex"),
+                    "boundingBoxSource": body.get("BoundingBoxSource", "legacy-body-box"),
+                    "source": "complete-leaf-body-aabb",
+                    "installationBoundsMeters": _project_box([float(v) for v in bounds], frame),
+                    "leafBodyCount": 1,
                 })
             leaf_complete = True
             leaf_body_count = sum(int(item["leafBodyCount"] or 0) for item in boxes)
@@ -180,6 +206,7 @@ def build_project05_occupancy_and_collision_policy(
             "leafBodyCount": leaf_body_count,
             "occupancySource": "complete-leaf-subtree-union" if leaf_complete else "conservative-top-level-aabb",
             "occupancyBoxes": boxes,
+            "leafBodyOccupancyBoxes": leaf_body_boxes,
         }
 
     layout_objects = []
@@ -189,10 +216,17 @@ def build_project05_occupancy_and_collision_policy(
             for code in member_codes
             for box in modules[code]["occupancyBoxes"]
         ]
+        leaf_body_boxes = [
+            {**box, "memberCode": code}
+            for code in member_codes
+            for box in modules[code]["leafBodyOccupancyBoxes"]
+        ]
         layout_objects.append({
             "id": object_id,
+            "primaryCode": member_codes[0],
             "memberCodes": list(member_codes),
             "occupancyBoxes": boxes,
+            "leafBodyOccupancyBoxes": leaf_body_boxes,
             "leafCoverageComplete": all(modules[code]["leafCoverageComplete"] for code in member_codes),
         })
 
@@ -212,10 +246,20 @@ def build_project05_occupancy_and_collision_policy(
         else:
             classification = "strict-inflated-multibox-separation"
             strict_pairs.append([first_id, second_id])
+        first_boxes = (
+            by_id[first_id]["leafBodyOccupancyBoxes"]
+            if classification == "strict-inflated-multibox-separation"
+            else by_id[first_id]["occupancyBoxes"]
+        )
+        second_boxes = (
+            by_id[second_id]["leafBodyOccupancyBoxes"]
+            if classification == "strict-inflated-multibox-separation"
+            else by_id[second_id]["occupancyBoxes"]
+        )
         hit_count = sum(
             _overlap(a["installationBoundsMeters"], b["installationBoundsMeters"], inflation_per_side_meters)
-            for a in by_id[first_id]["occupancyBoxes"]
-            for b in by_id[second_id]["occupancyBoxes"]
+            for a in first_boxes
+            for b in second_boxes
         )
         diagnostics.append({
             "pair": [first_id, second_id],
@@ -229,13 +273,18 @@ def build_project05_occupancy_and_collision_policy(
     pair_count = math.comb(len(layout_objects), 2)
     covered = len(strict_pairs) + len(conditional_pairs) + len(installation_pairs)
     complete_codes = sorted(code for code, item in modules.items() if item["leafCoverageComplete"])
+    solver_ready = len(complete_codes) == len(_REQUIRED_CODES)
     return {
         "schemaVersion": "project05-module-occupancy/v1",
         "projectId": "project05",
-        "status": "PROJECT05_COLLISION_POLICY_READY_OCCUPANCY_PARTIAL",
+        "status": (
+            "PROJECT05_COLLISION_POLICY_AND_OCCUPANCY_READY"
+            if solver_ready
+            else "PROJECT05_COLLISION_POLICY_READY_OCCUPANCY_PARTIAL"
+        ),
         "engineeringConfirmed": False,
         "coarseDisplayUsable": True,
-        "solverOccupancyReady": len(complete_codes) == len(_REQUIRED_CODES),
+        "solverOccupancyReady": solver_ready,
         "installationFrame": frame,
         "modules": modules,
         "layoutObjects": layout_objects,
@@ -252,6 +301,7 @@ def build_project05_occupancy_and_collision_policy(
             "pairPolicyComplete": covered == pair_count,
             "aabbInflationPerSideMeters": inflation_per_side_meters,
             "strictMultiAabbPairs": strict_pairs,
+            "strictPairOccupancyMode": "complete-leaf-body-aabbs",
             "conditionalBrepPairs": conditional_pairs,
             "installationContactPairs": installation_pairs,
             "solverInvokesBrep": False,
@@ -259,8 +309,8 @@ def build_project05_occupancy_and_collision_policy(
         },
         "prototypePairDiagnostics": diagnostics,
         "interpretationLimits": [
-            "Only K000 currently has complete leaf-derived multi-box occupancy.",
-            "Other top-level AABBs are display placeholders and cannot certify strict collision clearance.",
+            "Only codes listed in coverage.leafCompleteModuleCodes have complete leaf-derived multi-box occupancy.",
+            "Remaining top-level AABBs are display placeholders and cannot certify strict collision clearance.",
             "Pair taxonomy is complete, but solver occupancy remains gated until the required structural captures are available.",
         ],
     }

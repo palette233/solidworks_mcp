@@ -89,6 +89,12 @@ def _layout_items(document: dict[str, Any]) -> list[dict[str, Any]]:
     layout = document.get("layout")
     if isinstance(layout, dict) and isinstance(layout.get("components"), list):
         return list(layout["components"])
+    for step in document.get("steps") or []:
+        if step.get("tool") != "apply_captured_common_base_layout":
+            continue
+        components = (step.get("payload") or {}).get("components")
+        if isinstance(components, list):
+            return list(components)
     raise ValueError("Layout document does not contain placements or components.")
 
 

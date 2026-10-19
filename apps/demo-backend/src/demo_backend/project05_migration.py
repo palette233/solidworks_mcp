@@ -165,10 +165,20 @@ def build_project05_migration_skeleton(
     process_path = workspace / "demo/layout_previews/project05_process_semantics.json"
     work_positions_path = workspace / "demo/layout_previews/project05_work_positions.json"
     occupancy_path = workspace / "demo/layout_previews/project05_module_occupancy.json"
+    optical_path = workspace / "demo/layout_previews/project05_optical_geometry.json"
+    service_points_path = workspace / "demo/layout_previews/project05_service_points.json"
+    valve_reach_path = workspace / "demo/layout_previews/project05_dual_valve_reach.json"
+    operation_side_path = workspace / "demo/layout_previews/project05_operation_side.json"
+    glue_supply_path = workspace / "demo/layout_previews/project05_glue_supply_scope.json"
     first_stage = None
     process_semantics = None
     work_positions = None
     occupancy = None
+    optical_geometry = None
+    service_points = None
+    valve_reach = None
+    operation_side = None
+    glue_supply_scope = None
     if first_stage_path.is_file():
         candidate = json.loads(first_stage_path.read_text(encoding="utf-8-sig"))
         if candidate.get("status") == "PROJECT05_FIRST_STAGE_GEOMETRY_CAPTURED":
@@ -223,11 +233,113 @@ def build_project05_migration_skeleton(
                 # downgrade a complete CAD-derived measurement to "partial".
                 if update and item["status"] != "available":
                     item["status"], item["acquisition"] = update
+    if optical_path.is_file():
+        candidate = json.loads(optical_path.read_text(encoding="utf-8-sig"))
+        if candidate.get("status") == "PROJECT05_OPTICAL_AXES_CAPTURED_PRECISE_TARGETS_PENDING":
+            optical_geometry = candidate
+            scanner_coarse = bool((candidate.get("scanner") or {}).get("scanStation", {}).get("coarseLayoutUsable"))
+            ccd_coarse = bool((candidate.get("ccd") or {}).get("twoWorkPositionCoverageCoarseLayoutUsable"))
+            evidence_updates = {
+                "scannerWorkingDistanceAndAxis": (
+                    "available" if scanner_coarse else "partial",
+                    "F000 explicit 170/120 mm beam solids establish a coarse scan station and axes; vendor distance remains pending",
+                ),
+                "barcodeFaceAndSide": (
+                    "available" if scanner_coarse else "partial",
+                    "crossing high/low F000 beams establish product/carrier target proxies and the +v scanner side; exact faces remain unregistered",
+                ),
+                "ccdWorkingGeometry": (
+                    "available" if ccd_coarse else "partial",
+                    "M000 CCD subtree plus PPT 110 mm distance establishes two coarse work-position optical origins; authored datums remain pending",
+                ),
+            }
+            for item in evidence:
+                update = evidence_updates.get(item["id"])
+                if update and item["status"] != "available":
+                    item["status"], item["acquisition"] = update
+    if service_points_path.is_file():
+        candidate = json.loads(service_points_path.read_text(encoding="utf-8-sig"))
+        if (
+            candidate.get("status") == "PROJECT05_SERVICE_POINTS_INFERRED_FOR_COARSE_LAYOUT"
+            and candidate.get("coarseLayoutUsable") is True
+        ):
+            service_points = candidate
+            evidence_updates = {
+                "calibrationAndWeighingPoints": (
+                    "available",
+                    "complete G000 leaf capture: explicit calibration target plate and weighing cup proxies",
+                ),
+                "cleaningServicePoint": (
+                    "available",
+                    "complete active N000 leaf capture: two repeated NB21 cleaner-head target proxies",
+                ),
+                "drainServicePoints": (
+                    "available",
+                    "complete active P000 leaf capture: two explicit FL00002-00549 drain-cup proxies",
+                ),
+            }
+            for item in evidence:
+                update = evidence_updates.get(item["id"])
+                if update:
+                    item["status"], item["acquisition"] = update
+    if valve_reach_path.is_file():
+        candidate = json.loads(valve_reach_path.read_text(encoding="utf-8-sig"))
+        if (
+            candidate.get("status") == "PROJECT05_DUAL_VALVE_PLANAR_REACH_INFERRED_VERTICAL_PENDING"
+            and candidate.get("coarseLayoutUsable") is True
+            and candidate.get("allTargetsInsideCommonPlanarReach") is True
+        ):
+            valve_reach = candidate
+            for item in evidence:
+                if item["id"] == "dualValveReach":
+                    item["status"] = "available"
+                    item["acquisition"] = (
+                        "coarse common planar reach from B000 950L/800L axis evidence, "
+                        "B000 installation centre and P000 130 mm dual-cup pitch; vertical/vendor limits pending"
+                    )
+    if operation_side_path.is_file():
+        candidate = json.loads(operation_side_path.read_text(encoding="utf-8-sig"))
+        if (
+            candidate.get("status") == "PROJECT05_OPERATION_SIDE_COARSE_CAPACITY_INFERRED"
+            and candidate.get("coarseLayoutUsable") is True
+        ):
+            operation_side = candidate
+            updates = {
+                "baseOperationFace": (
+                    "available",
+                    "A000 +transverse outer plane is registered as the coarse operation-side proxy",
+                ),
+                "operationSideCapacity": (
+                    "available",
+                    "G000/N000/P000 prototype envelopes fit the A000 operation-side residual strip beyond D000",
+                ),
+            }
+            for item in evidence:
+                update = updates.get(item["id"])
+                if update:
+                    item["status"], item["acquisition"] = update
+    if glue_supply_path.is_file():
+        candidate = json.loads(glue_supply_path.read_text(encoding="utf-8-sig"))
+        if (
+            candidate.get("status") == "PROJECT05_GLUE_SUPPLY_EXTERNAL_CONTEXT_DECISION_RECORDED"
+            and candidate.get("releaseDecision", {}).get("coarseNineObjectLayoutMayProceed") is True
+        ):
+            glue_supply_scope = candidate
+            for item in evidence:
+                if item["id"] == "glueSupplyIdentity":
+                    item["status"] = "available"
+                    item["acquisition"] = (
+                        "explicitly excluded from the nine-object coarse Top-3 as fixed external utility context; "
+                        "identity and hose routing remain mandatory for production"
+                    )
     missing = [item["id"] for item in evidence if item["status"] == "missing"]
     partial = [item["id"] for item in evidence if item["status"] == "partial"]
     all_paths_resolved = bool(modules) and all(item["cadFileExists"] for item in modules)
-    top3_ready = all_paths_resolved and not missing and not partial
-    if top3_ready:
+    coarse_blocking_partial = [item for item in partial if item == "moduleOccupancy"]
+    coarse_top3_ready = all_paths_resolved and not missing and not coarse_blocking_partial
+    production_top3_ready = False
+    top3_ready = coarse_top3_ready
+    if coarse_top3_ready:
         status = "PROJECT05_TOP3_INPUT_READY"
     elif first_stage:
         status = "PROJECT05_FIRST_STAGE_GEOMETRY_CAPTURED_MORE_EVIDENCE_REQUIRED"
@@ -277,9 +389,22 @@ def build_project05_migration_skeleton(
         "workPositions": work_positions,
         "occupancyPath": str(occupancy_path) if occupancy else None,
         "occupancy": occupancy,
+        "opticalGeometryPath": str(optical_path) if optical_geometry else None,
+        "opticalGeometry": optical_geometry,
+        "servicePointsPath": str(service_points_path) if service_points else None,
+        "servicePoints": service_points,
+        "dualValveReachPath": str(valve_reach_path) if valve_reach else None,
+        "dualValveReach": valve_reach,
+        "operationSidePath": str(operation_side_path) if operation_side else None,
+        "operationSide": operation_side,
+        "glueSupplyScopePath": str(glue_supply_path) if glue_supply_scope else None,
+        "glueSupplyScope": glue_supply_scope,
         "missingRequiredEvidence": missing,
         "partialEvidence": partial,
         "top3SolveReady": top3_ready,
+        "coarseTop3SolveReady": coarse_top3_ready,
+        "productionTop3SolveReady": production_top3_ready,
+        "coarseSolveBlockingEvidence": [*missing, *coarse_blocking_partial],
         "status": status,
         "otherProjectNumericParametersInherited": False,
         "engineeringConfirmationDebt": [

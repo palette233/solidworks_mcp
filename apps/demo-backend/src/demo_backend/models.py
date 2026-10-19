@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
@@ -130,6 +130,365 @@ class FaceMatePatchApplyRequest(FaceMatePatchPreviewRequest):
     preview_digest: str = Field(alias="previewDigest", min_length=64, max_length=64)
     output_assembly_path: str = Field(alias="outputAssemblyPath", min_length=1)
     confirmed: bool = False
+
+    model_config = {"populate_by_name": True}
+
+
+class SemanticConnectionPreviewRequest(BaseModel):
+    semantic_catalog_path: str | None = Field(default=None, alias="semanticCatalogPath")
+    endpoint_catalog_path: str | None = Field(default=None, alias="endpointCatalogPath")
+    source_graph_path: str | None = Field(default=None, alias="sourceGraphPath")
+    connection_request: dict[str, Any] = Field(alias="connectionRequest")
+    execution_mode: Literal["blank_rebuild", "context_incremental"] = Field(
+        default="context_incremental", alias="executionMode"
+    )
+
+    model_config = {"populate_by_name": True}
+
+
+class SemanticAssemblyIntentPreviewRequest(BaseModel):
+    requirement: str = Field(min_length=1)
+    semantic_catalog_path: str | None = Field(default=None, alias="semanticCatalogPath")
+    endpoint_catalog_path: str | None = Field(default=None, alias="endpointCatalogPath")
+    source_graph_path: str | None = Field(default=None, alias="sourceGraphPath")
+    plan_template_path: str | None = Field(default=None, alias="planTemplatePath")
+
+    model_config = {"populate_by_name": True}
+
+
+class SemanticAssemblySequencePreviewRequest(BaseModel):
+    requirement: str = Field(min_length=1)
+    project_id: str = Field(default="project02", alias="projectId")
+
+    model_config = {"populate_by_name": True}
+
+
+class SemanticAssemblyJobCreateRequest(SemanticAssemblySequencePreviewRequest):
+    execution_mode: Literal["validated_artifact_replay", "live_cad"] = Field(
+        default="validated_artifact_replay", alias="executionMode"
+    )
+    idempotency_key: str | None = Field(default=None, alias="idempotencyKey")
+
+    model_config = {"populate_by_name": True}
+
+
+class SemanticConnectionApplyRequest(SemanticConnectionPreviewRequest):
+    preview_digest: str = Field(alias="previewDigest", min_length=64, max_length=64)
+    output_assembly_path: str = Field(alias="outputAssemblyPath", min_length=1)
+    confirmed: bool = False
+
+    model_config = {"populate_by_name": True}
+
+
+class GlobalAssemblyContextCreateRequest(BaseModel):
+    context_id: str = Field(alias="contextId", min_length=1, max_length=80)
+    display_name: str | None = Field(default=None, alias="displayName")
+    catalog_path: str | None = Field(default=None, alias="catalogPath")
+    release_manifest_path: str | None = Field(
+        default=None, alias="releaseManifestPath"
+    )
+    overwrite: bool = False
+
+    model_config = {"populate_by_name": True}
+
+
+class GlobalCatalogMigrationPreviewRequest(BaseModel):
+    candidate_catalog_path: str = Field(alias="candidateCatalogPath", min_length=1)
+    context_ids: list[str] = Field(alias="contextIds", min_length=1, max_length=100)
+    source_catalog_path: str | None = Field(default=None, alias="sourceCatalogPath")
+
+    model_config = {"populate_by_name": True}
+
+
+class GlobalCatalogMigrationCommitRequest(BaseModel):
+    candidate_catalog_path: str = Field(alias="candidateCatalogPath", min_length=1)
+    source_context_id: str = Field(alias="sourceContextId", min_length=1, max_length=80)
+    target_context_id: str = Field(alias="targetContextId", min_length=1, max_length=80)
+    expected_assessment_digest: str = Field(
+        alias="expectedAssessmentDigest", min_length=64, max_length=64
+    )
+    source_catalog_path: str | None = Field(default=None, alias="sourceCatalogPath")
+    confirmed: bool = False
+
+    model_config = {"populate_by_name": True}
+
+
+class GlobalPortableReleaseCommitRequest(BaseModel):
+    preview_digest: str = Field(
+        alias="previewDigest", min_length=64, max_length=64
+    )
+    release_id: str = Field(alias="releaseId", min_length=1)
+    target_context_id: str = Field(
+        alias="targetContextId", min_length=1, max_length=80
+    )
+    confirmed: bool = False
+
+    model_config = {"populate_by_name": True}
+
+
+class GlobalRelationEditPreviewRequest(BaseModel):
+    operation: Literal["add", "verify", "replace", "delete"] = "add"
+    requirement: str | None = None
+    catalog_path: str | None = Field(default=None, alias="catalogPath")
+    connection_id: str | None = Field(default=None, alias="connectionId")
+    instance_a_id: str | None = Field(default=None, alias="instanceAId")
+    instance_b_id: str | None = Field(default=None, alias="instanceBId")
+    port_a_id: str | None = Field(default=None, alias="portAId")
+    port_b_id: str | None = Field(default=None, alias="portBId")
+    global_template_id: str | None = Field(default=None, alias="globalTemplateId")
+
+    model_config = {"populate_by_name": True}
+
+
+class GlobalRelationEditApplyRequest(BaseModel):
+    preview: dict[str, Any]
+    preview_digest: str = Field(alias="previewDigest", min_length=64, max_length=64)
+    confirmed: bool = False
+
+    model_config = {"populate_by_name": True}
+
+
+class GlobalModuleSelectionReadinessRequest(BaseModel):
+    module_references: list[str] = Field(
+        alias="moduleReferences", min_length=1, max_length=100
+    )
+    catalog_path: str | None = Field(default=None, alias="catalogPath")
+
+    model_config = {"populate_by_name": True}
+
+
+class CrossProjectModuleSubstitutionPreviewRequest(BaseModel):
+    source_module: str = Field(alias="sourceModule", min_length=1)
+    replaced_module: str = Field(alias="replacedModule", min_length=1)
+    requirement: str = Field(min_length=1)
+    catalog_path: str | None = Field(default=None, alias="catalogPath")
+
+    model_config = {"populate_by_name": True}
+
+
+class GlobalRelationIntentPreviewRequest(BaseModel):
+    requirement: str = Field(min_length=1)
+    catalog_path: str | None = Field(default=None, alias="catalogPath")
+    release_manifest_path: str | None = Field(
+        default=None, alias="releaseManifestPath"
+    )
+    execution_mode: Literal["verify", "drive"] = Field(
+        default="verify", alias="executionMode"
+    )
+
+    model_config = {"populate_by_name": True}
+
+
+class GlobalRelationDrivingPreflightRequest(BaseModel):
+    requirement: str = Field(min_length=1)
+    effective_graph_path: str = Field(alias="effectiveGraphPath", min_length=1)
+    target_module_token: str = Field(alias="targetModuleToken", min_length=1)
+    require_closed_dof: bool = Field(default=False, alias="requireClosedDof")
+    release_manifest_path: str | None = Field(
+        default=None, alias="releaseManifestPath"
+    )
+
+    model_config = {"populate_by_name": True}
+
+
+class GlobalAssemblyCommandPreviewRequest(BaseModel):
+    requirement: str = Field(min_length=1)
+    catalog_path: str | None = Field(default=None, alias="catalogPath")
+    module_definition_id: str | None = Field(default=None, alias="moduleDefinitionId")
+    instance_id: str | None = Field(default=None, alias="instanceId")
+    new_port_id: str | None = Field(default=None, alias="newPortId")
+    existing_port_id: str | None = Field(default=None, alias="existingPortId")
+    existing_instance_id: str | None = Field(default=None, alias="existingInstanceId")
+    global_template_id: str | None = Field(default=None, alias="globalTemplateId")
+
+    model_config = {"populate_by_name": True}
+
+
+class GlobalAssemblyCommandApplyRequest(BaseModel):
+    preview: dict[str, Any]
+    preview_digest: str = Field(alias="previewDigest", min_length=64, max_length=64)
+    confirmed: bool = False
+
+    model_config = {"populate_by_name": True}
+
+
+class GlobalAssemblyCommandUndoRequest(BaseModel):
+    expected_revision: int = Field(alias="expectedRevision", ge=1)
+    expected_context_digest: str = Field(
+        alias="expectedContextDigest", min_length=64, max_length=64
+    )
+    confirmed: bool = False
+
+    model_config = {"populate_by_name": True}
+
+
+class GlobalAssemblyCommandSequenceRequest(BaseModel):
+    commands: list[GlobalAssemblyCommandPreviewRequest] = Field(min_length=1, max_length=50)
+    confirmed: bool = False
+
+    model_config = {"populate_by_name": True}
+
+
+class GlobalCadManifestJobCreateRequest(BaseModel):
+    manifest_path: str = Field(alias="manifestPath", min_length=1)
+    start_order: int = Field(default=1, alias="startOrder", ge=1)
+    packet_limit: int | None = Field(default=None, alias="packetLimit", ge=1)
+    idempotency_key: str | None = Field(default=None, alias="idempotencyKey")
+    seed_assembly_path: str | None = Field(default=None, alias="seedAssemblyPath")
+    seed_evidence_path: str | None = Field(default=None, alias="seedEvidencePath")
+
+    model_config = {"populate_by_name": True}
+
+
+class GlobalIndependentCadJobCreateRequest(BaseModel):
+    confirmed: bool = False
+    packet_limit: int | None = Field(default=None, alias="packetLimit", ge=1, le=100)
+    idempotency_key: str | None = Field(default=None, alias="idempotencyKey")
+
+    model_config = {"populate_by_name": True}
+
+
+class GlobalCadManifestJobStartRequest(BaseModel):
+    timeout_seconds: int = Field(default=2400, alias="timeoutSeconds", ge=30, le=14400)
+    pause_after_packet: str | None = Field(default=None, alias="pauseAfterPacket")
+    inject_failure_before_packet: str | None = Field(
+        default=None, alias="injectFailureBeforePacket"
+    )
+
+    model_config = {"populate_by_name": True}
+
+
+class GlobalNaturalLanguageManifestJobRequest(BaseModel):
+    context_id: str = Field(alias="contextId", min_length=1, max_length=80)
+    requirements: list[str] = Field(min_length=2, max_length=20)
+    display_name: str | None = Field(default=None, alias="displayName")
+    catalog_path: str | None = Field(default=None, alias="catalogPath")
+    release_manifest_path: str | None = Field(
+        default=None, alias="releaseManifestPath"
+    )
+    overwrite: bool = False
+    start_order: int = Field(default=1, alias="startOrder", ge=1)
+    packet_limit: int | None = Field(default=None, alias="packetLimit", ge=1)
+    idempotency_key: str | None = Field(default=None, alias="idempotencyKey")
+    auto_order_by_released_dependencies: bool = Field(
+        default=False, alias="autoOrderByReleasedDependencies"
+    )
+
+    model_config = {"populate_by_name": True}
+
+
+class TemporarySemanticPortCaptureRequest(BaseModel):
+    instance_id: str = Field(alias="instanceId", min_length=1)
+    module_token: str = Field(alias="moduleToken", min_length=1)
+    display_name: str = Field(alias="displayName", min_length=1)
+    interface_type: str = Field(alias="interfaceType", min_length=1)
+    role: str = Field(default="primary", min_length=1)
+    aliases: list[str] = Field(default_factory=list)
+
+    model_config = {"populate_by_name": True}
+
+
+class TemporaryConnectionPreviewRequest(BaseModel):
+    requirement: str = Field(min_length=1)
+    port_ids: list[str] = Field(default_factory=list, alias="portIds")
+
+    model_config = {"populate_by_name": True}
+
+
+class CheckpointMateGraphExportRequest(BaseModel):
+    confirmed: bool = False
+    expected_demo_job_id: str | None = Field(default=None, alias="expectedDemoJobId")
+
+    model_config = {"populate_by_name": True}
+
+
+class CheckpointTemporaryMateCompileRequest(BaseModel):
+    temporary_preview: dict[str, Any] = Field(alias="temporaryPreview")
+    target_module_token: str = Field(alias="targetModuleToken", min_length=1)
+    expected_binding_digest: str = Field(
+        alias="expectedBindingDigest", min_length=64, max_length=64
+    )
+
+    model_config = {"populate_by_name": True}
+
+
+class DirectMateExecutionBindRequest(BaseModel):
+    execution_path: str = Field(alias="executionPath", min_length=1)
+    confirmed: bool = False
+
+    model_config = {"populate_by_name": True}
+
+
+class HistoricalCheckpointPreviewRequest(BaseModel):
+    job_id: str = Field(alias="jobId", min_length=1)
+    component_inventory_path: str | None = Field(
+        default=None, alias="componentInventoryPath"
+    )
+
+    model_config = {"populate_by_name": True}
+
+
+class HistoricalCheckpointImportRequest(HistoricalCheckpointPreviewRequest):
+    expected_context_digest: str = Field(
+        alias="expectedContextDigest", min_length=64, max_length=64
+    )
+    assessment_digest: str = Field(
+        alias="assessmentDigest", min_length=64, max_length=64
+    )
+    confirmed: bool = False
+
+    model_config = {"populate_by_name": True}
+
+
+class GlobalProjectAdapterJobCreateRequest(BaseModel):
+    confirmed: bool = False
+    idempotency_key: str | None = Field(default=None, alias="idempotencyKey")
+    step_limit: int | None = Field(default=None, alias="stepLimit", ge=1, le=100)
+    seed_job_id: str | None = Field(default=None, alias="seedJobId")
+    seed_edit_id: str | None = Field(default=None, alias="seedEditId")
+    validation_profile: Literal["demo", "engineering"] = Field(
+        default="demo", alias="validationProfile"
+    )
+    assembly_mode: Literal[
+        "mate_driven_port_assembly", "prototype_pose_dependency"
+    ] = Field(default="mate_driven_port_assembly", alias="assemblyMode")
+
+    model_config = {"populate_by_name": True}
+
+
+class GlobalProjectAdapterJobStartRequest(BaseModel):
+    confirmed: bool = False
+    expected_context_digest: str = Field(
+        alias="expectedContextDigest", min_length=64, max_length=64
+    )
+    expected_step_count: int = Field(alias="expectedStepCount", ge=1, le=100)
+
+    model_config = {"populate_by_name": True}
+
+
+class ResolvedPairTransactionJobCreateRequest(BaseModel):
+    confirmed: bool = False
+    idempotency_key: str | None = Field(default=None, alias="idempotencyKey")
+    seed_job_id: str | None = Field(default=None, alias="seedJobId")
+
+    model_config = {"populate_by_name": True}
+
+
+class ResolvedPairTransactionJobStartRequest(BaseModel):
+    confirmed: bool = False
+    expected_context_digest: str = Field(
+        alias="expectedContextDigest", min_length=64, max_length=64
+    )
+    expected_plan_digest: str = Field(
+        alias="expectedPlanDigest", min_length=64, max_length=64
+    )
+
+    model_config = {"populate_by_name": True}
+
+
+class EngineeringValidationJobCreateRequest(BaseModel):
+    confirmed: bool = False
+    idempotency_key: str | None = Field(default=None, alias="idempotencyKey")
 
     model_config = {"populate_by_name": True}
 

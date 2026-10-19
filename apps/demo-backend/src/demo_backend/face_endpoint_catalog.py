@@ -1,11 +1,21 @@
 from __future__ import annotations
 
 import copy
+import hashlib
+import json
 from typing import Any
 
 
 class FaceEndpointCatalogError(ValueError):
     pass
+
+
+def _digest(value: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
+            "utf-8"
+        )
+    ).hexdigest()
 
 
 def _entries(catalog: dict[str, Any]) -> list[dict[str, Any]]:
@@ -75,7 +85,9 @@ def validate_mate_endpoint_pair(
         str(item.get("GeometryClass") or "").casefold() != "plane" for item in selected
     ):
         raise FaceEndpointCatalogError("This mate type requires two planar catalog endpoints.")
-    if mate_type not in {0, 1, 2, 3, 4, 5, 6}:
+    # Slot mates are reconstructed from two ordered face endpoints.  One side is
+    # commonly a cylindrical/slot wall and therefore has no single planar normal.
+    if mate_type not in {0, 1, 2, 3, 4, 5, 6, 21}:
         raise FaceEndpointCatalogError(f"Unsupported basic mate type {mate_type}.")
     return selected
 
@@ -212,3 +224,125 @@ def merge_face_endpoint_catalogs(
         },
     }
     return result
+
+
+def build_face_endpoint_catalog_from_source_mates(
+    source_graph: dict[str, Any],
+    mate_names: list[str],
+    existing_catalog: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build a bounded face catalog from already exported, named source mates.
+
+    This deliberately avoids a full leaf scan.  The exported mate already contains
+    the persistent reference and geometric fingerprint needed by the SolidWorks
+    recovery pipeline.  Existing stable EndpointIds are reused when the same
+    persistent reference has previously been registered.
+    """
+
+    modules = source_graph.get("Modules")
+    mates = source_graph.get("Mates")
+    if not isinstance(modules, list) or not isinstance(mates, list):
+        raise FaceEndpointCatalogError("Source graph must contain Modules and Mates arrays.")
+    requested = [str(value).strip() for value in mate_names]
+    if any(not value for value in requested) or len(requested) != len(set(requested)):
+        raise FaceEndpointCatalogError("mate_names must be unique and non-empty.")
+    by_name = {str(item.get("MateName") or ""): item for item in mates}
+    missing = [value for value in requested if value not in by_name]
+    if missing:
+        raise FaceEndpointCatalogError("Unknown source mate names: " + ", ".join(missing))
+    module_by_path = {
+        str(item.get("HierarchyPath") or "").casefold(): item for item in modules
+    }
+
+    existing_entries = _entries(existing_catalog) if existing_catalog is not None else []
+    existing_by_reference = {
+        str((entry.get("Endpoint") or {}).get("SourceAssemblyPersistentReferenceBase64") or ""):
+        entry
+        for entry in existing_entries
+        if str((entry.get("Endpoint") or {}).get("SourceAssemblyPersistentReferenceBase64") or "")
+    }
+
+    def endpoint_identity(endpoint: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "ModuleToken": endpoint.get("ModuleToken"),
+            "ModuleHierarchyPath": endpoint.get("ModuleHierarchyPath"),
+            "RelativeLeafHierarchyPath": endpoint.get("RelativeLeafHierarchyPath"),
+            "LeafComponentPath": endpoint.get("LeafComponentPath"),
+            "BodyIndex": endpoint.get("BodyIndex"),
+            "FaceIndexInBody": endpoint.get("FaceIndexInBody"),
+            "FaceArea": endpoint.get("FaceArea"),
+            "FaceCenterLocal": endpoint.get("FaceCenterLocal"),
+            "FaceNormalLocal": endpoint.get("FaceNormalLocal"),
+        }
+
+    result_entries: list[dict[str, Any]] = []
+    seen_references: set[str] = set()
+    seen_identities: set[str] = set()
+    reused_ids: list[str] = []
+    generated_ids: list[str] = []
+    source_mate_usage: dict[str, list[str]] = {}
+    for mate_name in requested:
+        mate = by_name[mate_name]
+        endpoints = mate.get("Endpoints")
+        if not isinstance(endpoints, list) or len(endpoints) < 2:
+            raise FaceEndpointCatalogError(
+                f"Source mate '{mate_name}' does not contain enough endpoints."
+            )
+        for endpoint in endpoints:
+            if str(endpoint.get("GeometryType") or "").casefold() != "face":
+                raise FaceEndpointCatalogError(
+                    f"Source mate '{mate_name}' contains a non-face endpoint."
+                )
+            reference = str(
+                endpoint.get("SourceAssemblyPersistentReferenceBase64") or ""
+            )
+            identity_digest = _digest(endpoint_identity(endpoint))
+            dedupe_key = reference or identity_digest
+            if dedupe_key in seen_references or identity_digest in seen_identities:
+                continue
+            seen_references.add(dedupe_key)
+            seen_identities.add(identity_digest)
+
+            existing = existing_by_reference.get(reference) if reference else None
+            if existing is not None:
+                entry = copy.deepcopy(existing)
+                endpoint_id = str(entry["EndpointId"])
+                reused_ids.append(endpoint_id)
+            else:
+                token = str(endpoint.get("ModuleToken") or "module").strip().lower()
+                endpoint_id = f"face:{token}:{identity_digest[:16]}"
+                module_path = str(endpoint.get("ModuleHierarchyPath") or "")
+                module = module_by_path.get(module_path.casefold())
+                if module is None:
+                    raise FaceEndpointCatalogError(
+                        f"Source mate '{mate_name}' references unknown module '{module_path}'."
+                    )
+                entry = {
+                    "EndpointId": endpoint_id,
+                    "ModulePath": module.get("Path"),
+                    "ModuleReferencedConfiguration": module.get("ReferencedConfiguration"),
+                    "LeafReferencedConfiguration": None,
+                    "GeometryClass": (
+                        "Plane" if endpoint.get("FaceNormalLocal") is not None else "Face"
+                    ),
+                    "RecoveryConfidence": "SOURCE_MATE_PERSISTENT_REFERENCE_PLUS_FINGERPRINT",
+                    "Endpoint": copy.deepcopy(endpoint),
+                }
+                generated_ids.append(endpoint_id)
+            result_entries.append(entry)
+            source_mate_usage.setdefault(endpoint_id, []).append(mate_name)
+
+    return {
+        "SchemaVersion": "solidworks-face-endpoint-catalog/v1",
+        "SourceAssemblyPath": source_graph.get("SourceAssemblyPath"),
+        "CatalogMode": "bounded_source_mate_endpoints",
+        "SelectedMateNames": requested,
+        "EndpointCount": len(result_entries),
+        "Endpoints": result_entries,
+        "SourceMateEndpointAudit": {
+            "reusedEndpointIds": reused_ids,
+            "generatedEndpointIds": generated_ids,
+            "endpointMateUsage": source_mate_usage,
+            "sourceGraphSha256": _digest(source_graph),
+        },
+    }

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import copy
 import math
-from typing import Any
+from typing import Any, Callable
 
 
 def _code_from_name(name: str, marker: str = "N074") -> str:
@@ -58,6 +58,7 @@ def build_project01_replay_layout(
     code_marker: str = "N074",
     expected_component_count: int = 10,
     base_component_name: str = "FL9C24N074SS00.001-1",
+    code_resolver: Callable[[str, set[str]], str] | None = None,
 ) -> dict[str, Any]:
     approval = selected.get("visualApproval") or {}
     selected_rank = int(approval.get("selectedSolutionRank") or 0)
@@ -83,11 +84,21 @@ def build_project01_replay_layout(
     }
     pose_by_code = {}
     for item in poses:
+        if not item.get("BoundingBoxWorld"):
+            # Project 05 captures suppressed top-level variants as identity rows
+            # without a body box.  They are evidence, not active Replay members.
+            continue
         try:
-            code = _code_from_name(item["Name"], code_marker)
+            code = (
+                code_resolver(item["Name"], expected_codes)
+                if code_resolver is not None
+                else _code_from_name(item["Name"], code_marker)
+            )
         except ValueError:
             continue
         if code in expected_codes:
+            if code in pose_by_code:
+                raise ValueError(f"Multiple active top-level poses resolve to member '{code}'.")
             pose_by_code[code] = item
 
     components: list[dict[str, Any]] = []
@@ -148,6 +159,7 @@ def build_project01_replay_layout(
                     "constraintPlacement": {
                         "selectedTopKSolutionRank": selected_rank,
                         "rotationQuarters": int((selected_object.get("constraintPlacement") or {}).get("rotationQuarters") or 0),
+                        "fixedEnvironment": pose["Name"] == base_component_name,
                     },
                 }
             )

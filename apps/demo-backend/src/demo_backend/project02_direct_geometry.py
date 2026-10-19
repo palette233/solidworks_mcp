@@ -272,8 +272,17 @@ def derive_common_axis_clearance_offsets(
         second_code = _component_code(second_name.split("/", 1)[0])
         if moving_component_code not in {first_code, second_code}:
             continue
-        first_box = projected_bounds([float(value) for value in pair["FirstBoundingBoxWorld"]])
-        second_box = projected_bounds([float(value) for value in pair["SecondBoundingBoxWorld"]])
+        first_raw = pair.get("FirstBoundingBoxWorld") or []
+        second_raw = pair.get("SecondBoundingBoxWorld") or []
+        # Some valid SolidWorks bodies (for example imported/surface-derived
+        # enclosure bodies) participate in exact interference but do not
+        # expose a body bounding box.  They remain part of the final exact
+        # verification; they simply cannot contribute an AABB-derived escape
+        # threshold here.
+        if len(first_raw) != 6 or len(second_raw) != 6:
+            continue
+        first_box = projected_bounds([float(value) for value in first_raw])
+        second_box = projected_bounds([float(value) for value in second_raw])
         moving, fixed = (
             (first_box, second_box) if first_code == moving_component_code else (second_box, first_box)
         )
