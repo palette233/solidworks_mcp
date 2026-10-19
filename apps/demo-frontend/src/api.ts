@@ -754,16 +754,17 @@ export type ProjectMigrationReadiness = {
   servicePoints?: {
     status: string;
     engineeringConfirmed: boolean;
-    combinedServiceModule: {
+    combinedServiceModule?: {
       cadId?: string;
       functionCount: number;
       reachTargetCount: number;
       functions: string[];
     };
-    calibrationModule: {
+    calibrationModule?: {
       cadId?: string;
       reachTargetCount: number;
     };
+    moduleSummary?: Record<string, unknown>;
     servicePorts: Array<{
       id: string;
       capability: string;
@@ -775,11 +776,11 @@ export type ProjectMigrationReadiness = {
   dualValveReach?: {
     status: string;
     engineeringConfirmed: boolean;
-    vendorConfirmed: boolean;
-    allRequiredTargetsInsideCommonReach: boolean;
-    requiredTargetCount: number;
-    minimumTargetBoundaryMarginMeters: number;
-    commonReachInstallationFrameMeters: {
+    vendorConfirmed?: boolean;
+    allRequiredTargetsInsideCommonReach?: boolean;
+    requiredTargetCount?: number;
+    minimumTargetBoundaryMarginMeters?: number;
+    commonReachInstallationFrameMeters?: {
       minU: number;
       maxU: number;
       minV: number;
@@ -787,11 +788,24 @@ export type ProjectMigrationReadiness = {
       widthU: number;
       widthV: number;
     };
-    valvePair: {
+    commonPlanarReachInstallationMeters?: {
+      minU: number;
+      maxU: number;
+      minV: number;
+      maxV: number;
+    };
+    valvePair?: {
       spacingMeters: number;
       spacingAlongFlowMeters: number;
       spacingAlongTransverseMeters: number;
     };
+    dualValvePitch?: {
+      meters: number;
+      method?: string;
+      engineeringConfirmed?: boolean;
+    };
+    targetCount?: number;
+    allTargetsInsideCommonPlanarReach?: boolean;
   } | null;
   moduleOccupancy?: {
     status: string;
@@ -1048,6 +1062,1104 @@ export type FaceMatePatchApplyResult = {
   solidWorksResult: Record<string, unknown>;
 };
 
+export type SemanticPortEndpointBinding = {
+  role: string;
+  endpointId: string;
+  geometryClass?: string | null;
+  leafHierarchyPath?: string | null;
+  faceIndex?: number | null;
+  faceAreaSquareMeters?: number | null;
+  faceCenterLocal?: number[] | null;
+  faceNormalLocal?: number[] | null;
+  recoveryConfidence?: string | null;
+};
+
+export type SemanticPortView = {
+  portId: string;
+  displayName: string;
+  description?: string | null;
+  moduleToken: string;
+  moduleHierarchyPath: string;
+  category: "mechanical" | "functional" | "spatial";
+  interfaceType: string;
+  status: string;
+  evidence?: string | null;
+  endpointBindings: SemanticPortEndpointBinding[];
+};
+
+export type SemanticConnectionRequest = {
+  schemaVersion: string;
+  connectionId?: string;
+  intent?: string;
+  portAId?: string;
+  portBId?: string;
+  templateId?: string;
+  planId?: string;
+  connections?: Array<{
+    connectionId: string;
+    portAId: string;
+    portBId: string;
+    templateId: string;
+    parameters?: Record<string, unknown>;
+  }>;
+  baseModuleToken?: string;
+  initialPlacementMode?: string;
+  componentToAdd?: Record<string, unknown>;
+  parameters?: Record<string, unknown>;
+};
+
+export type SemanticPortCatalogView = {
+  success: boolean;
+  projectId: string;
+  semanticCatalogPath: string;
+  endpointCatalogPath: string;
+  sourceGraphPath: string;
+  demoRequestPath: string;
+  ports: SemanticPortView[];
+  connectionTemplates: Array<Record<string, unknown>>;
+  demoRequest: SemanticConnectionRequest;
+  defaultNaturalLanguageRequirement: string;
+  latestClosurePath?: string | null;
+  latestClosure?: {
+    success: boolean;
+    status: string;
+    cacheReused: boolean;
+    instancesByModuleToken: Record<string, string>;
+    timing?: { durationSeconds?: number };
+    releaseGate?: {
+      releaseAllowed: boolean;
+      status: string;
+      interferenceSummary?: {
+        completedExactPairCount?: number;
+        newInterferenceCount?: number;
+      };
+    };
+  } | null;
+  validation: { success: boolean; portCount: number; templateCount: number; warnings: string[] };
+  message: string;
+};
+
+export type SemanticAssemblyIntent = {
+  schemaVersion: "semantic-assembly-intent/v1";
+  projectId: string;
+  operation: "add_module";
+  sourceRequirement: string;
+  moduleToAdd: string;
+  mentionedModules: string[];
+  fixedContextModules: string[];
+  componentSolvingStates: Record<string, "rigid" | "flexible">;
+  relationships: Array<{
+    relationshipId: string;
+    sourceModule: string;
+    targetModule: string;
+    purpose: "installation" | "spacing";
+    applicationMode: "driving" | "validate_only";
+    parameters?: { distanceMillimeters?: number };
+    evidence?: string;
+  }>;
+  outputPolicy: { modifyPrototype: boolean; createIndependentAssembly: boolean };
+  parser: { mode: string; geometricEntitiesGenerated: boolean; warnings: string[] };
+};
+
+export type SemanticIntentResolution = {
+  success: boolean;
+  assemblyPlan: SemanticConnectionRequest;
+  selectionAudit: Array<{
+    relationshipId: string;
+    purpose: string;
+    selected: {
+      portAId: string;
+      portBId: string;
+      templateId: string;
+      score: number;
+      reason: string;
+    };
+    candidates: Array<Record<string, unknown>>;
+  }>;
+  solvingStateChecks: Array<{
+    moduleToken: string;
+    requested: string;
+    catalogState?: string | null;
+    matched: boolean;
+  }>;
+  blockingIssues: string[];
+  requiresHumanConfirmation: boolean;
+  message: string;
+};
+
+export type SemanticConnectionPreview = {
+  success: boolean;
+  message: string;
+  semanticCatalogPath: string;
+  endpointCatalogPath: string;
+  sourceGraphPath: string;
+  connectionRequest: SemanticConnectionRequest;
+  selectedPorts: SemanticPortView[];
+  patch: Record<string, unknown>;
+  effectiveSummary: {
+    connectionId?: string;
+    portAId?: string;
+    portBId?: string;
+    planId?: string;
+    connectionCount?: number;
+    addedComponent?: string | null;
+    generatedMateCount: number;
+    generatedMateNames?: string[];
+    validationRelationCount?: number;
+    cadVerifiedFullyConstrained?: boolean;
+    effectiveModuleCount: number;
+    effectiveMateCount: number;
+    executionMode: string;
+    constraintEffect?: {
+      estimatedRemovedScalarDof?: number;
+      fullyLocatesAddedComponent?: boolean;
+      assessment?: string;
+    };
+  };
+  previewDigest: string;
+  suggestedOutputAssemblyPath: string;
+  executionBoundary: {
+    mode: string;
+    modifiesPrototype: boolean;
+    preservesExistingParentContext?: boolean;
+    fullyLocatesAddedComponent: boolean;
+    validationRelationCount?: number;
+  };
+  requirement?: string;
+  parsedIntent?: SemanticAssemblyIntent;
+  intentResolution?: SemanticIntentResolution;
+};
+
+export type SemanticConnectionApplyResult = {
+  status: "ok" | "error";
+  success: boolean;
+  message: string;
+  executionMode: string;
+  artifacts: {
+    outputAssemblyPath: string;
+    requestPath: string;
+    patchPath: string;
+    effectiveGraphPath: string;
+    resultPath: string;
+  };
+  solidWorksResult: Record<string, unknown>;
+  validationSummary?: {
+    relationCount: number;
+    passedCount: number;
+    allPassed: boolean;
+    results: Array<{
+      RelationName?: string;
+      MeasuredDistanceMeters?: number;
+      ExpectedDistanceMeters?: number;
+      ToleranceMeters?: number;
+      Passed?: boolean;
+    }>;
+  };
+  releaseGate?: {
+    status: string;
+    releaseAllowed: boolean;
+    message: string;
+  };
+};
+
+export type GlobalModuleDefinition = {
+  moduleDefinitionId: string;
+  displayName: string;
+  category: string;
+  componentNames: string[];
+  aliases: string[];
+  projectAliases: Array<{
+    projectId: string;
+    moduleToken: string;
+    instanceCount: number;
+    isBaseModule: boolean;
+  }>;
+  portIds: string[];
+  portCoverage: "none" | "partial" | "portable_complete";
+};
+
+export type GlobalModuleCatalog = {
+  schemaVersion: "global-module-catalog/v1";
+  catalogDigest: string;
+  summary: {
+    loadedProjectCount: number;
+    missingProjectCount: number;
+    moduleDefinitionCount: number;
+    semanticPortCount: number;
+    portablePortCount: number;
+    connectionTemplateCount: number;
+    compatibilityCount: number;
+    blockerCount: number;
+  };
+  collisionPolicy: { enabled: false; status: string; statement: string };
+  moduleDefinitions: GlobalModuleDefinition[];
+  blockers: Array<Record<string, unknown>>;
+};
+
+export type GlobalModuleSearchResult = {
+  score: number;
+  matchedTerms: string[];
+  moduleDefinitionId: string;
+  displayName: string;
+  category: string;
+  componentNames: string[];
+  projectAliases: GlobalModuleDefinition["projectAliases"];
+  portCoverage: string;
+  portablePortCount: number;
+};
+
+export type GlobalAssemblyContext = {
+  schemaVersion: "global-assembly-context/v1";
+  contextId: string;
+  displayName: string;
+  catalogDigest: string;
+  revision: number;
+  relationReleaseBinding?: {
+    releaseId: string;
+    releaseManifestPath?: string;
+    authorizedDrivingTemplateIds?: string[];
+  } | null;
+  instances: Array<{
+    instanceId: string;
+    moduleDefinitionId: string;
+    displayName: string;
+    placementStatus: string;
+  }>;
+  connections: Array<Record<string, unknown>>;
+  history?: Array<{
+    revision: number;
+    requirement?: string | null;
+    operation?: string | null;
+    timestamp?: string | null;
+    portableReleaseTransition?: {
+      transitionKind?: "first_bind" | "expand" | null;
+      sourceReleaseId?: string | null;
+      releaseId?: string | null;
+      replacementCount?: number;
+    } | null;
+  }>;
+  collisionAssessment: { status: string; reason: string };
+  contextDigest: string;
+};
+
+export type GlobalAssemblyConversation = {
+  success: boolean;
+  schemaVersion: "assembly-conversation/v1";
+  contextId: string;
+  currentContextRevision: number;
+  currentContextDigest: string;
+  turnCount: number;
+  continuationReady: boolean;
+  ledgerPath: string;
+  latestSuccessfulDemo?: {
+    jobId: string;
+    projectId: string;
+    validationProfile?: "demo" | "generic-cad-transaction-manifest-v1";
+    assemblyStatus?: string;
+    collisionStatus?: "not_evaluated" | "passed" | "rejected";
+    contextRevision: number;
+    contextDigest: string;
+    assemblyPath: string;
+    committedAt?: string | null;
+  } | null;
+  turns: Array<{
+    turnId: string;
+    contextRevision: number;
+    requirement: string;
+    previewDigest: string;
+    contextDigest: string;
+    operation?: string | null;
+    moduleDefinitionId?: string | null;
+    instanceId?: string | null;
+    connectionId?: string | null;
+    graphStatus: "committed";
+    recordedAt: string;
+    jobs: Array<{
+      jobId: string;
+      projectId: string;
+      validationProfile: "demo" | "engineering" | "generic-cad-transaction-manifest-v1";
+      status: string;
+      assemblyStatus: string;
+      collisionStatus: string;
+      sourceJobId?: string | null;
+      bindingRevisionSource?: "explicit_plan" | "exact_context_digest_backfill";
+      demoCheckpoint?: OrderedAssemblyJobStep["checkpoint"];
+      lookupError?: string;
+    }>;
+    cadEdits?: Array<Record<string, unknown>>;
+  }>;
+};
+
+export type TemporarySemanticPort = {
+  portId: string;
+  displayName: string;
+  aliases: string[];
+  moduleInstanceId: string;
+  moduleDefinitionId: string;
+  moduleToken: string;
+  moduleHierarchyPath?: string | null;
+  interfaceType: string;
+  status: "user_selected_provisional";
+  endpointBindings: Array<{ role: string; endpointId: string }>;
+};
+
+export type TemporaryConnectionPreview = {
+  schemaVersion: "temporary-connection-preview/v1";
+  contextId: string;
+  contextRevision: number;
+  requirement: string;
+  status: "ready" | "blocked";
+  selectedPorts: TemporarySemanticPort[];
+  endpointIds: string[];
+  mateDraft: {
+    mateType: number | null;
+    mateLabel: string | null;
+    distanceMeters?: number | null;
+    angleDegrees?: number | null;
+    alignment: number;
+  };
+  blockers: Array<{ code: string; detail: string }>;
+  endpointCatalogPath: string;
+  previewDigest: string;
+  executionBoundary: {
+    solidWorksModified: false;
+    readyForCurrentCheckpointGraphAdapter: boolean;
+    statement: string;
+  };
+};
+
+export type CheckpointMateGraphBinding = {
+  schemaVersion: "checkpoint-mate-graph-binding/v1";
+  contextId: string;
+  contextRevision: number;
+  contextDigest: string;
+  demoJobId: string;
+  projectId: string;
+  checkpointAssembly: { path: string; sha256: string; sizeBytes: number };
+  mateGraph: {
+    path: string;
+    sha256: string;
+    schemaVersion: string;
+    moduleCount: number;
+    mateCount: number;
+  };
+  bindingDigest: string;
+};
+
+export type CheckpointMateGraphExport = {
+  success: boolean;
+  status: "confirmation_required" | "cached_bound_graph" | "bound";
+  executionStarted: boolean;
+  solidWorksAssemblyModified: false;
+  spec: {
+    demoJobId: string;
+    projectId: string;
+    moduleTokens: string[];
+    outputGraphPath: string;
+    bindingPath: string;
+    checkpointAssembly: { path: string; sha256: string };
+  };
+  binding?: CheckpointMateGraphBinding;
+  bindingPath?: string;
+};
+
+export type CheckpointTemporaryMatePreview = {
+  schemaVersion: "checkpoint-temporary-mate-preview/v1";
+  status:
+    | "ready_for_explicit_direct_mate_edit_confirmation"
+    | "ready_for_explicit_remate_confirmation"
+    | "ready_for_explicit_context_insert_confirmation";
+  demoJobId: string;
+  checkpointAssemblyPath: string;
+  targetModuleToken: string;
+  preservedExistingMateNames: string[];
+  newMateName: string;
+  constraintSafety: {
+    sourceDrivingMateCount: number;
+    usesCheckpointPoseAnchor: boolean;
+    executionStrategy: "target_reinsert_with_checkpoint_pose_anchor" | "target_remate_with_preserved_source_mates";
+    claimBoundary: string;
+  };
+  compiledPreviewDigest: string;
+  artifacts?: {
+    patchPath: string;
+    effectiveGraphPath: string;
+    compiledPreviewPath: string;
+  };
+  executionBoundary: {
+    solidWorksModified: false;
+    nextTool: string;
+    requiresExplicitConfirmation: true;
+  };
+};
+
+export type HistoricalCheckpointAssessment = {
+  schemaVersion: "historical-demo-checkpoint-import/v1";
+  status: "ready_for_import" | "blocked";
+  contextId: string;
+  contextRevision: number;
+  contextDigest: string;
+  jobId: string;
+  projectId: string;
+  checkpointAssemblyIdentity: { path: string; sizeBytes: number; sha256: string };
+  componentInventoryIdentity: { path: string; sizeBytes: number; sha256: string };
+  expectedModuleTokenCounts: Record<string, number>;
+  observedModuleTokenCounts: Record<string, number>;
+  expectedInstanceCount: number;
+  observedComponentCount: number;
+  blockers: Array<{ code: string; detail?: unknown }>;
+  warnings: Array<{ code: string; detail?: unknown }>;
+  assessmentDigest: string;
+  executionBoundary: {
+    solidWorksStarted: false;
+    solidWorksAssemblyModified: false;
+    jobFileModified: false;
+    effectAfterConfirmation: string;
+  };
+};
+
+export type HistoricalCheckpointImportResult = {
+  success: boolean;
+  status: "imported";
+  jobId: string;
+  contextId: string;
+  contextRevision: number;
+  assessmentDigest: string;
+  attestationPath: string;
+  checkpointAssemblyIdentity: { path: string; sizeBytes: number; sha256: string };
+  solidWorksStarted: false;
+  solidWorksAssemblyModified: false;
+  jobFileModified: false;
+  conversation: GlobalAssemblyConversation;
+};
+
+export type GlobalAssemblyCommandPreview = {
+  schemaVersion: "global-assembly-command-preview/v1";
+  status: "ready" | "needs_confirmation" | "blocked";
+  requirement: string;
+  resolution: string;
+  previewDigest: string;
+  selectedModuleDefinitionId?: string | null;
+  moduleAlternatives: Array<{
+    moduleDefinitionId: string;
+    displayName: string;
+    matchedTerm: string;
+  }>;
+  connectionCandidates: Array<{
+    newSide: "A" | "B";
+    newPortId: string;
+    existingPortId: string;
+    existingInstanceId: string;
+    globalTemplateId: string;
+    purpose: string;
+    portable: boolean;
+  }>;
+  proposedPatch?: Record<string, unknown> | null;
+  portableReleaseTransition?: {
+    transitionKind: "first_bind" | "expand";
+    discoveryMode?:
+      | "active_catalog_rebinding"
+      | "immutable_release_port_discovery"
+      | "bound_release_expansion";
+    sourceCatalogDigest: string;
+    sourceReleaseId?: string | null;
+    sourceRelationReleaseBinding?: {
+      releaseId: string;
+      releaseManifestPath: string;
+      authorizedDrivingTemplateIds: string[];
+    } | null;
+    releaseId: string;
+    catalogDigest: string;
+    relationReleaseBinding: {
+      releaseId: string;
+      releaseManifestPath: string;
+      authorizedDrivingTemplateIds: string[];
+    };
+    replacements: Array<{
+      connectionId: string;
+      sourceTemplateId: string | null;
+      portableTemplateId: string;
+      orientation: "same" | "swapped";
+      mateStepCount: number;
+    }>;
+    upgradedConnections?: Array<Record<string, unknown>>;
+    selectionPolicy: string;
+    solidWorksExecuted: false;
+    requiresExplicitConfirmation: true;
+  } | null;
+  engineeringFallbacks?: Array<{
+    kind: "physical_adapter_required" | "mechanical_interface_review_required";
+    sourceModule: string;
+    sourceModuleDefinitionId: string;
+    nativeSlotModule: string;
+    nativeSlotModuleDefinitionId: string;
+    directCombinationAllowed: false;
+    cadLaunchDecision: "fail_closed_before_cad";
+    engineeringDisposition: {
+      classification: string;
+      recommendedEngineeringAction: string;
+      explanation: string;
+      knownLocatingDifferences: Array<{
+        roles: string[];
+        sourceDistanceMeters: number;
+        targetDistanceMeters: number;
+        absoluteDifferenceMeters: number;
+      }>;
+      requiredNextEvidence: string[];
+    };
+    userFailureExplanation?: {
+      summary?: string;
+      explanation?: string;
+      suggestedActions?: string[];
+    } | null;
+  }>;
+  fallbackPolicy?: {
+    automaticFallbackExecutionAllowed: false;
+    requiresEngineerSelection: true;
+    solidWorksExecuted: false;
+    statement: string;
+  };
+  blockers: Array<{ code: string; detail: string }>;
+  collisionAssessment: { status: "not_evaluated"; reason: string };
+  cadExecution: { status: "not_executed"; statement: string };
+};
+
+export type GlobalAssemblyExecutionManifest = {
+  schemaVersion: "global-assembly-execution-manifest/v1";
+  contextId: string;
+  status: "ready_for_project_adapter" | "blocked";
+  stepCount: number;
+  steps: Array<{
+    order: number;
+    connectionId: string;
+    status: string;
+    targetInstanceId?: string | null;
+    semanticCatalogPath?: string | null;
+    sourceGraphCandidates: string[];
+    semanticConnectionRequest: {
+      portAId?: string | null;
+      portBId?: string | null;
+      templateId?: string | null;
+    };
+    blockers: Array<{ code: string; detail: string }>;
+  }>;
+  blockers: Array<{ connectionId: string; code: string; detail: string }>;
+  executionBoundary: {
+    solidWorksExecuted: false;
+    collisionGateExecuted: false;
+    statement: string;
+  };
+};
+
+export type GlobalProjectAdapterPlan = {
+  schemaVersion: "global-project-adapter-plan/v1";
+  contextId: string;
+  contextRevision: number;
+  projectId?: string | null;
+  assemblyMode: "mate_driven_port_assembly" | "prototype_pose_dependency";
+  prototypePoseDependency: boolean;
+  portable: boolean;
+  poseDependencyAudit?: {
+    assemblyMode: string;
+    connectionCount: number;
+    mateDrivenReadyCount: number;
+    prototypePoseRequiredCount: number;
+    portable: boolean;
+    statement: string;
+    connections: Array<{
+      connectionId: string;
+      globalTemplateId: string;
+      status: "mate_driven_ready" | "prototype_pose_required" | "port_completeness_unverified" | "template_missing";
+      fullyLocatesAddedComponent?: boolean | string | null;
+      remainingDof?: string | null;
+      residualDofPolicy?: string | null;
+      prototypePoseRequired: boolean;
+    }>;
+  } | null;
+  status: "ready_for_durable_job" | "blocked";
+  safeToCreateDurableJob: boolean;
+  stepCount: number;
+  sequenceAssessment?: {
+    status: "accepted" | "blocked";
+    kind: "exact" | "validated_prefix" | "sequence_mismatch";
+    actual: string[];
+    expected: string[];
+    nextExpectedTokens: string[];
+    missingPredecessors: string[];
+  } | null;
+  runnerBinding?: { runnerId?: string | null; solidWorksStarted: false } | null;
+  seedCheckpoint?: {
+    moduleToken: string;
+    assemblyPath: string;
+    evidencePath: string;
+  } | null;
+  steps: Array<{
+    stepId: string;
+    moduleToken: string;
+    sourceCheckpointPolicy: string;
+    runnerId?: string | null;
+  }>;
+  blockers: Array<{
+    code: string;
+    detail: string;
+    missingPredecessors?: string[];
+  }>;
+  executionBoundary: {
+    solidWorksExecuted: false;
+    collisionGateExecuted: false;
+    collisionPolicy: string;
+    statement?: string;
+  };
+};
+
+export type GlobalCadTransactionManifest = {
+  schemaVersion: "global-cad-transaction-manifest/v1";
+  contextId: string;
+  contextRevision?: number | null;
+  status: "ready_for_generic_executor_implementation" | "blocked";
+  planningMode: "project_independent_semantic_graph";
+  projectSequenceRequired: false;
+  packetCount: number;
+  manifestDigest: string;
+  relationReleaseBinding?: { releaseId?: string | null } | null;
+  packets: Array<{
+    packetId: string;
+    order: number;
+    status: string;
+    operation: string;
+    executionStrategy: string;
+    targetInstanceId?: string | null;
+    blockers: Array<{ code: string; detail?: string }>;
+  }>;
+  blockers: Array<{ packetId?: string; code: string; detail?: string }>;
+};
+
+export type GlobalPortableReleaseRecommendation = {
+  schemaVersion: "portable-relation-release-recommendation/v1";
+  status: "ready" | "blocked";
+  sourceContextId: string;
+  sourceContextRevision: number;
+  sourceContextDigest: string;
+  recommendation: null | {
+    releaseId: string;
+    releaseVersion: number;
+    releaseManifestPath: string;
+    authorizedTemplateCount: number;
+    replacements: Array<{
+      connectionId: string;
+      sourceTemplateId: string;
+      portableTemplateId: string;
+      orientation: "same" | "swapped";
+      mateStepCount: number;
+    }>;
+  };
+  alternatives: Array<{
+    releaseId: string;
+    releaseVersion: number;
+    releaseManifestPath: string;
+    authorizedTemplateCount: number;
+    replacements: Array<{
+      connectionId: string;
+      sourceTemplateId: string;
+      portableTemplateId: string;
+      orientation: "same" | "swapped";
+      mateStepCount: number;
+    }>;
+  }>;
+  blockers: Array<{ code: string; detail?: string }>;
+  selectionPolicy: string;
+  previewDigest: string;
+};
+
+type GlobalCadManifestJobStatus = {
+  jobId: string;
+  projectId: string;
+  status: OrderedAssemblyJob["status"];
+  assemblyStatus?: string;
+  collisionStatus?: "not_evaluated" | "passed" | "rejected";
+  progress: {
+    completedSteps: number;
+    totalSteps: number;
+    currentStepId?: string | null;
+    nextStepId?: string | null;
+  };
+  pauseRequested: boolean;
+  steps: OrderedAssemblyJobStep[];
+  lastCheckpoint?: OrderedAssemblyJobStep["checkpoint"];
+  failure?: {
+    reason?: string | null;
+    rollback?: OrderedAssemblyJob["rollback"];
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+  startRequestedAt?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  executionDurationSeconds?: number;
+  commandAudit?: OrderedAssemblyJob["commandAudit"];
+  timingReport?: OrderedAssemblyJob["timingReport"];
+  userSummary?: OrderedAssemblyJob["userSummary"];
+};
+
+function normalizeGlobalCadManifestJob(
+  value: GlobalCadManifestJobStatus,
+  markStartRequested = false
+): OrderedAssemblyJob {
+  return {
+    jobId: value.jobId,
+    projectId: value.projectId,
+    executionMode: "generic_cad_manifest",
+    validationProfile: "demo",
+    assemblyStatus: value.assemblyStatus,
+    collisionStatus: value.collisionStatus,
+    status: value.status,
+    cancelRequested: false,
+    pauseRequested: value.pauseRequested,
+    createdAt: value.createdAt,
+    updatedAt: value.updatedAt,
+    startedAt: value.startedAt,
+    startRequestedAt:
+      markStartRequested || value.startRequestedAt || value.startedAt
+        ? (value.startRequestedAt ?? value.startedAt ?? new Date().toISOString())
+        : null,
+    completedAt: value.completedAt,
+    executionDurationSeconds: value.executionDurationSeconds,
+    commandAudit: value.commandAudit,
+    timingReport: value.timingReport,
+    userSummary: value.userSummary,
+    steps: value.steps,
+    lastCommittedCheckpoint: value.lastCheckpoint,
+    demoCheckpoint: value.lastCheckpoint,
+    rollback: value.failure?.rollback ?? null,
+    error: value.failure?.reason ?? null
+  };
+}
+
+export type OrderedAssemblyStep = {
+  stepId: string;
+  order: number;
+  moduleToken: string;
+  moduleLabel: string;
+  sourceText: string;
+  availableBefore: string[];
+  requiredModules: string[];
+  missingRequiredModules: string[];
+  dependenciesSatisfied: boolean;
+  placementKind: string;
+  ruleSummary: string;
+  acceptanceChecks: string[];
+  implementationStatus:
+    | "single_module_cad_validated"
+    | "top_level_cad_validated_release_blocked"
+    | "preview_only";
+  missingImplementation?: string | null;
+  engineeringLimitations?: string[];
+  cadExecutableNow: boolean;
+  status: "blocked_by_order" | "cad_validated_single_step" | "preview_ready_implementation_missing";
+};
+
+export type OrderedAssemblyPreview = {
+  success: boolean;
+  message: string;
+  audit: {
+    runId: string;
+    startedAt: string;
+    completedAt: string;
+    timingSeconds: { parseCommand: number; buildPlan: number; total: number };
+  };
+  intent: {
+    schemaVersion: string;
+    projectId: string;
+    projectProfile?: {
+      schemaVersion: string;
+      profileVersion: string;
+      profileDigest: string;
+      profilePath: string;
+    };
+    intentDigest?: string;
+    sourceRequirement: string;
+    initialContextModules: string[];
+    steps: Array<Pick<OrderedAssemblyStep, "order" | "moduleToken" | "moduleLabel" | "sourceText">>;
+    parser: { mode: string; geometricEntitiesGenerated: boolean; warnings: string[] };
+  };
+  plan: {
+    schemaVersion: string;
+    intentDigest?: string;
+    planDigest?: string;
+    steps: OrderedAssemblyStep[];
+    summary: {
+      stepCount: number;
+      orderValid: boolean;
+      previewReady: boolean;
+      cadExecutableStepCount: number;
+      allStepsCadExecutableNow: boolean;
+      dynamicProcessRequestAccepted?: boolean;
+      finalPlannedModuleTokens: string[];
+      orderBlockerCount: number;
+      missingImplementationCount: number;
+    };
+    orderBlockers: string[];
+    missingImplementations: Array<{ moduleToken: string; reason: string }>;
+    dynamicProcessGate?: {
+      requested: boolean;
+      accepted: boolean;
+      status: string;
+      scope: string;
+      message: string;
+      requestedAngleDegrees?: number;
+      startAngleDegrees?: number | null;
+      targetAngleDegrees?: number;
+      continuousPathVerified?: boolean;
+      firstObservedCollisionBracketDegrees?: number[];
+      knownPairFirstObservedCollisionBracketDegrees?: number[];
+      rejectedSampledAnglesDegrees?: number[];
+      newLeafSourcePairs?: Array<{
+        leafSourcePair: string[];
+        count: number;
+      }>;
+      evidencePath?: string;
+    } | null;
+    executionBoundary: {
+      mode: string;
+      modifiesPrototype: boolean;
+      safeToStartCad: boolean;
+      reason: string;
+    };
+  };
+  contracts?: {
+    intent: { schemaVersion: string; intentDigest: string };
+    plan: { schemaVersion: string; intentDigest: string; planDigest: string };
+  };
+};
+
+export type OrderedAssemblyClosure = {
+  available: boolean;
+  status: string;
+  allCadStepsPassed?: boolean;
+  finalAssemblyPath?: string;
+  sequence?: string[];
+  interferenceGate?: {
+    expectedTopLevelPairCount?: number;
+    checkedPairCount?: number;
+    pairCoverageComplete?: boolean;
+    acceptedPairCount?: number;
+    rejectedPairCount?: number;
+  };
+  blockingIssues?: Array<{
+    id: string;
+    scope: string[];
+    description: string;
+    requiredNextStep: string;
+  }>;
+  knownLimitations?: Array<{
+    id: string;
+    scope: string[];
+    description: string;
+    requiredNextStep: string;
+  }>;
+  releaseDecision?: {
+    topLevelStaticAssemblyBuilt?: boolean;
+    zeroNewInterferenceForCompletedChecks?: boolean;
+    staticSevenModuleDemoReleaseAllowed?: boolean;
+    staticTenObjectDemoReleaseAllowed?: boolean;
+    productionReleaseAllowed?: boolean;
+    reason?: string;
+  };
+  timingSeconds?: { cadStagesTotal?: number; conditionalBrepTotal?: number };
+  evidencePath: string;
+};
+
+export type OrderedAssemblyValidatedRun = {
+  success: boolean;
+  executionMode: "validated_artifact_replay";
+  cadExecutedThisRequest: false;
+  validatedCadArtifactReused: true;
+  message: string;
+  requestedSequence: string[];
+  finalAssemblyPath: string;
+  interferenceGate: {
+    checkedPairCount?: number;
+    acceptedPairCount?: number;
+  };
+  releaseDecision: {
+    staticSevenModuleDemoReleaseAllowed?: boolean;
+    productionReleaseAllowed?: boolean;
+    reason?: string;
+  };
+  audit: {
+    runId: string;
+    durationSeconds: number;
+    runEvidencePath: string;
+  };
+};
+
+export type OrderedAssemblyPipelineAudit = {
+  schemaVersion: string;
+  generatedAt: string;
+  projectId: string;
+  projectProfile: { profileVersion: string; profileDigest: string; profilePath: string };
+  checks: Array<{ id: string; passed: boolean; evidence: unknown; message: string }>;
+  blockingIssues: string[];
+  warnings: string[];
+  readyForValidatedArtifactReplay: boolean;
+  readyForLiveCadExecution: boolean;
+  finalAssemblyPath: string;
+  closureEvidencePath: string;
+  timingSeconds: { total: number };
+};
+
+export type OrderedAssemblyDependencyAudit = {
+  schemaVersion: string;
+  generatedAt: string;
+  projectId: string;
+  prototypeDependentModuleCount: number;
+  productionAuthorityAcceptedModuleCount: number;
+  staticDemoProfileAccepted: boolean;
+  productionProfileAccepted: boolean;
+  productionBlockers: Array<{
+    moduleToken: string;
+    sourceConfidence: string;
+    requiredReplacement: string;
+    pendingParameterAuthorityRequirementIds?: string[];
+  }>;
+  parameterAuthorityAudit?: {
+    registry: { registryVersion: string; registryDigest: string; registryPath: string };
+    requirementCount: number;
+    productionAcceptedRequirementCount: number;
+    staticDemoParameterEvidenceAccepted: boolean;
+    productionParameterAuthorityAccepted: boolean;
+    productionBlockers: Array<{
+      requirementId: string;
+      ownerModules: string[];
+      nextAction: string;
+    }>;
+  } | null;
+  productionDynamicRequirements: string[];
+};
+
+export type OrderedAssemblyReleaseContract = {
+  schemaVersion: string;
+  generatedAt: string;
+  projectId: string;
+  profile: { version: string; digest: string; path: string };
+  static: {
+    allowed: boolean;
+    closureExists: boolean;
+    closureSuccess: boolean;
+    evidencePath: string;
+  };
+  liveCad: { allowed: boolean; explicitlyReleasedByProfile: boolean };
+  dynamic: {
+    configured: boolean;
+    evidenceExists: boolean;
+    schemaMatches: boolean;
+    productionReady: boolean;
+    commandGateEnabled: boolean;
+    status: string;
+    continuousPathVerified: boolean;
+    verifiedSafeSampledAnglesDegrees: number[];
+    rejectedSampledAnglesDegrees: number[];
+    firstObservedCollisionBracketDegrees?: number[] | null;
+    knownPairFirstContactRefinement?: {
+      firstObservedCollisionBracketDegrees?: number[];
+      doesNotProveWholeMachineContinuousSafety?: boolean;
+    } | null;
+    evidencePath?: string | null;
+  };
+  parameterAuthority: {
+    confidenceCounts: Record<string, number>;
+    prototypeOrTemporaryModuleCount: number;
+    productionAuthorityClosed: boolean;
+  };
+  release: {
+    staticDemoAllowed: boolean;
+    liveCadAllowed: boolean;
+    productionAllowed: boolean;
+    productionBlockers: string[];
+  };
+};
+
+export type OrderedAssemblyJobStep = {
+  index: number;
+  stepId: string;
+  moduleToken: string;
+  status: "pending" | "running" | "succeeded" | "failed" | "cancelled";
+  attemptCount: number;
+  attempts?: Array<{
+    attempt: number;
+    startedAt: string;
+    completedAt?: string | null;
+    durationSeconds?: number | null;
+  }>;
+  checkpoint?: {
+    assemblyPath: string;
+    evidencePath?: string | null;
+    committedAt: string;
+    validationProfile?: "demo" | "engineering" | "generic-cad-transaction-manifest-v1";
+    assemblyStatus?: string;
+    collisionStatus?: "not_evaluated" | "passed" | "rejected";
+    validationEvidenceKind?: string | null;
+  } | null;
+  error?: string | null;
+  executionDurationSeconds?: number;
+};
+
+export type OrderedAssemblyJob = {
+  jobId: string;
+  projectId: string;
+  executionMode: "validated_artifact_replay" | "live_cad" | "generic_cad_manifest";
+  validationProfile?: "demo" | "engineering" | "generic-cad-transaction-manifest-v1";
+  assemblyStatus?: string;
+  collisionStatus?: "not_evaluated" | "passed" | "rejected";
+  status: "queued" | "running" | "paused" | "succeeded" | "failed" | "cancelled";
+  cancelRequested: boolean;
+  pauseRequested: boolean;
+  createdAt: string;
+  updatedAt: string;
+  startedAt?: string | null;
+  startRequestedAt?: string | null;
+  completedAt?: string | null;
+  executionDurationSeconds?: number;
+  commandAudit?: {
+    status: "complete" | "incomplete" | "unavailable";
+    path?: string | null;
+    digest?: string | null;
+  };
+  timingReport?: {
+    status: "available" | "pending";
+    path?: string | null;
+  };
+  userSummary?: {
+    status: string;
+    path?: string | null;
+    markdownPath?: string | null;
+  };
+  steps: OrderedAssemblyJobStep[];
+  lastCommittedCheckpoint?: OrderedAssemblyJobStep["checkpoint"];
+  demoCheckpoint?: OrderedAssemblyJobStep["checkpoint"];
+  engineeringCheckpoint?: OrderedAssemblyJobStep["checkpoint"];
+  rollback?: { mode: string; checkpoint?: OrderedAssemblyJobStep["checkpoint"] } | null;
+  error?: string | null;
+};
+
+export type EngineeringValidationJob = {
+  schemaVersion: string;
+  validationJobId: string;
+  projectId: string;
+  sourceJobId: string;
+  status: "queued" | "running" | "succeeded" | "rejected" | "failed";
+  collisionStatus: "not_evaluated" | "passed" | "rejected";
+  createdAt: string;
+  updatedAt: string;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  durationSeconds?: number | null;
+  sourceAssemblyIdentity: { path: string; sizeBytes: number; sha256: string };
+  engineeringCheckpoint?: OrderedAssemblyJobStep["checkpoint"];
+  evidencePath?: string | null;
+  error?: string | null;
+};
+
 export type ArrangeComponentResult = {
   componentName: string;
   layout2d?: Layout2d | null;
@@ -1228,6 +2340,618 @@ export async function applyFaceMatePatch(options: {
   confirmed: boolean;
 }): Promise<FaceMatePatchApplyResult> {
   return request<FaceMatePatchApplyResult>("/api/demo/mate-face-catalog/apply", {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify(options)
+  });
+}
+
+export async function getSemanticPortCatalog(): Promise<SemanticPortCatalogView> {
+  return request<SemanticPortCatalogView>("/api/demo/semantic-port-catalog");
+}
+
+export async function getGlobalModuleCatalog(): Promise<GlobalModuleCatalog> {
+  return request<GlobalModuleCatalog>("/api/demo/global-module-catalog");
+}
+
+export async function searchGlobalModuleCatalog(
+  query: string,
+  limit = 20
+): Promise<{ success: boolean; resultCount: number; results: GlobalModuleSearchResult[] }> {
+  return request(`/api/demo/global-module-catalog/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+}
+
+export async function createGlobalAssemblyContext(options: {
+  contextId: string;
+  displayName?: string;
+  overwrite?: boolean;
+}): Promise<{ success: boolean; contextPath: string; context: GlobalAssemblyContext }> {
+  return request("/api/demo/global-assembly-contexts", {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify(options)
+  });
+}
+
+export async function getGlobalAssemblyContext(contextId: string): Promise<GlobalAssemblyContext> {
+  return request(`/api/demo/global-assembly-contexts/${encodeURIComponent(contextId)}`);
+}
+
+export async function getGlobalAssemblyConversation(
+  contextId: string
+): Promise<GlobalAssemblyConversation> {
+  return request(
+    `/api/demo/global-assembly-contexts/${encodeURIComponent(contextId)}/conversation`
+  );
+}
+
+export async function getTemporarySemanticPorts(
+  contextId: string
+): Promise<{
+  success: boolean;
+  contextId: string;
+  ports: TemporarySemanticPort[];
+  registryPath: string;
+  endpointCatalogPath: string;
+}> {
+  return request(
+    `/api/demo/global-assembly-contexts/${encodeURIComponent(contextId)}/temporary-ports`
+  );
+}
+
+export async function captureTemporarySemanticPort(
+  contextId: string,
+  options: {
+    instanceId: string;
+    moduleToken: string;
+    displayName: string;
+    interfaceType: string;
+    role?: string;
+    aliases?: string[];
+  }
+): Promise<{
+  success: boolean;
+  contextId: string;
+  port: TemporarySemanticPort;
+  registryPath: string;
+  endpointCatalogPath: string;
+  cadModified: false;
+}> {
+  return request(
+    `/api/demo/global-assembly-contexts/${encodeURIComponent(contextId)}/temporary-ports/capture-selected-face`,
+    { method: "POST", headers: jsonHeaders, body: JSON.stringify(options) }
+  );
+}
+
+export async function previewTemporarySemanticConnection(
+  contextId: string,
+  requirement: string,
+  portIds: string[] = []
+): Promise<TemporaryConnectionPreview> {
+  return request(
+    `/api/demo/global-assembly-contexts/${encodeURIComponent(contextId)}/temporary-connections/preview`,
+    {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ requirement, portIds })
+    }
+  );
+}
+
+export async function exportCheckpointMateGraph(
+  contextId: string,
+  options: { confirmed: boolean; expectedDemoJobId?: string }
+): Promise<CheckpointMateGraphExport> {
+  return request(
+    `/api/demo/global-assembly-contexts/${encodeURIComponent(contextId)}/checkpoint-mate-graph/export`,
+    { method: "POST", headers: jsonHeaders, body: JSON.stringify(options) }
+  );
+}
+
+export async function compileCheckpointTemporaryConnection(
+  contextId: string,
+  options: {
+    temporaryPreview: TemporaryConnectionPreview;
+    targetModuleToken: string;
+    expectedBindingDigest: string;
+  }
+): Promise<CheckpointTemporaryMatePreview> {
+  return request(
+    `/api/demo/global-assembly-contexts/${encodeURIComponent(contextId)}/checkpoint-mate-graph/compile-temporary-connection`,
+    { method: "POST", headers: jsonHeaders, body: JSON.stringify(options) }
+  );
+}
+
+export async function previewHistoricalCheckpointImport(
+  contextId: string,
+  options: { jobId: string; componentInventoryPath?: string }
+): Promise<HistoricalCheckpointAssessment> {
+  return request(
+    `/api/demo/global-assembly-contexts/${encodeURIComponent(contextId)}/historical-checkpoints/preview`,
+    { method: "POST", headers: jsonHeaders, body: JSON.stringify(options) }
+  );
+}
+
+export async function importHistoricalCheckpoint(
+  contextId: string,
+  options: {
+    jobId: string;
+    componentInventoryPath?: string;
+    expectedContextDigest: string;
+    assessmentDigest: string;
+    confirmed: boolean;
+  }
+): Promise<HistoricalCheckpointImportResult> {
+  return request(
+    `/api/demo/global-assembly-contexts/${encodeURIComponent(contextId)}/historical-checkpoints/import`,
+    { method: "POST", headers: jsonHeaders, body: JSON.stringify(options) }
+  );
+}
+
+export async function previewGlobalAssemblyCommand(
+  contextId: string,
+  options: {
+    requirement: string;
+    moduleDefinitionId?: string;
+    instanceId?: string;
+    newPortId?: string;
+    existingPortId?: string;
+    existingInstanceId?: string;
+    globalTemplateId?: string;
+  }
+): Promise<GlobalAssemblyCommandPreview> {
+  return request(`/api/demo/global-assembly-contexts/${encodeURIComponent(contextId)}/commands/preview`, {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify(options)
+  });
+}
+
+export async function applyGlobalAssemblyCommand(
+  contextId: string,
+  preview: GlobalAssemblyCommandPreview
+): Promise<{ success: boolean; contextPath: string; context: GlobalAssemblyContext; message: string }> {
+  return request(`/api/demo/global-assembly-contexts/${encodeURIComponent(contextId)}/commands/apply`, {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({ preview, previewDigest: preview.previewDigest, confirmed: true })
+  });
+}
+
+export async function undoLatestGlobalAssemblyCommand(
+  contextId: string,
+  context: GlobalAssemblyContext
+): Promise<{
+  success: boolean;
+  status: "rolled_back";
+  contextPath: string;
+  snapshotPath: string;
+  context: GlobalAssemblyContext;
+  rolledBackTurn: GlobalAssemblyConversation["turns"][number];
+  message: string;
+}> {
+  return request(
+    `/api/demo/global-assembly-contexts/${encodeURIComponent(contextId)}/commands/undo-latest`,
+    {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({
+        expectedRevision: context.revision,
+        expectedContextDigest: context.contextDigest,
+        confirmed: true
+      })
+    }
+  );
+}
+
+export async function applyGlobalAssemblyCommandSequence(
+  contextId: string,
+  commands: Array<{
+    requirement: string;
+    moduleDefinitionId?: string;
+    instanceId?: string;
+    newPortId?: string;
+    existingPortId?: string;
+    existingInstanceId?: string;
+    globalTemplateId?: string;
+  }>
+): Promise<{
+  success: boolean;
+  status: "committed" | "needs_confirmation" | "blocked";
+  contextModified: boolean;
+  failedAtOrder?: number;
+  turnCount?: number;
+  turns: Array<Record<string, unknown>>;
+  context?: GlobalAssemblyContext;
+  message: string;
+}> {
+  return request(
+    `/api/demo/global-assembly-contexts/${encodeURIComponent(contextId)}/commands/apply-sequence`,
+    {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ commands, confirmed: true })
+    }
+  );
+}
+
+export async function getGlobalAssemblyExecutionManifest(
+  contextId: string
+): Promise<GlobalAssemblyExecutionManifest> {
+  return request(
+    `/api/demo/global-assembly-contexts/${encodeURIComponent(contextId)}/execution-manifest`
+  );
+}
+
+export async function getGlobalProjectAdapterPlan(
+  contextId: string,
+  assemblyMode: "mate_driven_port_assembly" | "prototype_pose_dependency" = "mate_driven_port_assembly"
+): Promise<GlobalProjectAdapterPlan> {
+  return request(
+    `/api/demo/global-assembly-contexts/${encodeURIComponent(contextId)}/project-adapter-plan?assemblyMode=${encodeURIComponent(assemblyMode)}`
+  );
+}
+
+export async function getGlobalCadTransactionManifest(
+  contextId: string
+): Promise<GlobalCadTransactionManifest> {
+  return request(
+    `/api/demo/global-assembly-contexts/${encodeURIComponent(contextId)}/cad-transaction-manifest`
+  );
+}
+
+export async function getGlobalPortableReleaseRecommendation(
+  contextId: string
+): Promise<GlobalPortableReleaseRecommendation> {
+  return request(
+    `/api/demo/global-assembly-contexts/${encodeURIComponent(contextId)}/portable-release-recommendation`
+  );
+}
+
+export async function commitGlobalPortableReleaseUpgrade(
+  contextId: string,
+  previewDigest: string,
+  releaseId: string,
+  targetContextId: string
+): Promise<{
+  success: true;
+  sourcePreserved: true;
+  solidWorksExecuted: false;
+  context: GlobalAssemblyContext;
+  evidencePath: string;
+  message: string;
+}> {
+  return request(
+    `/api/demo/global-assembly-contexts/${encodeURIComponent(contextId)}/portable-release-upgrades`,
+    {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({
+        previewDigest,
+        releaseId,
+        targetContextId,
+        confirmed: true
+      })
+    }
+  );
+}
+
+export async function prepareGlobalIndependentCadJob(
+  contextId: string,
+  idempotencyKey?: string,
+  packetLimit?: number
+): Promise<{
+  success: boolean;
+  preparedOnly: true;
+  executionStarted: false;
+  solidWorksStarted: false;
+  assemblyMode: "mate_driven_port_assembly";
+  portable: true;
+  manifestPath: string;
+  transactionDagPath: string;
+  manifest: GlobalCadTransactionManifest;
+  job: OrderedAssemblyJob;
+}> {
+  const result = await request<{
+    success: boolean;
+    preparedOnly: true;
+    executionStarted: false;
+    solidWorksStarted: false;
+    assemblyMode: "mate_driven_port_assembly";
+    portable: true;
+    manifestPath: string;
+    transactionDagPath: string;
+    manifest: GlobalCadTransactionManifest;
+    job: GlobalCadManifestJobStatus;
+  }>(
+    `/api/demo/global-assembly-contexts/${encodeURIComponent(contextId)}/independent-cad-jobs`,
+    {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ confirmed: true, idempotencyKey, packetLimit })
+    }
+  );
+  return { ...result, job: normalizeGlobalCadManifestJob(result.job) };
+}
+
+export async function startGlobalCadManifestJob(jobId: string): Promise<OrderedAssemblyJob> {
+  const result = await request<GlobalCadManifestJobStatus>(
+    `/api/demo/global-cad-manifest-jobs/${encodeURIComponent(jobId)}/start`,
+    {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ timeoutSeconds: 2400 })
+    }
+  );
+  return normalizeGlobalCadManifestJob(result, true);
+}
+
+export async function loadGlobalCadManifestJob(jobId: string): Promise<OrderedAssemblyJob> {
+  const result = await request<GlobalCadManifestJobStatus>(
+    `/api/demo/global-cad-manifest-jobs/${encodeURIComponent(jobId)}`
+  );
+  return normalizeGlobalCadManifestJob(result);
+}
+
+export async function pauseGlobalCadManifestJob(jobId: string): Promise<OrderedAssemblyJob> {
+  const result = await request<GlobalCadManifestJobStatus>(
+    `/api/demo/global-cad-manifest-jobs/${encodeURIComponent(jobId)}/pause`,
+    { method: "POST" }
+  );
+  return normalizeGlobalCadManifestJob(result, true);
+}
+
+export async function resumeGlobalCadManifestJob(jobId: string): Promise<OrderedAssemblyJob> {
+  const result = await request<GlobalCadManifestJobStatus>(
+    `/api/demo/global-cad-manifest-jobs/${encodeURIComponent(jobId)}/resume`,
+    {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ timeoutSeconds: 2400 })
+    }
+  );
+  return normalizeGlobalCadManifestJob(result, true);
+}
+
+export async function prepareGlobalProjectAdapterJob(
+  contextId: string,
+  idempotencyKey?: string,
+  stepLimit?: number,
+  seedJobId?: string,
+  validationProfile: "demo" | "engineering" = "demo",
+  assemblyMode: "mate_driven_port_assembly" | "prototype_pose_dependency" = "mate_driven_port_assembly"
+): Promise<{
+  success: boolean;
+  preparedOnly: true;
+  executionStarted: false;
+  solidWorksStarted: false;
+  message: string;
+  executionScope: {
+    kind: "validated_prefix" | "full_chain" | "validated_continuation";
+    requestedStepCount: number;
+    fullStepCount: number;
+    startStepIndex?: number;
+    moduleTokens: string[];
+    seedJobId?: string;
+    seedStepId?: string;
+  };
+  job: OrderedAssemblyJob;
+}> {
+  return request(
+    `/api/demo/global-assembly-contexts/${encodeURIComponent(contextId)}/project-adapter-jobs`,
+    {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({
+        confirmed: true,
+        idempotencyKey,
+        stepLimit,
+        seedJobId,
+        validationProfile,
+        assemblyMode
+      })
+    }
+  );
+}
+
+export async function startGlobalProjectAdapterJob(
+  contextId: string,
+  jobId: string,
+  expectedContextDigest: string,
+  expectedStepCount: number
+): Promise<{
+  success: boolean;
+  executionScheduled: boolean;
+  solidWorksStartedInRequest: false;
+  message: string;
+  job: OrderedAssemblyJob;
+}> {
+  return request(
+    `/api/demo/global-assembly-contexts/${encodeURIComponent(contextId)}/project-adapter-jobs/${encodeURIComponent(jobId)}/start`,
+    {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({
+        confirmed: true,
+        expectedContextDigest,
+        expectedStepCount
+      })
+    }
+  );
+}
+
+export async function resumeGlobalProjectAdapterJob(
+  contextId: string,
+  jobId: string,
+  expectedContextDigest: string,
+  expectedStepCount: number
+): Promise<{
+  success: boolean;
+  executionScheduled: boolean;
+  solidWorksStartedInRequest: false;
+  message: string;
+  job: OrderedAssemblyJob;
+}> {
+  return request(
+    `/api/demo/global-assembly-contexts/${encodeURIComponent(contextId)}/project-adapter-jobs/${encodeURIComponent(jobId)}/resume`,
+    {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({
+        confirmed: true,
+        expectedContextDigest,
+        expectedStepCount
+      })
+    }
+  );
+}
+
+export async function createEngineeringValidationJob(
+  jobId: string,
+  idempotencyKey?: string
+): Promise<{
+  success: boolean;
+  executionScheduled: boolean;
+  sourceDemoPreserved: true;
+  message: string;
+  validationJob: EngineeringValidationJob;
+}> {
+  return request(
+    `/api/demo/semantic-assembly-sequence/jobs/${encodeURIComponent(jobId)}/engineering-validation`,
+    {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ confirmed: true, idempotencyKey })
+    }
+  );
+}
+
+export async function loadEngineeringValidationJob(
+  validationJobId: string
+): Promise<EngineeringValidationJob> {
+  return request(
+    `/api/demo/engineering-validation-jobs/${encodeURIComponent(validationJobId)}`
+  );
+}
+
+export async function previewSemanticConnection(options: {
+  semanticCatalogPath?: string;
+  endpointCatalogPath?: string;
+  sourceGraphPath?: string;
+  connectionRequest: SemanticConnectionRequest;
+}): Promise<SemanticConnectionPreview> {
+  return request<SemanticConnectionPreview>("/api/demo/semantic-port-catalog/connection-preview", {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify(options)
+  });
+}
+
+export async function previewSemanticAssemblyIntent(options: {
+  requirement: string;
+  semanticCatalogPath?: string;
+  endpointCatalogPath?: string;
+  sourceGraphPath?: string;
+  planTemplatePath?: string;
+}): Promise<SemanticConnectionPreview> {
+  return request<SemanticConnectionPreview>("/api/demo/semantic-port-catalog/intent-preview", {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify(options)
+  });
+}
+
+export async function previewOrderedSemanticAssembly(
+  requirement: string,
+  projectId = "project02"
+): Promise<OrderedAssemblyPreview> {
+  return request<OrderedAssemblyPreview>("/api/demo/semantic-assembly-sequence/preview", {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({ requirement, projectId })
+  });
+}
+
+export async function loadOrderedSemanticAssemblyClosure(): Promise<OrderedAssemblyClosure> {
+  return request<OrderedAssemblyClosure>("/api/demo/semantic-assembly-sequence/closure");
+}
+
+export async function loadOrderedSemanticAssemblyPipelineAudit(): Promise<OrderedAssemblyPipelineAudit> {
+  return request<OrderedAssemblyPipelineAudit>("/api/demo/semantic-assembly-sequence/pipeline-audit");
+}
+
+export async function loadOrderedSemanticAssemblyDependencyAudit(): Promise<OrderedAssemblyDependencyAudit> {
+  return request<OrderedAssemblyDependencyAudit>("/api/demo/semantic-assembly-sequence/dependency-audit");
+}
+
+export async function loadOrderedSemanticAssemblyReleaseContract(
+  projectId: string
+): Promise<OrderedAssemblyReleaseContract> {
+  return request<OrderedAssemblyReleaseContract>(
+    `/api/demo/semantic-assembly-sequence/release-contract?projectId=${encodeURIComponent(projectId)}`
+  );
+}
+
+export async function runOrderedSemanticAssemblyValidatedDemo(
+  requirement: string
+): Promise<OrderedAssemblyValidatedRun> {
+  return request<OrderedAssemblyValidatedRun>("/api/demo/semantic-assembly-sequence/run-validated-demo", {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({ requirement })
+  });
+}
+
+export async function createOrderedSemanticAssemblyJob(
+  requirement: string,
+  executionMode: "validated_artifact_replay" | "live_cad" = "validated_artifact_replay",
+  projectId = "project02"
+): Promise<OrderedAssemblyJob> {
+  return request<OrderedAssemblyJob>("/api/demo/semantic-assembly-sequence/jobs", {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({ requirement, executionMode, projectId })
+  });
+}
+
+export async function loadOrderedSemanticAssemblyJob(jobId: string): Promise<OrderedAssemblyJob> {
+  return request<OrderedAssemblyJob>(
+    `/api/demo/semantic-assembly-sequence/jobs/${encodeURIComponent(jobId)}`
+  );
+}
+
+export async function cancelOrderedSemanticAssemblyJob(jobId: string): Promise<OrderedAssemblyJob> {
+  return request<OrderedAssemblyJob>(
+    `/api/demo/semantic-assembly-sequence/jobs/${encodeURIComponent(jobId)}/cancel`,
+    { method: "POST" }
+  );
+}
+
+export async function pauseOrderedSemanticAssemblyJob(jobId: string): Promise<OrderedAssemblyJob> {
+  return request<OrderedAssemblyJob>(
+    `/api/demo/semantic-assembly-sequence/jobs/${encodeURIComponent(jobId)}/pause`,
+    { method: "POST" }
+  );
+}
+
+export async function resumeOrderedSemanticAssemblyJob(jobId: string): Promise<OrderedAssemblyJob> {
+  return request<OrderedAssemblyJob>(
+    `/api/demo/semantic-assembly-sequence/jobs/${encodeURIComponent(jobId)}/resume`,
+    { method: "POST" }
+  );
+}
+
+export async function applySemanticConnection(options: {
+  semanticCatalogPath?: string;
+  endpointCatalogPath?: string;
+  sourceGraphPath?: string;
+  connectionRequest: SemanticConnectionRequest;
+  previewDigest: string;
+  outputAssemblyPath: string;
+  confirmed: boolean;
+  executionMode?: "blank_rebuild" | "context_incremental";
+}): Promise<SemanticConnectionApplyResult> {
+  return request<SemanticConnectionApplyResult>("/api/demo/semantic-port-catalog/apply", {
     method: "POST",
     headers: jsonHeaders,
     body: JSON.stringify(options)

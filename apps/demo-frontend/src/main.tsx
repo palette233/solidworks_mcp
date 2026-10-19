@@ -51,6 +51,9 @@ import {
 } from "./api";
 import "./styles.css";
 import { FaceEndpointWorkbench } from "./FaceEndpointWorkbench";
+import { SemanticPortWorkbench } from "./SemanticPortWorkbench";
+import { OrderedAssemblySequenceWorkbench } from "./OrderedAssemblySequenceWorkbench";
+import { GlobalAssemblyWorkbench } from "./GlobalAssemblyWorkbench";
 
 type Axis = "x" | "y" | "z";
 
@@ -476,9 +479,51 @@ function Project02RequirementPanel({
   );
 }
 
+class MigrationPanelErrorBoundary extends React.Component<
+  { projectLabel: string; children: React.ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: unknown) {
+    console.error("Migration readiness panel render failed", {
+      projectLabel: this.props.projectLabel,
+      error
+    });
+  }
+
+  render() {
+    if (this.state.failed) {
+      return (
+        <section className="panel migration-readiness-panel">
+          <div className="semantic-port-error">
+            <AlertTriangle />
+            {this.props.projectLabel}迁移就绪面板数据结构暂不兼容；其他演示功能仍可继续使用。
+          </div>
+        </section>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function ProjectMigrationReadinessPanel({ readiness, projectLabel }: { readiness: ProjectMigrationReadiness | null; projectLabel: string }) {
   if (!readiness) return null;
   const firstStageCaptured = readiness.status === "PROJECT03_FIRST_STAGE_GEOMETRY_READY_FURTHER_EXTRACTION_REQUIRED";
+  const commonReach = readiness.dualValveReach?.commonReachInstallationFrameMeters
+    ?? readiness.dualValveReach?.commonPlanarReachInstallationMeters;
+  const commonReachWidthU = commonReach ? commonReach.maxU - commonReach.minU : null;
+  const commonReachWidthV = commonReach ? commonReach.maxV - commonReach.minV : null;
+  const valveSpacing = readiness.dualValveReach?.valvePair?.spacingAlongFlowMeters
+    ?? readiness.dualValveReach?.dualValvePitch?.meters
+    ?? null;
+  const reachTargetCount = readiness.dualValveReach?.requiredTargetCount
+    ?? readiness.dualValveReach?.targetCount
+    ?? 0;
   const groupLabels: Record<string, string> = {
     "frame-context": "固定环境：机架＋回流",
     "transport-process-group": "输送主模组",
@@ -603,9 +648,23 @@ function ProjectMigrationReadinessPanel({ readiness, projectLabel }: { readiness
         <div className="migration-evidence">
           <strong>已恢复功能服务端口</strong>
           <div>
-            <span>{readiness.servicePoints.combinedServiceModule.cadId?.match(/A[A-Z]00/)?.[0] ?? "GN00"} {readiness.servicePoints.combinedServiceModule.functionCount} 类功能 / {readiness.servicePoints.combinedServiceModule.reachTargetCount} 个阀头目标</span>
-            <span>{readiness.servicePoints.calibrationModule.cadId?.match(/A[A-Z]00/)?.[0] ?? "BD00"} 标定目标 × {readiness.servicePoints.calibrationModule.reachTargetCount}</span>
-            <span>共 {readiness.servicePoints.servicePorts.length} 个粗布局可达点</span>
+            {readiness.servicePoints.combinedServiceModule ? (
+              <span>
+                {readiness.servicePoints.combinedServiceModule.cadId?.match(/A[A-Z]00/)?.[0] ?? "组合服务模组"}{" "}
+                {readiness.servicePoints.combinedServiceModule.functionCount} 类功能 /{" "}
+                {readiness.servicePoints.combinedServiceModule.reachTargetCount} 个阀头目标
+              </span>
+            ) : null}
+            {readiness.servicePoints.calibrationModule ? (
+              <span>
+                {readiness.servicePoints.calibrationModule.cadId?.match(/A[A-Z]00/)?.[0] ?? "标定模组"}{" "}
+                标定目标 × {readiness.servicePoints.calibrationModule.reachTargetCount}
+              </span>
+            ) : null}
+            {!readiness.servicePoints.combinedServiceModule && !readiness.servicePoints.calibrationModule ? (
+              <span>当前项目按独立模组汇总服务端口</span>
+            ) : null}
+            <span>共 {readiness.servicePoints.servicePorts?.length ?? 0} 个粗布局可达点</span>
           </div>
         </div>
       ) : null}
@@ -613,9 +672,13 @@ function ProjectMigrationReadinessPanel({ readiness, projectLabel }: { readiness
         <div className="migration-evidence">
           <strong>已建立双阀原型行程基线</strong>
           <div>
-            <span>公共范围 {formatNumber(readiness.dualValveReach.commonReachInstallationFrameMeters.widthU * 1000, 0)} × {formatNumber(readiness.dualValveReach.commonReachInstallationFrameMeters.widthV * 1000, 0)} mm</span>
-            <span>阀间距 {formatNumber(readiness.dualValveReach.valvePair.spacingAlongFlowMeters * 1000, 0)} mm</span>
-            <span>{readiness.dualValveReach.requiredTargetCount} 个目标全部可达</span>
+            {commonReachWidthU != null && commonReachWidthV != null ? (
+              <span>公共范围 {formatNumber(commonReachWidthU * 1000, 0)} × {formatNumber(commonReachWidthV * 1000, 0)} mm</span>
+            ) : (
+              <span>公共行程范围待补充</span>
+            )}
+            {valveSpacing != null ? <span>阀间距 {formatNumber(valveSpacing * 1000, 0)} mm</span> : null}
+            <span>{reachTargetCount} 个目标纳入可达性检查</span>
           </div>
         </div>
       ) : null}
@@ -708,7 +771,7 @@ function ProjectCasePreviewPanel({
   approvalEnabled = true,
   solveButtonLabel
 }: {
-  caseId: "project01" | "project02" | "project03";
+  caseId: "project01" | "project02" | "project03" | "project05";
   preview: ProjectCasePreview | null;
   solving: boolean;
   approving: boolean;
@@ -721,7 +784,8 @@ function ProjectCasePreviewPanel({
   const isProject01 = caseId === "project01";
   const isProject03 = caseId === "project03";
   const isProject02 = caseId === "project02";
-  const caseLabel = isProject01 ? "项目01" : isProject03 ? "项目03" : "项目02";
+  const isProject05 = caseId === "project05";
+  const caseLabel = isProject01 ? "项目01" : isProject03 ? "项目03" : isProject05 ? "项目05" : "项目02";
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [selectedSolutionRank, setSelectedSolutionRank] = useState(1);
   const [visualReviewChecked, setVisualReviewChecked] = useState(false);
@@ -795,7 +859,13 @@ function ProjectCasePreviewPanel({
         <div>
           <span className="eyebrow">快速迭代闭环</span>
           <h2>{caseLabel} · 顺序约束求解方案展示</h2>
-          <p>{isProject01 ? "SS00/FF00按项目01安装基准固定，服务模组先排布，最后反求LM00+ZZ00覆盖。" : isProject03 ? "AE00按AA00安装基准固定，AD00/AI00与服务模组先排布，最后反求AB00+AC00覆盖。" : "A800由A600工程安装坐标中的显式基准点定位；其余模组由几何、工艺点与通用约束求解。"}</p>
+          <p>{isProject01
+            ? "SS00/FF00按项目01安装基准固定，服务模组先排布，最后反求LM00+ZZ00覆盖。"
+            : isProject03
+              ? "AE00按AA00安装基准固定，AD00/AI00与服务模组先排布，最后反求AB00+AC00覆盖。"
+              : isProject05
+                ? "A000/E000与传输、升降、扫描、CCD保留已提取安装关系；服务模组离散求解，最后反求B000+Z000覆盖。"
+                : "A800由A600工程安装坐标中的显式基准点定位；其余模组由几何、工艺点与通用约束求解。"}</p>
         </div>
         <button className="primary-button preview-solve-button" type="button" onClick={onSolve} disabled={solving}>
           {solving ? <Loader2 className="spin" aria-hidden="true" /> : <Crosshair aria-hidden="true" />}
@@ -1482,6 +1552,10 @@ function App() {
   const [project03PreviewBusy, setProject03PreviewBusy] = useState(false);
   const [project03PreviewApproval, setProject03PreviewApproval] = useState<LayoutVerificationPlan | null>(null);
   const [project03PreviewApprovalBusy, setProject03PreviewApprovalBusy] = useState(false);
+  const [project05Preview, setProject05Preview] = useState<ProjectCasePreview | null>(null);
+  const [project05PreviewBusy, setProject05PreviewBusy] = useState(false);
+  const [project05PreviewApproval, setProject05PreviewApproval] = useState<LayoutVerificationPlan | null>(null);
+  const [project05PreviewApprovalBusy, setProject05PreviewApprovalBusy] = useState(false);
   const [previewBusy, setPreviewBusy] = useState(false);
   const [previewApproval, setPreviewApproval] = useState<LayoutVerificationPlan | null>(null);
   const [previewApprovalBusy, setPreviewApprovalBusy] = useState(false);
@@ -1559,7 +1633,7 @@ function App() {
     setBusy(true);
     setError(null);
     try {
-      const [nextState, nextLayoutFiles, persistedPreview, verificationPlan, migrationReadiness, project03MigrationReadiness, project05MigrationReadiness, persistedProject01Preview, project01VerificationPlan, persistedProject03Preview, project03VerificationPlan, persistedDependencyAblation] = await Promise.all([
+      const [nextState, nextLayoutFiles, persistedPreview, verificationPlan, migrationReadiness, project03MigrationReadiness, project05MigrationReadiness, persistedProject01Preview, project01VerificationPlan, persistedProject03Preview, project03VerificationPlan, persistedProject05Preview, project05VerificationPlan, persistedDependencyAblation] = await Promise.all([
         getState(),
         listLayoutJsonFiles(),
         getProjectCasePreview("project02").catch(() => null),
@@ -1571,6 +1645,8 @@ function App() {
         getProjectCaseVerificationPlan("project01").catch(() => null),
         getProjectCasePreview("project03").catch(() => null),
         getProjectCaseVerificationPlan("project03").catch(() => null),
+        getProjectCasePreview("project05").catch(() => null),
+        getProjectCaseVerificationPlan("project05").catch(() => null),
         getProject02DependencyAblation().catch(() => null)
       ]);
       setState(nextState);
@@ -1584,6 +1660,8 @@ function App() {
       if (project01VerificationPlan) setProject01PreviewApproval(project01VerificationPlan);
       if (persistedProject03Preview) setProject03Preview(persistedProject03Preview);
       if (project03VerificationPlan) setProject03PreviewApproval(project03VerificationPlan);
+      if (persistedProject05Preview) setProject05Preview(persistedProject05Preview);
+      if (project05VerificationPlan) setProject05PreviewApproval(project05VerificationPlan);
       if (persistedDependencyAblation) setDependencyAblation(persistedDependencyAblation);
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : String(exc));
@@ -2028,6 +2106,37 @@ function App() {
     }
   }
 
+  async function handleSolveProject05Preview() {
+    setProject05PreviewBusy(true);
+    setError(null);
+    try {
+      setProject05Preview(await solveProjectCasePreview("project05"));
+      setProject05PreviewApproval(null);
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setProject05PreviewBusy(false);
+    }
+  }
+
+  async function handleApproveProject05Preview(solutionRank: number) {
+    setProject05PreviewApprovalBusy(true);
+    setError(null);
+    try {
+      setProject05PreviewApproval(
+        await approveProjectCasePreview(
+          "project05",
+          solutionRank,
+          "依据严格叶实体AABB、操作侧布置、双阀公共可达与最小位移完成展示层确认"
+        )
+      );
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setProject05PreviewApprovalBusy(false);
+    }
+  }
+
   async function handleApproveProject02Preview(solutionRank: number) {
     setPreviewApprovalBusy(true);
     setError(null);
@@ -2124,11 +2233,17 @@ function App() {
         onConfirm={() => void handleConfirmProject02Modules()}
       />
 
-      <ProjectMigrationReadinessPanel readiness={project01Readiness} projectLabel="项目01" />
+      <MigrationPanelErrorBoundary projectLabel="项目01">
+        <ProjectMigrationReadinessPanel readiness={project01Readiness} projectLabel="项目01" />
+      </MigrationPanelErrorBoundary>
 
-      <ProjectMigrationReadinessPanel readiness={project03Readiness} projectLabel="项目03" />
+      <MigrationPanelErrorBoundary projectLabel="项目03">
+        <ProjectMigrationReadinessPanel readiness={project03Readiness} projectLabel="项目03" />
+      </MigrationPanelErrorBoundary>
 
-      <ProjectMigrationReadinessPanel readiness={project05Readiness} projectLabel="项目05" />
+      <MigrationPanelErrorBoundary projectLabel="项目05">
+        <ProjectMigrationReadinessPanel readiness={project05Readiness} projectLabel="项目05" />
+      </MigrationPanelErrorBoundary>
 
       <ProjectCasePreviewPanel
         caseId="project01"
@@ -2151,6 +2266,16 @@ function App() {
       />
 
       <ProjectCasePreviewPanel
+        caseId="project05"
+        preview={project05Preview}
+        solving={project05PreviewBusy}
+        approving={project05PreviewApprovalBusy}
+        approval={project05PreviewApproval}
+        onSolve={() => void handleSolveProject05Preview()}
+        onApprove={(solutionRank) => void handleApproveProject05Preview(solutionRank)}
+      />
+
+      <ProjectCasePreviewPanel
         caseId="project02"
         preview={projectPreview}
         solving={previewBusy}
@@ -2167,6 +2292,12 @@ function App() {
       />
 
       <FaceEndpointWorkbench />
+
+      <SemanticPortWorkbench />
+
+      <GlobalAssemblyWorkbench />
+
+      <OrderedAssemblySequenceWorkbench />
 
       <section className="layout-grid">
         <div className="main-column">
