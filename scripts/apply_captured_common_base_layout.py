@@ -70,6 +70,7 @@ def main() -> None:
     parser.add_argument("--layout", default=str(ROOT / "demo" / "captured_common_base_layout.json"), help="Captured layout JSON path.")
     parser.add_argument("--assembly", default=None, help="Optional target assembly path. If omitted, uses the active assembly.")
     parser.add_argument("--screenshot", default=str(ROOT / "demo" / "apply_captured_layout_result.png"), help="Optional output screenshot path.")
+    parser.add_argument("--output", default=None, help="Optional JSON result path.")
     args = parser.parse_args()
 
     layout_path = Path(args.layout)
@@ -85,6 +86,14 @@ def main() -> None:
         "includeScreenshotBase64Data": False,
     }
     result = call_tool("apply_captured_common_base_layout", arguments)
+    if args.output:
+        output_path = Path(args.output)
+        if not output_path.is_absolute():
+            output_path = ROOT / output_path
+        output_path.write_text(
+            json.dumps(result, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 

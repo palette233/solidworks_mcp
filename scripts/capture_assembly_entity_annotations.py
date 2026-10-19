@@ -29,11 +29,19 @@ LEGACY_CAPTURE_TOOL = "CaptureActiveAssemblyEntityAnnotationSet"
 
 
 class McpClient:
-    def __init__(self, exe_path: Path, client_name: str, request_timeout: float, framing: str) -> None:
+    def __init__(
+        self,
+        exe_path: Path,
+        client_name: str,
+        request_timeout: float,
+        framing: str,
+        direct_stdio: bool = False,
+    ) -> None:
         self.exe_path = exe_path
         self.client_name = client_name
         self.request_timeout = request_timeout
         self.framing = framing
+        self.direct_stdio = direct_stdio
         self._next_id = 1
         self._proc: subprocess.Popen[bytes] | None = None
         self._messages: queue.Queue[dict[str, Any] | BaseException] = queue.Queue()
@@ -50,13 +58,13 @@ class McpClient:
         if self._proc is not None:
             return
 
+        command = (
+            [str(self.exe_path), "--stdio-direct"]
+            if self.direct_stdio
+            else [str(self.exe_path), "--proxy", "--client", self.client_name]
+        )
         self._proc = subprocess.Popen(
-            [
-                str(self.exe_path),
-                "--proxy",
-                "--client",
-                self.client_name,
-            ],
+            command,
             cwd=str(self.exe_path.parent),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
