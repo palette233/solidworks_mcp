@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -94,6 +95,9 @@ var serverArguments = ReadStringArray(
     [defaultApp, "--proxy", "--client", "DemoBackendArrange"]);
 var workingDirectory = root["workingDirectory"]?.GetValue<string>() ?? Path.GetDirectoryName(defaultApp);
 
+var pipelineStartedAt = DateTimeOffset.UtcNow;
+var pipelineStopwatch = Stopwatch.StartNew();
+
 var transport = new StdioClientTransport(
     new StdioClientTransportOptions
     {
@@ -106,6 +110,16 @@ var transport = new StdioClientTransport(
 
 await using var client = await McpClient.CreateAsync(transport, loggerFactory: NullLoggerFactory.Instance);
 
+JsonArray? listedTools = null;
+if (root["listTools"]?.GetValue<bool>() == true)
+{
+    listedTools = new JsonArray();
+    foreach (var tool in await client.ListToolsAsync())
+    {
+        listedTools.Add(tool.Name);
+    }
+}
+
 var results = new JsonArray();
 foreach (var toolNode in root["tools"]?.AsArray() ?? [])
 {
@@ -116,7 +130,11 @@ foreach (var toolNode in root["tools"]?.AsArray() ?? [])
     var arguments = ToObject(toolObject["arguments"]) as Dictionary<string, object?>
         ?? new Dictionary<string, object?>();
 
+    var toolStartedAt = DateTimeOffset.UtcNow;
+    var toolStopwatch = Stopwatch.StartNew();
     var callResult = await client.CallToolAsync(toolName, arguments);
+    toolStopwatch.Stop();
+    var toolFinishedAt = DateTimeOffset.UtcNow;
     var content = new JsonArray();
     foreach (var text in callResult.Content.OfType<TextContentBlock>())
     {
@@ -132,12 +150,27 @@ foreach (var toolNode in root["tools"]?.AsArray() ?? [])
         ["tool"] = toolName,
         ["content"] = content,
         ["isError"] = callResult.IsError,
+        ["timing"] = new JsonObject
+        {
+            ["startedAtUtc"] = toolStartedAt.ToString("O"),
+            ["finishedAtUtc"] = toolFinishedAt.ToString("O"),
+            ["durationSeconds"] = Math.Round(toolStopwatch.Elapsed.TotalSeconds, 6),
+        },
     });
 }
 
+pipelineStopwatch.Stop();
 var output = new JsonObject
 {
     ["results"] = results,
+    ["tools"] = listedTools,
+    ["timing"] = new JsonObject
+    {
+        ["startedAtUtc"] = pipelineStartedAt.ToString("O"),
+        ["finishedAtUtc"] = DateTimeOffset.UtcNow.ToString("O"),
+        ["durationSeconds"] = Math.Round(pipelineStopwatch.Elapsed.TotalSeconds, 6),
+        ["toolCount"] = results.Count,
+    },
 };
 
 Console.WriteLine(output.ToJsonString(new JsonSerializerOptions { WriteIndented = false }));

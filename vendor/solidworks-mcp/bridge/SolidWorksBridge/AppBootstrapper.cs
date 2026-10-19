@@ -161,6 +161,28 @@ public class AppBootstrapper
             return Task.FromResult<object?>(doc);
         });
 
+        _messageHandler.Register("sw.inspect_active_document_configurations", _ =>
+        {
+            var result = _documentService.InspectActiveDocumentConfigurations();
+            return Task.FromResult<object?>(result);
+        });
+
+        _messageHandler.Register("sw.set_active_document_configuration", req =>
+        {
+            var p = req.GetParams<SetActiveDocumentConfigurationParams>()
+                ?? throw new ArgumentException("params required: {configurationName, rebuild?}");
+            var result = _documentService.SetActiveDocumentConfiguration(p.ConfigurationName, p.Rebuild);
+            return Task.FromResult<object?>(result);
+        });
+
+        _messageHandler.Register("sw.inspect_document_configurations", req =>
+        {
+            var p = req.GetParams<PathParams>()
+                ?? throw new ArgumentException("params required: {path}");
+            var result = _documentService.InspectDocumentConfigurations(p.Path);
+            return Task.FromResult<object?>(result);
+        });
+
         _messageHandler.Register("sw.view.show_standard", req =>
         {
             var p = req.GetParams<ShowStandardViewParams>() ?? new ShowStandardViewParams();
@@ -442,6 +464,16 @@ public class AppBootstrapper
             return Task.FromResult<object?>(result);
         });
 
+        _messageHandler.Register("sw.assembly.check_interference_by_leaf_bodies", req =>
+        {
+            var p = req.GetParams<AssemblyInterferenceParams>()
+                ?? throw new ArgumentException("params required: {hierarchyPaths, treatCoincidenceAsInterference?}");
+            var paths = p.HierarchyPaths
+                ?? throw new ArgumentException("hierarchyPaths must contain exactly two component paths");
+            var result = _assemblyService.CheckInterferenceByLeafBodies(paths, p.TreatCoincidenceAsInterference);
+            return Task.FromResult<object?>(result);
+        });
+
         _messageHandler.Register("sw.assembly.replace_component", req =>
         {
             var p = req.GetParams<AssemblyReplaceComponentParams>()
@@ -506,6 +538,12 @@ public class AppBootstrapper
     {
         [System.Text.Json.Serialization.JsonPropertyName("path")]
         public string Path { get; set; } = string.Empty;
+    }
+
+    public class SetActiveDocumentConfigurationParams
+    {
+        public string ConfigurationName { get; set; } = string.Empty;
+        public bool Rebuild { get; set; } = true;
     }
 
     public class SaveDocumentAsParams

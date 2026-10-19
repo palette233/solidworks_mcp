@@ -103,6 +103,56 @@ public class SelectionTools(StaDispatcher sta, ISelectionService selection)
         return JsonSerializer.Serialize(list);
     }
 
+    [McpServerTool, Description("List face centers, planar normals, areas and persistent references for one leaf component in the active assembly. Use this to rank semantic face candidates without selecting every face in the UI.")]
+    public async Task<string> ListFaceGeometry(
+        [Description("Exact leaf component Name2 in the active assembly.")] string componentName,
+        [Description("When true, omit non-planar faces.")] bool planarOnly = true)
+    {
+        var result = await sta.InvokeLoggedAsync(
+            nameof(ListFaceGeometry),
+            new { componentName, planarOnly },
+            () => selection.ListFaceGeometry(componentName, planarOnly));
+        return JsonSerializer.Serialize(result);
+    }
+
+    [McpServerTool, Description("Select a face by its leaf-local index from ListFaceGeometry. This is bounded to one leaf component and avoids whole-assembly topology traversal.")]
+    public async Task<string> SelectFaceGeometry(
+        [Description("Exact leaf component Name2 or a unique ASCII token in the active assembly.")] string componentName,
+        [Description("Zero-based leaf-local face index from ListFaceGeometry.")] int faceIndex,
+        [Description("Append to current selection instead of replacing it.")] bool append = false,
+        [Description("Selection mark value (default 0).")] int mark = 0)
+    {
+        var result = await sta.InvokeLoggedAsync(
+            nameof(SelectFaceGeometry),
+            new { componentName, faceIndex, append, mark },
+            () => selection.SelectFaceGeometry(componentName, faceIndex, append, mark));
+        return JsonSerializer.Serialize(result);
+    }
+
+    [McpServerTool, Description("Activate the referenced part or subassembly document for a leaf component selected by exact Name2 or unique ASCII token.")]
+    public async Task<string> ActivateLeafComponentDocument(
+        [Description("Exact leaf component Name2 or a unique ASCII token in the active assembly.")] string componentName)
+    {
+        var result = await sta.InvokeLoggedAsync(
+            nameof(ActivateLeafComponentDocument),
+            new { componentName },
+            () => selection.ActivateLeafComponentDocument(componentName));
+        return JsonSerializer.Serialize(result);
+    }
+
+    [McpServerTool, Description("Select a face by body-order index in the active standalone part document. Useful for visually confirming a leaf face in a standard view.")]
+    public async Task<string> SelectActivePartFaceGeometry(
+        [Description("Zero-based face index using the same body/face order as ListFaceGeometry.")] int faceIndex,
+        [Description("Append to current selection instead of replacing it.")] bool append = false,
+        [Description("Selection mark value (default 0).")] int mark = 0)
+    {
+        var result = await sta.InvokeLoggedAsync(
+            nameof(SelectActivePartFaceGeometry),
+            new { faceIndex, append, mark },
+            () => selection.SelectActivePartFaceGeometry(faceIndex, append, mark));
+        return JsonSerializer.Serialize(result);
+    }
+
     [McpServerTool, Description("List reference planes from the active document feature tree. The returned names are localized to the current SolidWorks language.")]
     public async Task<string> ListReferencePlanes()
     {
@@ -229,5 +279,15 @@ public class SelectionTools(StaDispatcher sta, ISelectionService selection)
     {
         await sta.InvokeLoggedAsync(nameof(ClearSelection), null, selection.ClearSelection);
         return "Selection cleared.";
+    }
+
+    [McpServerTool, Description("Zoom the active SolidWorks view to the current selection. Useful for visually reviewing an automatically selected face candidate.")]
+    public async Task<string> ZoomToSelection()
+    {
+        var result = await sta.InvokeLoggedAsync(
+            nameof(ZoomToSelection),
+            null,
+            selection.ZoomToSelection);
+        return JsonSerializer.Serialize(result);
     }
 }

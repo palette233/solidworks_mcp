@@ -66,6 +66,8 @@ public interface ISldWorksApp
     int GetDocumentCount();
     string[] GetDocuments();
     void CloseAllDocuments(bool save);
+    void ExitApplication() => throw new NotSupportedException(
+        "This SolidWorks application adapter does not support application exit.");
 
     // ── Document operations (used by DocumentService) ─────────────
     /// <summary>Create a new document from a template file.</summary>
@@ -92,6 +94,13 @@ public interface ISldWorksApp
     /// </summary>
     SwSaveResult SaveDocAs(string outputPath, string? sourcePath, bool saveAsCopy);
 
+    /// <summary>
+    /// Save an already-open document resolved by its SolidWorks window title.
+    /// This avoids relying on IActiveDoc2 in long-running sessions where UI
+    /// activation and the active-document COM pointer can temporarily diverge.
+    /// </summary>
+    SwSaveResult SaveDocAsByTitle(string outputPath, string sourceTitle, bool saveAsCopy);
+
     /// <summary>Undo the last <paramref name="steps"/> operations on the active document.</summary>
     void Undo(int steps);
 
@@ -102,13 +111,16 @@ public interface ISldWorksApp
     void RotateView(double xDegrees, double yDegrees, double zDegrees);
 
     /// <summary>Export the current active viewport to PNG.</summary>
-    SwImageExportResult ExportCurrentViewPng(string outputPath, int width, int height, bool includeBase64Data);
+    SwImageExportResult ExportCurrentViewPng(string outputPath, int width, int height, bool includeBase64Data, bool fitToView = true);
 
     /// <summary>Return info for all open documents.</summary>
     SwDocumentInfo[] ListDocs();
 
     /// <summary>Return info for the currently active document, or null.</summary>
     SwDocumentInfo? GetActiveDoc();
+
+    /// <summary>Return one already-open raw model document by absolute path, or null.</summary>
+    IModelDoc2? GetOpenModelDocument(string path);
 
     /// <summary>Return the user-configured default template path for the given doc type.</summary>
     string GetDefaultTemplatePath(SwDocType docType);
@@ -121,6 +133,9 @@ public interface ISldWorksApp
 
     /// <summary>Return the SolidWorks math utility object for transform operations.</summary>
     IMathUtility GetMathUtility();
+
+    /// <summary>Return the SolidWorks modeling kernel used for exact body operations.</summary>
+    IModeler GetModeler();
 
     /// <summary>
     /// Return the ISketchManager of the active document, or null if no document is open.
@@ -253,6 +268,9 @@ public class SwComConnector : ISwComConnector
     {
         LastResolvedProgId = null;
         bool runningProcessDetected = HasRunningProcess();
+        HashSet<int> existingProcessIds = Process.GetProcessesByName("SLDWORKS")
+            .Select(process => process.Id)
+            .ToHashSet();
 
         List<string> errors = [];
 
@@ -269,6 +287,7 @@ public class SwComConnector : ISwComConnector
                 var obj = Activator.CreateInstance(swType);
                 if (obj != null)
                 {
+                    WaitForNewSolidWorksProcessReady(existingProcessIds);
                     LastResolvedProgId = progId;
                     return new SldWorksAppWrapper(obj);
                 }
@@ -295,6 +314,63 @@ public class SwComConnector : ISwComConnector
 
         throw new InvalidOperationException(
             "Failed to create a SolidWorks instance from any registered ProgID. " + string.Join(" ; ", errors));
+    }
+
+    private static void WaitForNewSolidWorksProcessReady(
+        IReadOnlySet<int> existingProcessIds,
+        int timeoutMilliseconds = 60_000)
+    {
+        Process? process = null;
+        Stopwatch stopwatch = Stopwatch.StartNew();
+        while (stopwatch.ElapsedMilliseconds < timeoutMilliseconds)
+        {
+            process = Process.GetProcessesByName("SLDWORKS")
+                .FirstOrDefault(candidate => !existingProcessIds.Contains(candidate.Id));
+            if (process != null)
+            {
+                break;
+            }
+
+            Thread.Sleep(250);
+        }
+
+        if (process == null)
+        {
+            return;
+        }
+
+        try
+        {
+            int remaining = Math.Max(
+                1_000,
+                timeoutMilliseconds - (int)stopwatch.ElapsedMilliseconds);
+            _ = process.WaitForInputIdle(remaining);
+
+            // WaitForInputIdle can return while SolidWorks is still creating its
+            // main frame and loading add-ins.  OpenDoc6 during that interval can
+            // terminate the COM server with RPC_S_CALL_FAILED.
+            while (stopwatch.ElapsedMilliseconds < timeoutMilliseconds)
+            {
+                process.Refresh();
+                if (process.Responding && process.MainWindowHandle != IntPtr.Zero)
+                {
+                    Thread.Sleep(2_000);
+                    return;
+                }
+
+                Thread.Sleep(250);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // The process exited during startup. The subsequent COM call retains
+            // the original failure semantics and diagnostic HRESULT.
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            // Some restricted sessions do not expose WaitForInputIdle. Keep the
+            // legacy behavior in that environment instead of blocking startup.
+        }
     }
 
     private static IReadOnlyList<string> GetCandidateProgIds(bool preferVersionSpecific)
@@ -397,6 +473,8 @@ public class SldWorksAppWrapper : ISldWorksApp
 
     public void CloseAllDocuments(bool save) => _swApp.CloseAllDocuments(!save);
 
+    public void ExitApplication() => _swApp.ExitApp();
+
     public SwDocumentInfo? NewDoc(string templatePath)
     {
         var doc = _swApp.INewDocument2(templatePath, 0, 0, 0);
@@ -463,7 +541,15 @@ public class SldWorksAppWrapper : ISldWorksApp
         return ToInfo((IModelDoc2)doc);
     }
 
-    public void CloseDoc(string path) => _swApp.CloseDoc(path);
+    public void CloseDoc(string path)
+    {
+        // ISldWorks.CloseDoc expects the document title, not an absolute path.  The public bridge
+        // contract deliberately accepts paths, so resolve the open model first; passing the path
+        // directly is silently ignored by SolidWorks and leaves stale same-title documents open.
+        var document = _swApp.GetOpenDocument(path) as IModelDoc2;
+        string title = document?.GetTitle() ?? Path.GetFileName(path);
+        _swApp.CloseDoc(title);
+    }
 
     public SwSaveResult SaveDoc(string path)
     {
@@ -499,6 +585,36 @@ public class SldWorksAppWrapper : ISldWorksApp
         EnsureDirectory(normalizedOutputPath);
 
         var doc = ResolveDocument(sourcePath);
+        return SaveResolvedDocumentAs(doc, normalizedOutputPath, saveAsCopy);
+    }
+
+    public SwSaveResult SaveDocAsByTitle(string outputPath, string sourceTitle, bool saveAsCopy)
+    {
+        if (string.IsNullOrWhiteSpace(sourceTitle))
+        {
+            throw new ArgumentException("sourceTitle must not be empty.", nameof(sourceTitle));
+        }
+
+        var normalizedOutputPath = NormalizePath(outputPath, nameof(outputPath));
+        EnsureDirectory(normalizedOutputPath);
+
+        int activationErrors = 0;
+        var doc = _swApp.ActivateDoc3(
+            sourceTitle,
+            true,
+            (int)swRebuildOnActivation_e.swDontRebuildActiveDoc,
+            ref activationErrors) as IModelDoc2
+            ?? throw new InvalidOperationException(
+                $"Failed to resolve open document title '{sourceTitle}'. SolidWorks error code: {activationErrors}.");
+
+        return SaveResolvedDocumentAs(doc, normalizedOutputPath, saveAsCopy);
+    }
+
+    private static SwSaveResult SaveResolvedDocumentAs(
+        IModelDoc2 doc,
+        string normalizedOutputPath,
+        bool saveAsCopy)
+    {
         var sourceDocPath = doc.GetPathName();
         int errors = 0;
         int warnings = 0;
@@ -589,7 +705,7 @@ public class SldWorksAppWrapper : ISldWorksApp
         doc.GraphicsRedraw2();
     }
 
-    public SwImageExportResult ExportCurrentViewPng(string outputPath, int width, int height, bool includeBase64Data)
+    public SwImageExportResult ExportCurrentViewPng(string outputPath, int width, int height, bool includeBase64Data, bool fitToView = true)
     {
         if (width < 1)
         {
@@ -609,7 +725,10 @@ public class SldWorksAppWrapper : ISldWorksApp
 
         try
         {
-            doc.ViewZoomtofit2();
+            if (fitToView)
+            {
+                doc.ViewZoomtofit2();
+            }
             doc.GraphicsRedraw2();
 
             if (!doc.SaveBMP(tempBmpPath, width, height) || !File.Exists(tempBmpPath))
@@ -653,10 +772,23 @@ public class SldWorksAppWrapper : ISldWorksApp
         return doc == null ? null : ToInfo(doc);
     }
 
+    public IModelDoc2? GetOpenModelDocument(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new ArgumentException("path must not be empty.", nameof(path));
+        }
+
+        return _swApp.GetOpenDocument(Path.GetFullPath(path)) as IModelDoc2;
+    }
+
     public IModelDoc2? IActiveDoc2 => _swApp.IActiveDoc2;
 
     public IMathUtility GetMathUtility() =>
         (IMathUtility)(_swApp.GetMathUtility() ?? throw new InvalidOperationException("SolidWorks did not return a math utility object."));
+
+    public IModeler GetModeler() =>
+        (IModeler)(_swApp.GetModeler() ?? throw new InvalidOperationException("SolidWorks did not return a modeler object."));
 
     public ISketchManager? SketchManager =>
         _swApp.IActiveDoc2?.SketchManager as ISketchManager;
@@ -766,6 +898,7 @@ public class SldWorksAppWrapper : ISldWorksApp
 public class SwConnectionManager : ISwConnectionManager
 {
     private readonly ISwComConnector _connector;
+    private readonly bool _forceNewInstance;
     private ISldWorksApp? _swApp;
     private const int RpcServerUnavailable = unchecked((int)0x800706BA);
     private const int RpcCallFailed = unchecked((int)0x800706BE);
@@ -781,9 +914,10 @@ public class SwConnectionManager : ISwConnectionManager
     public static SolidWorksSupportMatrixInfo GetCompiledSupportMatrix() =>
         SolidWorksSupportMatrix.Create(InteropVersion, InteropRevisionMajor, InteropMarketingYear);
 
-    public SwConnectionManager(ISwComConnector connector)
+    public SwConnectionManager(ISwComConnector connector, bool forceNewInstance = false)
     {
         _connector = connector ?? throw new ArgumentNullException(nameof(connector));
+        _forceNewInstance = forceNewInstance;
     }
 
     public bool IsConnected => _swApp != null;
@@ -794,6 +928,9 @@ public class SwConnectionManager : ISwConnectionManager
 
     public void Connect()
     {
+        // Reuse only the COM wrapper already owned by this manager.  This keeps a
+        // force-new batch on the instance it created instead of activating another
+        // server for every EnsureConnected call.
         if (TryUseCurrentSession())
         {
             LastConnectionAttempt = new SolidWorksConnectionAttemptInfo(
@@ -801,6 +938,19 @@ public class SwConnectionManager : ISwConnectionManager
                 _connector.HasRunningProcess(),
                 _connector.LastResolvedProgId,
                 "Reused the existing in-process SolidWorks COM session.");
+            return;
+        }
+
+        if (_forceNewInstance)
+        {
+            bool residualProcessDetected = _connector.HasRunningProcess();
+            _swApp = _connector.CreateNewInstance();
+            _swApp.Visible = true;
+            LastConnectionAttempt = new SolidWorksConnectionAttemptInfo(
+                "forced-new-instance",
+                residualProcessDetected,
+                _connector.LastResolvedProgId,
+                "Launched a new SolidWorks COM instance without reusing the Running Object Table session.");
             return;
         }
 

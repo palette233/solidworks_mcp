@@ -244,7 +244,11 @@ internal static class Program
             var inner = sta.InvokeAsync(() =>
             {
                 var connector = new SwComConnector();
-                return (ISwConnectionManager)new SwConnectionManager(connector);
+                var forceNewInstance = string.Equals(
+                    Environment.GetEnvironmentVariable("SOLIDWORKS_MCP_FORCE_NEW_INSTANCE"),
+                    "1",
+                    StringComparison.OrdinalIgnoreCase);
+                return (ISwConnectionManager)new SwConnectionManager(connector, forceNewInstance);
             }).GetAwaiter().GetResult();
 
             return new ConnectionLoggingSwConnectionManager(

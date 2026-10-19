@@ -36,6 +36,22 @@ public class CommonBaseLayoutMathTests
     }
 
     [Fact]
+    public void PointFromLayout_PreservesNormalInstallationOffset()
+    {
+        var frame = CommonBaseLayoutMath.CreateFrame(
+            origin: [1, 2, 3],
+            normal: [0, 0, 1],
+            preferredUAxis: [1, 0, 0]);
+        var layout = new CommonBaseLayout2d(0.25, -0.5, NormalOffsetMeters: 0.018);
+
+        var world = CommonBaseLayoutMath.PointFromLayout(layout, frame);
+        var roundTrip = CommonBaseLayoutMath.ProjectPoint(world, frame);
+
+        Assert.Equal(3.018, world[2], precision: 9);
+        Assert.Equal(0.018, roundTrip.NormalOffsetMeters, precision: 9);
+    }
+
+    [Fact]
     public void ProjectPointWithRotation_UsesBestProjectedComponentAxis()
     {
         var frame = CommonBaseLayoutMath.CreateFrame(
@@ -61,6 +77,25 @@ public class CommonBaseLayoutMathTests
     {
         Assert.Equal(20, CommonBaseLayoutMath.DeltaAngleDegrees(170, -170), precision: 9);
         Assert.Equal(-20, CommonBaseLayoutMath.DeltaAngleDegrees(-170, 170), precision: 9);
+    }
+
+    [Fact]
+    public void ComponentTranslationForMappedPoint_PreservesLocalAnchorAcrossOrientationChange()
+    {
+        var translation = CommonBaseLayoutMath.ComponentTranslationForMappedPoint(
+            sourceComponentTranslation: [10, 0, 0],
+            sourceXAxis: [1, 0, 0],
+            sourceYAxis: [0, 1, 0],
+            sourceZAxis: [0, 0, 1],
+            sourcePointWorld: [11, 2, 3],
+            targetXAxis: [0, 1, 0],
+            targetYAxis: [-1, 0, 0],
+            targetZAxis: [0, 0, 1],
+            targetPointWorld: [5, 6, 7]);
+
+        Assert.Equal(7, translation[0], precision: 9);
+        Assert.Equal(5, translation[1], precision: 9);
+        Assert.Equal(4, translation[2], precision: 9);
     }
 
     [Fact]

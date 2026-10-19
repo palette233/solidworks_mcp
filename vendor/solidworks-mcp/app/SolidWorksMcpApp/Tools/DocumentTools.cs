@@ -32,6 +32,17 @@ public class DocumentTools(StaDispatcher sta, IDocumentService docs)
         return JsonSerializer.Serialize(result);
     }
 
+    [McpServerTool, Description("Activate an already-open SolidWorks document by its window title without reopening or rebuilding it.")]
+    public async Task<string> ActivateDocumentByTitle(
+        [Description("Exact SolidWorks document title, for example FL9A24D062A000.001")] string title)
+    {
+        var result = await sta.InvokeLoggedAsync(
+            nameof(ActivateDocumentByTitle),
+            new { title },
+            () => docs.ActivateDocumentByTitle(title));
+        return JsonSerializer.Serialize(result);
+    }
+
     [McpServerTool, Description("Close an open SolidWorks document by file path.")]
     public async Task<string> CloseDocument(
         [Description("Full file path of the document to close")] string path)
@@ -70,6 +81,19 @@ public class DocumentTools(StaDispatcher sta, IDocumentService docs)
         [Description("When true, performs a copy/export and keeps the source document path unchanged.")] bool saveAsCopy = true)
     {
         var result = await sta.InvokeLoggedAsync(nameof(SaveDocumentAs), new { outputPath, sourcePath, saveAsCopy }, () => docs.SaveDocumentAs(outputPath, sourcePath, saveAsCopy));
+        return JsonSerializer.Serialize(result);
+    }
+
+    [McpServerTool, Description("Save an already-open SolidWorks document by its exact window title. Use this for untitled recovery documents or when the active-document COM pointer is unreliable in a long-running session.")]
+    public async Task<string> SaveDocumentAsByTitle(
+        [Description("Exact SolidWorks document title, for example model or 装配体8.")] string sourceTitle,
+        [Description("Output file path. Extension determines the saved format.")] string outputPath,
+        [Description("When true, writes a copy and leaves the original open document identity unchanged.")] bool saveAsCopy = true)
+    {
+        var result = await sta.InvokeLoggedAsync(
+            nameof(SaveDocumentAsByTitle),
+            new { sourceTitle, outputPath, saveAsCopy },
+            () => docs.SaveDocumentAsByTitle(outputPath, sourceTitle, saveAsCopy));
         return JsonSerializer.Serialize(result);
     }
 
@@ -112,9 +136,10 @@ public class DocumentTools(StaDispatcher sta, IDocumentService docs)
         [Description("Output PNG file path.")] string outputPath,
         [Description("Image width in pixels.")] int width = 1600,
         [Description("Image height in pixels.")] int height = 900,
-        [Description("When true, includes the PNG as base64 data in the tool result.")] bool includeBase64Data = false)
+        [Description("When true, includes the PNG as base64 data in the tool result.")] bool includeBase64Data = false,
+        [Description("When true, zoom to fit the whole model before export. Set false to preserve a prior zoom-to-selection operation.")] bool fitToView = true)
     {
-        var result = await sta.InvokeLoggedAsync(nameof(ExportCurrentViewPng), new { outputPath, width, height, includeBase64Data }, () => docs.ExportCurrentViewPng(outputPath, width, height, includeBase64Data));
+        var result = await sta.InvokeLoggedAsync(nameof(ExportCurrentViewPng), new { outputPath, width, height, includeBase64Data, fitToView }, () => docs.ExportCurrentViewPng(outputPath, width, height, includeBase64Data, fitToView));
         return JsonSerializer.Serialize(result);
     }
 
@@ -145,5 +170,38 @@ public class DocumentTools(StaDispatcher sta, IDocumentService docs)
     {
         var info = await sta.InvokeLoggedAsync(nameof(GetActiveDocument), null, docs.GetActiveDocument);
         return info is null ? "null" : JsonSerializer.Serialize(info);
+    }
+
+    [McpServerTool, Description("Read the active SolidWorks document's configuration names and active configuration without changing the document. Use this to discover engineering states such as 0-degree and 25-degree configurations before any state-specific validation.")]
+    public async Task<string> InspectActiveDocumentConfigurations()
+    {
+        var result = await sta.InvokeLoggedAsync(
+            nameof(InspectActiveDocumentConfigurations),
+            null,
+            docs.InspectActiveDocumentConfigurations);
+        return JsonSerializer.Serialize(result);
+    }
+
+    [McpServerTool, Description("Activate one configuration in the active SolidWorks document and optionally rebuild it. Returns the previous and effective configuration names so measurement workflows can restore the source state before closing without saving.")]
+    public async Task<string> SetActiveDocumentConfiguration(
+        [Description("Exact configuration name stored in the active SolidWorks document.")] string configurationName,
+        [Description("When true, force a full rebuild after activating the configuration.")] bool rebuild = true)
+    {
+        var result = await sta.InvokeLoggedAsync(
+            nameof(SetActiveDocumentConfiguration),
+            new { configurationName, rebuild },
+            () => docs.SetActiveDocumentConfiguration(configurationName, rebuild));
+        return JsonSerializer.Serialize(result);
+    }
+
+    [McpServerTool, Description("Silently open a SolidWorks document when needed and read its configuration names without activating or rebuilding it. This avoids UI activation side effects during read-only engineering-state discovery.")]
+    public async Task<string> InspectDocumentConfigurations(
+        [Description("Full file path to the SolidWorks document.")] string path)
+    {
+        var result = await sta.InvokeLoggedAsync(
+            nameof(InspectDocumentConfigurations),
+            new { path },
+            () => docs.InspectDocumentConfigurations(path));
+        return JsonSerializer.Serialize(result);
     }
 }

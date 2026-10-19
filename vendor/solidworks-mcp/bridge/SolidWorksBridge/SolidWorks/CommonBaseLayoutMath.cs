@@ -10,7 +10,8 @@ public record CommonBaseLayout2d(
     double X,
     double Y,
     double? ThetaDegrees = null,
-    string? ThetaAxis = null);
+    string? ThetaAxis = null,
+    double NormalOffsetMeters = 0);
 
 public record CommonBaseNormalAlignmentRotation(
     double[] Axis,
@@ -55,11 +56,49 @@ public static class CommonBaseLayoutMath
         CommonBaseFrame frame)
     {
         var delta = Subtract(ToArray3(point, nameof(point)), frame.Origin);
-        return new CommonBaseLayout2d(Dot(delta, frame.UAxis), Dot(delta, frame.VAxis));
+        return new CommonBaseLayout2d(
+            Dot(delta, frame.UAxis),
+            Dot(delta, frame.VAxis),
+            NormalOffsetMeters: Dot(delta, frame.Normal));
     }
 
     public static double[] PointFromLayout(CommonBaseLayout2d layout, CommonBaseFrame frame)
-        => Add(frame.Origin, Add(Scale(frame.UAxis, layout.X), Scale(frame.VAxis, layout.Y)));
+        => Add(
+            frame.Origin,
+            Add(
+                Add(Scale(frame.UAxis, layout.X), Scale(frame.VAxis, layout.Y)),
+                Scale(frame.Normal, layout.NormalOffsetMeters)));
+
+    public static double[] ComponentTranslationForMappedPoint(
+        IReadOnlyList<double> sourceComponentTranslation,
+        IReadOnlyList<double> sourceXAxis,
+        IReadOnlyList<double> sourceYAxis,
+        IReadOnlyList<double> sourceZAxis,
+        IReadOnlyList<double> sourcePointWorld,
+        IReadOnlyList<double> targetXAxis,
+        IReadOnlyList<double> targetYAxis,
+        IReadOnlyList<double> targetZAxis,
+        IReadOnlyList<double> targetPointWorld)
+    {
+        var sourceOffset = Subtract(
+            ToArray3(sourcePointWorld, nameof(sourcePointWorld)),
+            ToArray3(sourceComponentTranslation, nameof(sourceComponentTranslation)));
+        var sourceX = Normalize(ToArray3(sourceXAxis, nameof(sourceXAxis)));
+        var sourceY = Normalize(ToArray3(sourceYAxis, nameof(sourceYAxis)));
+        var sourceZ = Normalize(ToArray3(sourceZAxis, nameof(sourceZAxis)));
+        var localPoint = new[]
+        {
+            Dot(sourceOffset, sourceX),
+            Dot(sourceOffset, sourceY),
+            Dot(sourceOffset, sourceZ),
+        };
+        var targetOffset = Add(
+            Add(
+                Scale(Normalize(ToArray3(targetXAxis, nameof(targetXAxis))), localPoint[0]),
+                Scale(Normalize(ToArray3(targetYAxis, nameof(targetYAxis))), localPoint[1])),
+            Scale(Normalize(ToArray3(targetZAxis, nameof(targetZAxis))), localPoint[2]));
+        return Subtract(ToArray3(targetPointWorld, nameof(targetPointWorld)), targetOffset);
+    }
 
     public static CommonBaseLayout2d ProjectPointWithRotation(
         IReadOnlyList<double> point,

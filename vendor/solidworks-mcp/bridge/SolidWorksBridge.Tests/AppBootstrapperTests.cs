@@ -691,12 +691,12 @@ public class AppBootstrapperTests
         bootstrapper.RegisterHandlers();
         const string outputPath = @"C:\exports\view.png";
         var expected = new SwImageExportResult(outputPath, "image/png", 1024, 768, null);
-        docSvc.Setup(d => d.ExportCurrentViewPng(outputPath, 1024, 768, false)).Returns(expected);
+        docSvc.Setup(d => d.ExportCurrentViewPng(outputPath, 1024, 768, false, true)).Returns(expected);
 
         var response = await handler.HandleAsync(Req("sw.view.export_png", new { outputPath, width = 1024, height = 768, includeBase64Data = false }));
 
         Assert.Null(response.Error);
-        docSvc.Verify(d => d.ExportCurrentViewPng(outputPath, 1024, 768, false), Times.Once);
+        docSvc.Verify(d => d.ExportCurrentViewPng(outputPath, 1024, 768, false, true), Times.Once);
     }
 
     // ─────────────────────────────────────────────────────────────

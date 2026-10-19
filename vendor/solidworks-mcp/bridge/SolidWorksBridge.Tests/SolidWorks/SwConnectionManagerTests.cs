@@ -85,6 +85,27 @@ public class SwConnectionManagerTests
     }
 
     [Fact]
+    public void Connect_ForceNewInstance_SkipsRotLookupAndCreatesNew()
+    {
+        var mockApp = new Mock<ISldWorksApp>();
+        mockApp.Setup(a => a.GetDocumentCount()).Returns(0);
+        var connector = new Mock<ISwComConnector>();
+        connector.Setup(c => c.HasRunningProcess()).Returns(true);
+        connector.SetupGet(c => c.LastResolvedProgId).Returns("SldWorks.Application.32");
+        connector.Setup(c => c.CreateNewInstance()).Returns(mockApp.Object);
+
+        var manager = new SwConnectionManager(connector.Object, forceNewInstance: true);
+        manager.Connect();
+
+        Assert.Same(mockApp.Object, manager.SwApp);
+        Assert.Equal("forced-new-instance", manager.LastConnectionAttempt!.ConnectionSource);
+        Assert.True(manager.LastConnectionAttempt.RunningProcessDetected);
+        mockApp.VerifySet(a => a.Visible = true, Times.Once);
+        connector.Verify(c => c.GetActiveInstance(), Times.Never);
+        connector.Verify(c => c.CreateNewInstance(), Times.Once);
+    }
+
+    [Fact]
     public void Connect_WhenRunningProcessExistsButRotLookupFails_UsesVersionSpecificActivation()
     {
         var mockApp = new Mock<ISldWorksApp>();

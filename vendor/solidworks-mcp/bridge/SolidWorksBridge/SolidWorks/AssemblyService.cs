@@ -10,6 +10,29 @@ namespace SolidWorksBridge.SolidWorks;
 public record ComponentInfo(string Name, string Path);
 
 /// <summary>
+/// Result of creating a non-destructive top-level module-only view by suppressing
+/// every component that is not present in the requested keep list.
+/// </summary>
+public record TopLevelComponentIsolationResult(
+    bool Success,
+    IReadOnlyList<string> RequestedKeepComponentNames,
+    IReadOnlyList<string> KeptComponentNames,
+    IReadOnlyList<string> SuppressedComponentNames,
+    IReadOnlyList<string> AlreadySuppressedComponentNames,
+    IReadOnlyList<string> MissingKeepComponentNames,
+    IReadOnlyList<string> FailedComponentNames,
+    IReadOnlyList<string> RemainingResolvedComponentNames);
+
+public record TopLevelComponentVisibilityIsolationResult(
+    bool Success,
+    IReadOnlyList<string> RequestedKeepComponentNames,
+    IReadOnlyList<string> VisibleComponentNames,
+    IReadOnlyList<string> HiddenComponentNames,
+    IReadOnlyList<string> MissingKeepComponentNames,
+    IReadOnlyList<string> SuppressedKeepComponentNames,
+    IReadOnlyList<string> FailedComponentNames);
+
+/// <summary>
 /// Info about a component instance discovered by recursively traversing an assembly tree.
 /// </summary>
 public record ComponentInstanceInfo(string Name, string Path, string HierarchyPath, int Depth);
@@ -23,7 +46,37 @@ public record ComponentPoseInfo(
     double[]? Translation,
     double[]? XAxis,
     double[]? YAxis,
-    double[]? ZAxis);
+    double[]? ZAxis,
+    double[]? BoundingBoxWorld = null,
+    string? ReferencedConfiguration = null,
+    int? SolvingState = null,
+    string? SolvingStateName = null,
+    double[]? TotalTransform = null,
+    double[]? TotalTranslation = null,
+    double[]? TotalXAxis = null,
+    double[]? TotalYAxis = null,
+    double[]? TotalZAxis = null);
+
+public record ComponentSolvingStateResult(
+    bool Success,
+    string ComponentName,
+    string HierarchyPath,
+    string? ReferencedConfiguration,
+    int PreviousSolvingState,
+    string PreviousSolvingStateName,
+    int RequestedSolvingState,
+    string RequestedSolvingStateName,
+    int ActualSolvingState,
+    string ActualSolvingStateName,
+    bool RebuildRequested,
+    bool RebuildSucceeded);
+
+public record ResolveLightweightComponentsResult(
+    bool Success,
+    int RawResolveCode,
+    bool WarnIfNotResolved,
+    bool RebuildRequested,
+    bool RebuildSucceeded);
 
 /// <summary>
 /// Summary of a static interference check in an assembly.
@@ -34,6 +87,66 @@ public record AssemblyInterferenceCheckResult(
     int CheckedComponentCount,
     int InterferingFaceCount,
     IReadOnlyList<ComponentInstanceInfo> InterferingComponents);
+
+/// <summary>
+/// Detailed result of a two-module interference check performed on transformed leaf solid bodies.
+/// Component AABBs are used only as a broad-phase filter; every surviving body pair is checked by
+/// the SolidWorks modeler B-Rep kernel.
+/// </summary>
+public record LeafBodyInterferenceCheckResult(
+    bool HasInterference,
+    bool TreatCoincidenceAsInterference,
+    bool ExactCheckComplete,
+    int CheckedTopLevelComponentCount,
+    int FirstLeafComponentCount,
+    int SecondLeafComponentCount,
+    int FirstBodyCount,
+    int SecondBodyCount,
+    long TotalBodyPairCount,
+    int AabbCandidateBodyPairCount,
+    int BodyWithoutBoundingBoxCount,
+    long BroadPhaseBypassedBodyPairCount,
+    int ExactCompletedBodyPairCount,
+    int PrimaryCheckReturnedFalseCount,
+    int FallbackExactCompletedBodyPairCount,
+    int BooleanFallbackCompletedBodyPairCount,
+    int BooleanFallbackNoIntersectionBodyPairCount,
+    int FailedBodyPairCount,
+    int InterferingBodyPairCount,
+    IReadOnlyList<ComponentInstanceInfo> InterferingComponents,
+    IReadOnlyList<LeafBodyInterferencePairInfo> InterferingBodyPairs,
+    IReadOnlyList<string> Failures);
+
+/// <summary>
+/// A leaf solid-body pair that the SolidWorks B-Rep kernel reported as intersecting.
+/// Bounding boxes are expressed in the active top-level assembly coordinate system.
+/// </summary>
+public record LeafBodyInterferencePairInfo(
+    ComponentInstanceInfo FirstComponent,
+    ComponentInstanceInfo SecondComponent,
+    double[] FirstBoundingBoxWorld,
+    double[] SecondBoundingBoxWorld,
+    double[] AabbOverlapWorld,
+    string DetectionMethod);
+
+/// <summary>
+/// Conservative world-space AABB for one solid body owned by a leaf component.
+/// BodyIndex is stable only within the current capture and leaf component.
+/// </summary>
+public record LeafBodyEnvelopeInfo(
+    ComponentInstanceInfo Component,
+    int BodyIndex,
+    double[] BoundingBoxWorld,
+    string BoundingBoxSource);
+
+public record LeafBodyEnvelopeCaptureResult(
+    ComponentInstanceInfo TopLevelComponent,
+    int LeafComponentCount,
+    int BodyCount,
+    IReadOnlyList<LeafBodyEnvelopeInfo> Bodies,
+    int FailedBodyCount,
+    bool CoverageComplete,
+    IReadOnlyList<string> Failures);
 
 public record AssemblyTargetResolutionResult(
     string? RequestedName,
@@ -125,6 +238,16 @@ public record ComponentTransformResult(
     string? ComponentName,
     string? HierarchyPath);
 
+public record ComponentReferencedConfigurationResult(
+    bool Success,
+    string ComponentName,
+    string HierarchyPath,
+    string PreviousConfiguration,
+    string RequestedConfiguration,
+    string ActualConfiguration,
+    bool RebuildRequested,
+    bool RebuildSucceeded);
+
 public record MateOperationResult(string MateType, int ErrorStatus, string ErrorName, string ErrorDescription);
 
 /// <summary>
@@ -164,7 +287,8 @@ public interface IAssemblyService
         string componentName,
         double deltaX,
         double deltaY,
-        double deltaZ);
+        double deltaZ,
+        bool rebuild = true);
 
     /// <summary>
     /// Rotate a component around the specified world-space axis by the given angle in degrees.
@@ -174,7 +298,42 @@ public interface IAssemblyService
         double axisX,
         double axisY,
         double axisZ,
-        double angleDegrees);
+        double angleDegrees,
+        bool rebuild = true);
+
+    /// <summary>
+    /// Replace only a component's world-space orientation while preserving its translation.
+    /// The three axes must form a right-handed orthonormal frame.
+    /// </summary>
+    ComponentTransformResult SetComponentOrientation(
+        string componentName,
+        IReadOnlyList<double> xAxis,
+        IReadOnlyList<double> yAxis,
+        IReadOnlyList<double> zAxis,
+        bool rebuild = true);
+
+    /// <summary>Replace one component's complete Transform2 matrix.</summary>
+    ComponentTransformResult SetComponentTransform(
+        string componentName,
+        IReadOnlyList<double> transform,
+        bool rebuild = true);
+
+    /// <summary>Switch one component instance to an existing referenced configuration.</summary>
+    ComponentReferencedConfigurationResult SetComponentReferencedConfiguration(
+        string componentName,
+        string configurationName,
+        bool rebuild = true);
+
+    /// <summary>
+    /// Temporarily suppress resolved mate features directly under the active assembly's MateGroup.
+    /// Intended for high-level batch Transform2 workflows; callers must restore the returned names.
+    /// </summary>
+    IReadOnlyList<string> SuppressTopLevelMateFeatures();
+
+    /// <summary>
+    /// Restore top-level mate features previously returned by SuppressTopLevelMateFeatures.
+    /// </summary>
+    IReadOnlyList<string> RestoreTopLevelMateFeatures(IReadOnlyList<string> featureNames);
 
     /// <summary>
     /// Insert a component at the given position (meters). Returns component info.
@@ -218,11 +377,49 @@ public interface IAssemblyService
     IReadOnlyList<ComponentInfo> ListComponents();
 
     /// <summary>
+    /// Suppress every direct child of the active assembly except the exact component
+    /// instance names in <paramref name="keepComponentNames"/>. This preserves the
+    /// source-context component instances and their internal configuration state.
+    /// </summary>
+    TopLevelComponentIsolationResult SuppressTopLevelComponentsExcept(
+        IReadOnlyList<string> keepComponentNames,
+        bool rebuild = true);
+
+    /// <summary>
+    /// Hide every non-target direct child while keeping dependencies and component
+    /// suppression states unchanged. This is the safe fallback for context assemblies
+    /// where suppressing a driver component also suppresses requested modules.
+    /// </summary>
+    TopLevelComponentVisibilityIsolationResult HideTopLevelComponentsExcept(
+        IReadOnlyList<string> keepComponentNames,
+        bool rebuild = true);
+
+    /// <summary>
     /// List all component instances in the active assembly by recursively traversing subassemblies.
     /// 閫掑綊鍒楀嚭褰撳墠娲诲姩瑁呴厤浣撲腑鐨勬墍鏈夌粍浠跺疄渚嬶紝骞惰繑鍥炲眰绾ц矾寰勶紝閫傚悎澶勭悊宓屽瀛愯閰嶄綋銆?    /// </summary>
     IReadOnlyList<ComponentInstanceInfo> ListComponentsRecursive();
 
     IReadOnlyList<ComponentPoseInfo> ListComponentPoses(bool topLevelOnly = true);
+
+    /// <summary>
+    /// List the pose of one exact top-level component and only its descendants.
+    /// This avoids traversing unrelated modules in large production assemblies.
+    /// </summary>
+    IReadOnlyList<ComponentPoseInfo> ListTopLevelComponentSubtreePoses(string hierarchyPath);
+
+    ComponentSolvingStateResult SetTopLevelComponentSolvingState(
+        string hierarchyPath,
+        int solvingState,
+        bool rebuild = true);
+
+    ComponentSolvingStateResult SetComponentSolvingState(
+        string hierarchyPath,
+        int solvingState,
+        bool rebuild = true);
+
+    ResolveLightweightComponentsResult ResolveAllLightweightComponents(
+        bool warnIfNotResolved = false,
+        bool rebuild = true);
 
     /// <summary>
     /// Resolve one exact component instance in the active assembly using name, hierarchy path, path, or any combination.
@@ -241,12 +438,188 @@ public interface IAssemblyService
         string? componentPath = null);
 
     /// <summary>
+    /// Inspect top-level assembly mates and export only the face-based basic mates whose endpoints
+    /// belong to the two requested module instances. The active source assembly is never modified.
+    /// </summary>
+    AssemblyMatePairExportResult ExportMatePair(
+        string sourceAssemblyPath,
+        string firstModuleSelector,
+        string secondModuleSelector,
+        string? outputPath = null,
+        bool saveJson = true);
+
+    /// <summary>
+    /// Rank module pairs that have directly rebuildable face-based basic mates in the source assembly.
+    /// This is the safe fallback when the preferred pair has no direct mate.
+    /// </summary>
+    AssemblyMatePairCandidateResult FindMatePairCandidates(
+        string sourceAssemblyPath,
+        IReadOnlyList<string>? allowedModuleTokens = null,
+        int maxResults = 10);
+
+    /// <summary>
+    /// Create an independent two-module assembly, rebuild the exported pair mates, save/reopen it,
+    /// and verify the mate types and endpoint ownership. The source assembly remains read-only.
+    /// </summary>
+    AssemblyMatePairRoundTripResult RoundTripMatePair(
+        string sourceAssemblyPath,
+        string firstModuleSelector,
+        string secondModuleSelector,
+        string outputAssemblyPath,
+        string? exportJsonPath = null,
+        bool allowAutomaticFallback = true,
+        IReadOnlyList<string>? allowedModuleTokens = null);
+
+    /// <summary>
+    /// Export all binary inter-module top-level mate features for the requested module subtrees,
+    /// preserving endpoint geometry identity and grouping the relations into module-pair bundles.
+    /// The source assembly is opened read-only from the tool's point of view and is never modified.
+    /// </summary>
+    AssemblyModuleMateGraphResult ExportModuleMateGraph(
+        string sourceAssemblyPath,
+        IReadOnlyList<string>? moduleTokens = null,
+        string? outputPath = null,
+        bool saveJson = true);
+
+    /// <summary>
+    /// Read top-level mate types, participating components, and advanced options without resolving
+    /// endpoint faces or persistent references.
+    /// </summary>
+    AssemblyTopLevelMateAuditResult AuditTopLevelMateFeatures(
+        string sourceAssemblyPath,
+        string? outputPath = null,
+        bool saveJson = true);
+
+    /// <summary>Update one named top-level Slot mate in an explicitly supplied assembly copy.</summary>
+    AssemblySlotMateUpdateResult UpdateTopLevelSlotMate(
+        string assemblyPath,
+        string mateName,
+        int constraint,
+        double distance = 0,
+        double percent = 0,
+        bool flipDirection = false,
+        bool save = true);
+
+    /// <summary>
+    /// Enumerate reusable face endpoints independently of existing mate features.
+    /// </summary>
+    AssemblyFaceEndpointCatalogResult BuildFaceEndpointCatalog(
+        string sourceAssemblyPath,
+        IReadOnlyList<string> moduleTokens,
+        string? outputPath = null,
+        bool sourceMateFacesOnly = true,
+        bool planarOnly = true,
+        double minimumFaceArea = 1e-8,
+        bool saveJson = true);
+
+    /// <summary>
+    /// Enumerate reusable face endpoints from one uniquely selected leaf component only.
+    /// </summary>
+    AssemblyFaceEndpointCatalogResult BuildLeafFaceEndpointCatalog(
+        string sourceAssemblyPath,
+        string moduleToken,
+        string leafSelector,
+        string? outputPath = null,
+        bool planarOnly = true,
+        double minimumFaceArea = 1e-8,
+        int maximumFaceCount = 500,
+        bool saveJson = true);
+
+    /// <summary>Select and optionally zoom to one endpoint from a saved catalog.</summary>
+    AssemblyFaceEndpointSelectionResult SelectFaceEndpointFromCatalog(
+        string catalogPath,
+        string endpointId,
+        bool zoomToSelection = true);
+
+    /// <summary>
+    /// Capture the first face selected in the active assembly as a reusable endpoint entry.
+    /// </summary>
+    AssemblyFaceEndpointCatalogEntry CaptureSelectedFaceEndpoint(string moduleToken);
+
+    /// <summary>
+    /// Rebuild the complete exported module-level mate graph in a new assembly using one of three
+    /// controlled initial-placement modes, then save/reopen and compare every module pose.
+    /// </summary>
+    AssemblyModuleMateReconstructionExperimentResult RunModuleMateReconstructionExperiment(
+        string sourceAssemblyPath,
+        string outputAssemblyPath,
+        string mode,
+        string baseModuleToken = "A600",
+        IReadOnlyList<string>? moduleTokens = null,
+        IReadOnlyList<string>? residualAnchorModuleSelectors = null,
+        double poseToleranceMeters = 1e-5,
+        double rotationTolerance = 1e-6);
+
+    /// <summary>
+    /// Create a new assembly from a compiled editable mate-graph JSON without re-reading the
+    /// prototype mate tree, then save/reopen and verify mate types and scalar parameters.
+    /// </summary>
+    AssemblyEditableMateGraphReconstructionResult RebuildAssemblyFromMateGraph(
+        string effectiveMateGraphPath,
+        string outputAssemblyPath,
+        string? baseModuleToken = null,
+        string? initialPlacementMode = null);
+
+    AssemblyContextMateGraphReconstructionResult RemateComponentInAssemblyContextFromMateGraph(
+        string sourceAssemblyPath,
+        string effectiveMateGraphPath,
+        string outputAssemblyPath,
+        string targetModuleToken,
+        bool preserveResolvedSourceSession = false,
+        bool forceInitialDisplacement = false);
+
+    /// <summary>
+    /// Measure validation-only relations in an existing saved checkpoint without
+    /// rebuilding mates or saving a CAD document.
+    /// </summary>
+    AssemblyContextRelationVerificationResult VerifyRelationsInAssemblyContextFromMateGraph(
+        string sourceAssemblyPath,
+        string effectiveMateGraphPath,
+        string targetModuleToken,
+        bool preserveResolvedSourceSession = false);
+
+    /// <summary>
+    /// Copy an existing assembly context, remove the original target instance, insert a fresh
+    /// instance from its independent module file, and locate it from the effective mate graph.
+    /// </summary>
+    AssemblyContextIncrementalInsertResult InsertComponentInAssemblyContextFromMateGraph(
+        string sourceAssemblyPath,
+        string effectiveMateGraphPath,
+        string outputAssemblyPath,
+        string targetModuleToken);
+
+    /// <summary>
+    /// Copy a solved parent assembly, retain only the requested top-level component source files,
+    /// and save/reopen the result as an explicitly static context snapshot.  This preserves the
+    /// parent-context checkpoint for geometry review without claiming kinematic reconstruction.
+    /// </summary>
+    AssemblyStaticContextSubsetResult CreateAssemblyStaticContextSubset(
+        string sourceAssemblyPath,
+        string outputAssemblyPath,
+        IReadOnlyList<string> keepComponentPaths);
+
+    /// <summary>
     /// Run a static interference check for the active assembly or a subset of component instances.
     /// This follows the official ToolsCheckInterference2 workflow and temporarily changes the SolidWorks selection set.
     /// 瀵规暣涓椿鍔ㄨ閰嶄綋鎴栨寚瀹氱粍浠堕泦鍚堟墽琛岄潤鎬佸共娑夋鏌ワ紱璋冪敤鏈熼棿浼氫复鏃舵敼鍙?SolidWorks 褰撳墠閫夋嫨闆嗐€?    /// </summary>
     AssemblyInterferenceCheckResult CheckInterference(
         IReadOnlyList<string>? hierarchyPaths = null,
         bool treatCoincidenceAsInterference = false);
+
+    /// <summary>
+    /// Check exactly two module instances by expanding them to leaf solid bodies, transforming body
+    /// copies into the active assembly coordinate system, applying an AABB broad phase, and running
+    /// the SolidWorks modeler B-Rep check for every surviving body pair.
+    /// </summary>
+    LeafBodyInterferenceCheckResult CheckInterferenceByLeafBodies(
+        IReadOnlyList<string> hierarchyPaths,
+        bool treatCoincidenceAsInterference = false);
+
+    /// <summary>
+    /// Capture every transformed leaf solid-body AABB below one resolved module instance.
+    /// This is a read-only geometry extraction used to build conservative multi-box occupancy models.
+    /// </summary>
+    LeafBodyEnvelopeCaptureResult CaptureLeafBodyEnvelopes(string hierarchyPath);
 
     /// <summary>
     /// Replace a top-level component instance in the active assembly with another model file.
@@ -281,9 +654,21 @@ public interface IAssemblyService
 /// <summary>
 /// Implements <see cref="IAssemblyService"/> via SolidWorks IAssemblyDoc COM API.
 /// </summary>
-public class AssemblyService : IAssemblyService
+public partial class AssemblyService : IAssemblyService
 {
+    // SolidWorks reports assembly geometry in metres.  Keep the broad-phase
+    // shortcut conservative so numerical noise or a nominally touching pair
+    // still reaches the exact interference API.
+    internal const double InterferenceAabbSeparationTolerance = 1e-6;
+
     private const int RpcServerFault = unchecked((int)0x80010105);
+
+    private sealed record WorldSpaceSolidBody(
+        IBody2 Body,
+        ComponentInstanceInfo Component,
+        int BodyIndex,
+        double[] BoundingBox,
+        string BoundingBoxSource);
 
     private readonly ISwConnectionManager _cm;
 
@@ -357,7 +742,8 @@ public class AssemblyService : IAssemblyService
         string componentName,
         double deltaX,
         double deltaY,
-        double deltaZ)
+        double deltaZ,
+        bool rebuild = true)
     {
         if (string.IsNullOrWhiteSpace(componentName))
             throw new ArgumentException("componentName must not be empty", nameof(componentName));
@@ -365,10 +751,13 @@ public class AssemblyService : IAssemblyService
         _cm.EnsureConnected();
         var assy = GetAssemblyDoc();
 
-        // Search all instances (including subassemblies) to match behaviour of other target-resolution methods.
-        var instances = EnumerateComponentInstances(assy);
-        var target = instances.FirstOrDefault(i =>
-            string.Equals(i.Info.Name, componentName, StringComparison.OrdinalIgnoreCase));
+        // Transform-heavy replay calls this method once per top-level process module. Resolve the
+        // named component directly first so we do not recursively call IComponent2.GetChildren()
+        // for the complete assembly before every Transform2 write. Repeated full-tree traversal is
+        // both expensive and, on large assemblies, can destabilize the SolidWorks COM server after
+        // several successful component moves. Keep the recursive lookup as a compatibility fallback
+        // for callers that target a nested component.
+        var target = ResolveComponentForTransform(assy, componentName);
 
         if (target == null)
         {
@@ -402,8 +791,11 @@ public class AssemblyService : IAssemblyService
             ? current.Multiply(translationTransform)
             : translationTransform) as MathTransform;
 
-        var doc = (IModelDoc2)assy;
-        doc.EditRebuild3();
+        if (rebuild)
+        {
+            var doc = (IModelDoc2)assy;
+            doc.EditRebuild3();
+        }
 
         return new ComponentTransformResult(
             true,
@@ -417,7 +809,8 @@ public class AssemblyService : IAssemblyService
         double axisX,
         double axisY,
         double axisZ,
-        double angleDegrees)
+        double angleDegrees,
+        bool rebuild = true)
     {
         if (string.IsNullOrWhiteSpace(componentName))
             throw new ArgumentException("componentName must not be empty", nameof(componentName));
@@ -425,9 +818,7 @@ public class AssemblyService : IAssemblyService
         _cm.EnsureConnected();
         var assy = GetAssemblyDoc();
 
-        var instances = EnumerateComponentInstances(assy);
-        var target = instances.FirstOrDefault(i =>
-            string.Equals(i.Info.Name, componentName, StringComparison.OrdinalIgnoreCase));
+        var target = ResolveComponentForTransform(assy, componentName);
 
         if (target == null)
         {
@@ -467,14 +858,224 @@ public class AssemblyService : IAssemblyService
             ? currentRot.Multiply(rotTransform)
             : rotTransform) as MathTransform;
 
-        var doc = (IModelDoc2)assy;
-        doc.EditRebuild3();
+        if (rebuild)
+        {
+            var doc = (IModelDoc2)assy;
+            doc.EditRebuild3();
+        }
 
         return new ComponentTransformResult(
             true,
             $"Rotated component '{componentName}' around ({axisX},{axisY},{axisZ}) by {angleDegrees}掳",
             target.Info.Name,
             target.Info.HierarchyPath);
+    }
+
+    public ComponentTransformResult SetComponentOrientation(
+        string componentName,
+        IReadOnlyList<double> xAxis,
+        IReadOnlyList<double> yAxis,
+        IReadOnlyList<double> zAxis,
+        bool rebuild = true)
+    {
+        if (string.IsNullOrWhiteSpace(componentName))
+            throw new ArgumentException("componentName must not be empty", nameof(componentName));
+
+        var x = NormalizeOrientationAxis(xAxis, nameof(xAxis));
+        var y = NormalizeOrientationAxis(yAxis, nameof(yAxis));
+        var z = NormalizeOrientationAxis(zAxis, nameof(zAxis));
+        if (Math.Abs(Dot(x, y)) > 1e-6 || Math.Abs(Dot(x, z)) > 1e-6 || Math.Abs(Dot(y, z)) > 1e-6)
+            throw new ArgumentException("Orientation axes must be mutually perpendicular.");
+        var handedness = Dot(Cross(x, y), z);
+        if (handedness < 0.999999)
+            throw new ArgumentException("Orientation axes must form a right-handed frame.");
+
+        _cm.EnsureConnected();
+        var assy = GetAssemblyDoc();
+        var target = ResolveComponentForTransform(assy, componentName);
+        if (target == null)
+        {
+            return new ComponentTransformResult(
+                false,
+                $"Component '{componentName}' not found",
+                componentName,
+                null);
+        }
+
+        var current = target.Component.Transform2;
+        var currentData = current?.ArrayData as double[];
+        if (currentData == null || currentData.Length < 13)
+        {
+            return new ComponentTransformResult(
+                false,
+                $"Component '{componentName}' has no readable Transform2.",
+                target.Info.Name,
+                target.Info.HierarchyPath);
+        }
+
+        double[] targetData =
+        [
+            x[0], x[1], x[2],
+            y[0], y[1], y[2],
+            z[0], z[1], z[2],
+            currentData[9], currentData[10], currentData[11],
+            currentData[12],
+            0, 0, 0,
+        ];
+        var swApp = _cm.SwApp ?? throw new InvalidOperationException("SolidWorks not connected");
+        var mathUtil = swApp.GetMathUtility();
+        target.Component.Transform2 = (MathTransform)mathUtil.CreateTransform((object)targetData);
+
+        if (rebuild)
+            ((IModelDoc2)assy).EditRebuild3();
+
+        return new ComponentTransformResult(
+            true,
+            $"Set component '{componentName}' to the requested full world-space orientation.",
+            target.Info.Name,
+            target.Info.HierarchyPath);
+    }
+
+    public ComponentTransformResult SetComponentTransform(
+        string componentName,
+        IReadOnlyList<double> transform,
+        bool rebuild = true)
+    {
+        if (string.IsNullOrWhiteSpace(componentName))
+            throw new ArgumentException("componentName must not be empty", nameof(componentName));
+        if (transform is null || transform.Count != 16)
+            throw new ArgumentException("transform must contain exactly 16 Transform2 values.", nameof(transform));
+        if (transform.Any(value => double.IsNaN(value) || double.IsInfinity(value)))
+            throw new ArgumentException("transform values must be finite.", nameof(transform));
+
+        _cm.EnsureConnected();
+        var assy = GetAssemblyDoc();
+        var target = ResolveComponentForTransform(assy, componentName);
+        if (target is null)
+        {
+            return new ComponentTransformResult(
+                false,
+                $"Component '{componentName}' not found",
+                componentName,
+                null);
+        }
+
+        var swApp = _cm.SwApp ?? throw new InvalidOperationException("SolidWorks not connected");
+        var mathUtil = swApp.GetMathUtility();
+        target.Component.Transform2 = (MathTransform)mathUtil.CreateTransform((object)transform.ToArray());
+        bool rebuildSucceeded = !rebuild || ((IModelDoc2)assy).EditRebuild3();
+
+        return new ComponentTransformResult(
+            rebuildSucceeded,
+            rebuildSucceeded
+                ? $"Set component '{componentName}' to the requested complete Transform2 matrix."
+                : $"Set component '{componentName}' Transform2, but the assembly rebuild failed.",
+            target.Info.Name,
+            target.Info.HierarchyPath);
+    }
+
+    public ComponentReferencedConfigurationResult SetComponentReferencedConfiguration(
+        string componentName,
+        string configurationName,
+        bool rebuild = true)
+    {
+        if (string.IsNullOrWhiteSpace(componentName))
+            throw new ArgumentException("componentName must not be empty", nameof(componentName));
+        if (string.IsNullOrWhiteSpace(configurationName))
+            throw new ArgumentException("configurationName must not be empty", nameof(configurationName));
+
+        _cm.EnsureConnected();
+        var assy = GetAssemblyDoc();
+        var target = ResolveComponentForTransform(assy, componentName)
+            ?? throw new InvalidOperationException($"Component '{componentName}' not found.");
+
+        string previous = target.Component.ReferencedConfiguration ?? string.Empty;
+        target.Component.ReferencedConfiguration = configurationName;
+        bool rebuildSucceeded = !rebuild || ((IModelDoc2)assy).EditRebuild3();
+        string actual = target.Component.ReferencedConfiguration ?? string.Empty;
+        bool success = rebuildSucceeded
+            && string.Equals(actual, configurationName, StringComparison.OrdinalIgnoreCase);
+
+        return new ComponentReferencedConfigurationResult(
+            success,
+            target.Info.Name,
+            target.Info.HierarchyPath,
+            previous,
+            configurationName,
+            actual,
+            rebuild,
+            rebuildSucceeded);
+    }
+
+    private static double[] NormalizeOrientationAxis(IReadOnlyList<double> axis, string parameterName)
+    {
+        if (axis == null || axis.Count < 3)
+            throw new ArgumentException("Orientation axis must contain three values.", parameterName);
+        var length = Math.Sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
+        if (length < 1e-10)
+            throw new ArgumentException("Orientation axis must not be zero.", parameterName);
+        return [axis[0] / length, axis[1] / length, axis[2] / length];
+    }
+
+    private static double Dot(IReadOnlyList<double> first, IReadOnlyList<double> second)
+        => first[0] * second[0] + first[1] * second[1] + first[2] * second[2];
+
+    private static double[] Cross(IReadOnlyList<double> first, IReadOnlyList<double> second)
+        =>
+        [
+            first[1] * second[2] - first[2] * second[1],
+            first[2] * second[0] - first[0] * second[2],
+            first[0] * second[1] - first[1] * second[0],
+        ];
+
+    public IReadOnlyList<string> SuppressTopLevelMateFeatures()
+    {
+        _cm.EnsureConnected();
+        var doc = (IModelDoc2)GetAssemblyDoc();
+        var changed = new List<string>();
+        foreach (var feature in EnumerateTopLevelMateFeatures(doc))
+        {
+            try
+            {
+                if (!feature.IsSuppressed()
+                    && feature.SetSuppression((int)swFeatureSuppressionAction_e.swSuppressFeature))
+                {
+                    changed.Add(feature.Name);
+                }
+            }
+            catch (COMException)
+            {
+                // Keep the operation best-effort; the caller receives only features that were actually changed.
+            }
+        }
+        return changed.AsReadOnly();
+    }
+
+    public IReadOnlyList<string> RestoreTopLevelMateFeatures(IReadOnlyList<string> featureNames)
+    {
+        _cm.EnsureConnected();
+        var doc = (IModelDoc2)GetAssemblyDoc();
+        var requested = featureNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var restored = new List<string>();
+        foreach (var feature in EnumerateTopLevelMateFeatures(doc))
+        {
+            if (!requested.Contains(feature.Name))
+            {
+                continue;
+            }
+            try
+            {
+                if (feature.IsSuppressed()
+                    && feature.SetSuppression((int)swFeatureSuppressionAction_e.swUnSuppressFeature))
+                {
+                    restored.Add(feature.Name);
+                }
+            }
+            catch (COMException)
+            {
+            }
+        }
+        return restored.AsReadOnly();
     }
 
     public MateOperationResult AddMateCoincident(MateAlign align = MateAlign.Closest)
@@ -524,11 +1125,232 @@ public class AssemblyService : IAssemblyService
         _cm.EnsureConnected();
         var assy = GetAssemblyDoc();
 
+        if (topLevelOnly)
+        {
+            // Do not recursively enumerate every leaf and filter afterwards.  Large
+            // production modules can contain thousands of descendants, while layout
+            // broad-phase validation only needs the direct children of the active
+            // assembly.  PairEnumerateTopLevelInstances performs that bounded query.
+            return PairEnumerateTopLevelInstances(assy)
+                .Select(instance => ToComponentPoseInfo(instance.Component, instance.Info))
+                .ToList()
+                .AsReadOnly();
+        }
+
         return EnumerateComponentInstances(assy)
-            .Where(instance => !topLevelOnly || instance.Info.Depth == 0)
             .Select(instance => ToComponentPoseInfo(instance.Component, instance.Info))
             .ToList()
             .AsReadOnly();
+    }
+
+    public IReadOnlyList<ComponentPoseInfo> ListTopLevelComponentSubtreePoses(string hierarchyPath)
+    {
+        if (string.IsNullOrWhiteSpace(hierarchyPath))
+            throw new ArgumentException("hierarchyPath must not be empty.", nameof(hierarchyPath));
+
+        _cm.EnsureConnected();
+        var assy = GetAssemblyDoc();
+        var matches = PairEnumerateTopLevelInstances(assy)
+            .Where(instance =>
+                string.Equals(instance.Info.HierarchyPath, hierarchyPath, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(instance.Info.Name, hierarchyPath, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (matches.Count != 1)
+        {
+            throw SolidWorksApiErrorFactory.FromValidationFailure(
+                "IAssemblyDoc.GetComponents",
+                "The requested top-level component must resolve to exactly one instance.",
+                new Dictionary<string, object?>
+                {
+                    ["hierarchyPath"] = hierarchyPath,
+                    ["resolvedInstanceCount"] = matches.Count,
+                });
+        }
+
+        var instances = new List<ComponentInstance> { matches[0] };
+        PairTraverseModuleSubtree(
+            matches[0].Component,
+            matches[0].Info.HierarchyPath,
+            matches[0].Info.Depth,
+            instances);
+        return instances
+            .Select(instance => ToComponentPoseInfo(instance.Component, instance.Info))
+            .ToList()
+            .AsReadOnly();
+    }
+
+    public TopLevelComponentIsolationResult SuppressTopLevelComponentsExcept(
+        IReadOnlyList<string> keepComponentNames,
+        bool rebuild = true)
+    {
+        if (keepComponentNames == null || keepComponentNames.Count == 0)
+            throw new ArgumentException("At least one top-level component name must be kept.", nameof(keepComponentNames));
+
+        _cm.EnsureConnected();
+        var assy = GetAssemblyDoc();
+        var components = (assy.GetComponents(true) as object[] ?? [])
+            .OfType<IComponent2>()
+            .ToList();
+        var requested = keepComponentNames
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var actualNames = components
+            .Select(component => component.Name2)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var missing = requested
+            .Where(name => !actualNames.Contains(name))
+            .ToList();
+
+        // Preflight all requested names before changing the document. A typo must
+        // not accidentally suppress a module that the caller intended to preserve.
+        if (missing.Count > 0)
+        {
+            return new TopLevelComponentIsolationResult(
+                false,
+                requested.AsReadOnly(),
+                [],
+                [],
+                [],
+                missing.AsReadOnly(),
+                [],
+                components.Where(component => !component.IsSuppressed())
+                    .Select(component => component.Name2)
+                    .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+                    .ToList()
+                    .AsReadOnly());
+        }
+
+        var keep = requested.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var kept = new List<string>();
+        var suppressed = new List<string>();
+        var alreadySuppressed = new List<string>();
+        var failed = new List<string>();
+        foreach (var component in components)
+        {
+            if (keep.Contains(component.Name2))
+            {
+                kept.Add(component.Name2);
+                continue;
+            }
+            if (component.IsSuppressed())
+            {
+                alreadySuppressed.Add(component.Name2);
+                continue;
+            }
+
+            try
+            {
+                component.SetSuppression2((int)swComponentSuppressionState_e.swComponentSuppressed);
+                if (component.IsSuppressed())
+                    suppressed.Add(component.Name2);
+                else
+                    failed.Add(component.Name2);
+            }
+            catch (COMException)
+            {
+                failed.Add(component.Name2);
+            }
+        }
+
+        if (rebuild)
+            ((IModelDoc2)assy).EditRebuild3();
+
+        var remainingResolved = components
+            .Where(component => !component.IsSuppressed())
+            .Select(component => component.Name2)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var success = failed.Count == 0
+            && remainingResolved.Count == requested.Count
+            && remainingResolved.All(keep.Contains);
+        return new TopLevelComponentIsolationResult(
+            success,
+            requested.AsReadOnly(),
+            kept.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToList().AsReadOnly(),
+            suppressed.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToList().AsReadOnly(),
+            alreadySuppressed.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToList().AsReadOnly(),
+            missing.AsReadOnly(),
+            failed.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToList().AsReadOnly(),
+            remainingResolved.AsReadOnly());
+    }
+
+    public TopLevelComponentVisibilityIsolationResult HideTopLevelComponentsExcept(
+        IReadOnlyList<string> keepComponentNames,
+        bool rebuild = true)
+    {
+        if (keepComponentNames == null || keepComponentNames.Count == 0)
+            throw new ArgumentException("At least one top-level component name must be kept.", nameof(keepComponentNames));
+
+        _cm.EnsureConnected();
+        var assy = GetAssemblyDoc();
+        var components = (assy.GetComponents(true) as object[] ?? [])
+            .OfType<IComponent2>()
+            .ToList();
+        var requested = keepComponentNames
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var actualNames = components.Select(component => component.Name2)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var missing = requested.Where(name => !actualNames.Contains(name)).ToList();
+        if (missing.Count > 0)
+        {
+            return new TopLevelComponentVisibilityIsolationResult(
+                false, requested.AsReadOnly(), [], [], missing.AsReadOnly(), [], []);
+        }
+
+        var keep = requested.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var failed = new List<string>();
+        foreach (var component in components)
+        {
+            try
+            {
+                component.Visible = keep.Contains(component.Name2)
+                    ? (int)swComponentVisibilityState_e.swComponentVisible
+                    : (int)swComponentVisibilityState_e.swComponentHidden;
+            }
+            catch (COMException)
+            {
+                failed.Add(component.Name2);
+            }
+        }
+        if (rebuild)
+            ((IModelDoc2)assy).EditRebuild3();
+
+        var visible = components
+            .Where(component => component.Visible == (int)swComponentVisibilityState_e.swComponentVisible)
+            .Select(component => component.Name2)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var hidden = components
+            .Where(component => component.Visible != (int)swComponentVisibilityState_e.swComponentVisible)
+            .Select(component => component.Name2)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var suppressedKeep = components
+            .Where(component => keep.Contains(component.Name2) && component.IsSuppressed())
+            .Select(component => component.Name2)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        // Visibility isolation is intentionally independent of suppression state.
+        // Some Project02 source-context instances report IsSuppressed=true while
+        // remaining graphically visible and pose-addressable (for example patterned
+        // or cached-context instances). Exact geometry availability is validated by
+        // the downstream pose/B-Rep gates, not inferred here from that flag alone.
+        var success = failed.Count == 0
+            && visible.Count == requested.Count
+            && visible.All(keep.Contains);
+        return new TopLevelComponentVisibilityIsolationResult(
+            success,
+            requested.AsReadOnly(),
+            visible.AsReadOnly(),
+            hidden.AsReadOnly(),
+            missing.AsReadOnly(),
+            suppressedKeep.AsReadOnly(),
+            failed.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToList().AsReadOnly());
     }
 
     public AssemblyTargetResolutionResult ResolveComponentTarget(
@@ -544,6 +1366,122 @@ public class AssemblyService : IAssemblyService
         var instances = EnumerateComponentInstances(assy);
 
         return ResolveComponentTargetCore(instances, activeAssemblyPath, componentName, hierarchyPath, componentPath);
+    }
+
+    public ComponentSolvingStateResult SetTopLevelComponentSolvingState(
+        string hierarchyPath,
+        int solvingState,
+        bool rebuild = true)
+        => SetComponentSolvingStateCore(hierarchyPath, solvingState, rebuild, topLevelOnly: true);
+
+    public ComponentSolvingStateResult SetComponentSolvingState(
+        string hierarchyPath,
+        int solvingState,
+        bool rebuild = true)
+        => SetComponentSolvingStateCore(hierarchyPath, solvingState, rebuild, topLevelOnly: false);
+
+    private ComponentSolvingStateResult SetComponentSolvingStateCore(
+        string hierarchyPath,
+        int solvingState,
+        bool rebuild,
+        bool topLevelOnly)
+    {
+        if (string.IsNullOrWhiteSpace(hierarchyPath))
+            throw new ArgumentException("hierarchyPath must not be empty.", nameof(hierarchyPath));
+        if (!Enum.IsDefined(typeof(swComponentSolvingOption_e), solvingState))
+            throw new ArgumentOutOfRangeException(nameof(solvingState), solvingState, "Unknown component solving state.");
+
+        _cm.EnsureConnected();
+        var assy = GetAssemblyDoc();
+        var doc = (IModelDoc2)assy;
+        var matches = EnumerateComponentInstances(assy)
+            .Where(instance => !topLevelOnly || instance.Info.Depth == 0)
+            .Where(instance =>
+                string.Equals(instance.Info.HierarchyPath, hierarchyPath, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(instance.Info.Name, hierarchyPath, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (matches.Count != 1)
+        {
+            throw SolidWorksApiErrorFactory.FromValidationFailure(
+                "IAssemblyDoc.CompConfigProperties5",
+                topLevelOnly
+                    ? "The requested top-level component must resolve to exactly one instance."
+                    : "The requested component hierarchy path must resolve to exactly one instance.",
+                new Dictionary<string, object?>
+                {
+                    ["hierarchyPath"] = hierarchyPath,
+                    ["resolvedInstanceCount"] = matches.Count,
+                });
+        }
+
+        var target = matches[0];
+        var component = target.Component;
+        int previous = component.Solving;
+        string referencedConfiguration = component.ReferencedConfiguration ?? string.Empty;
+        int suppression = component.GetSuppression();
+        if (suppression == (int)swComponentSuppressionState_e.swComponentLightweight)
+            suppression = (int)swComponentSuppressionState_e.swComponentFullyResolved;
+        bool visible = component.Visible == (int)swComponentVisibilityState_e.swComponentVisible;
+        bool excludeFromBom;
+        bool isEnvelope;
+        try { excludeFromBom = component.ExcludeFromBOM; } catch { excludeFromBom = false; }
+        try { isEnvelope = component.IsEnvelope(); } catch { isEnvelope = false; }
+
+        var selectionManager = doc.ISelectionManager
+            ?? throw new InvalidOperationException("Selection manager is not available for the active assembly.");
+        doc.ClearSelection2(true);
+        bool changed;
+        try
+        {
+            var selectData = (SelectData)selectionManager.CreateSelectData();
+            if (!component.Select4(false, selectData, false))
+                throw new InvalidOperationException($"Failed to select component '{hierarchyPath}'.");
+            changed = assy.CompConfigProperties5(
+                suppression,
+                solvingState,
+                visible,
+                true,
+                referencedConfiguration,
+                excludeFromBom,
+                isEnvelope);
+        }
+        finally
+        {
+            doc.ClearSelection2(true);
+        }
+
+        bool rebuildSucceeded = !rebuild || doc.EditRebuild3();
+        int actual = component.Solving;
+        return new ComponentSolvingStateResult(
+            changed && actual == solvingState && rebuildSucceeded,
+            target.Info.Name,
+            target.Info.HierarchyPath,
+            referencedConfiguration,
+            previous,
+            ((swComponentSolvingOption_e)previous).ToString(),
+            solvingState,
+            ((swComponentSolvingOption_e)solvingState).ToString(),
+            actual,
+            ((swComponentSolvingOption_e)actual).ToString(),
+            rebuild,
+            rebuildSucceeded);
+    }
+
+    public ResolveLightweightComponentsResult ResolveAllLightweightComponents(
+        bool warnIfNotResolved = false,
+        bool rebuild = true)
+    {
+        _cm.EnsureConnected();
+        var assy = GetAssemblyDoc();
+        var doc = (IModelDoc2)assy;
+        int rawResolveCode = assy.ResolveAllLightWeightComponents(warnIfNotResolved);
+        bool rebuildSucceeded = !rebuild || doc.EditRebuild3();
+        return new ResolveLightweightComponentsResult(
+            rawResolveCode == 0 && rebuildSucceeded,
+            rawResolveCode,
+            warnIfNotResolved,
+            rebuild,
+            rebuildSucceeded);
     }
 
     public SharedPartEditImpactResult AnalyzeSharedPartEditImpact(
@@ -615,6 +1553,20 @@ public class AssemblyService : IAssemblyService
                 HasInterference: false,
                 TreatCoincidenceAsInterference: treatCoincidenceAsInterference,
                 CheckedComponentCount: 0,
+                InterferingFaceCount: 0,
+                InterferingComponents: Array.Empty<ComponentInstanceInfo>());
+        }
+
+        if (selectedInstances.Count == 2
+            && AreBoundingBoxesSeparated(
+                GetComponentBoundingBox(selectedInstances[0].Component),
+                GetComponentBoundingBox(selectedInstances[1].Component),
+                InterferenceAabbSeparationTolerance))
+        {
+            return new AssemblyInterferenceCheckResult(
+                HasInterference: false,
+                TreatCoincidenceAsInterference: treatCoincidenceAsInterference,
+                CheckedComponentCount: selectedInstances.Count,
                 InterferingFaceCount: 0,
                 InterferingComponents: Array.Empty<ComponentInstanceInfo>());
         }
@@ -1058,6 +2010,340 @@ public class AssemblyService : IAssemblyService
     // 鈹€鈹€ Helpers 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
     private sealed record ComponentInstance(IComponent2 Component, ComponentInstanceInfo Info);
+
+    private static IEnumerable<IFeature> EnumerateTopLevelMateFeatures(IModelDoc2 doc)
+    {
+        for (var feature = doc.IFirstFeature(); feature != null; feature = feature.IGetNextFeature())
+        {
+            if (!string.Equals(feature.GetTypeName2(), "MateGroup", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            for (var mate = feature.IGetFirstSubFeature(); mate != null; mate = mate.IGetNextSubFeature())
+            {
+                var typeName = mate.GetTypeName2() ?? "";
+                if (typeName.Contains("Mate", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(typeName, "MateGroup", StringComparison.OrdinalIgnoreCase))
+                {
+                    yield return mate;
+                }
+            }
+        }
+    }
+
+    public LeafBodyInterferenceCheckResult CheckInterferenceByLeafBodies(
+        IReadOnlyList<string> hierarchyPaths,
+        bool treatCoincidenceAsInterference = false)
+    {
+        if (hierarchyPaths == null || hierarchyPaths.Count != 2)
+        {
+            throw new ArgumentException(
+                "Exactly two component hierarchy paths are required for a leaf-body interference check.",
+                nameof(hierarchyPaths));
+        }
+
+        _cm.EnsureConnected();
+        var assy = GetAssemblyDoc();
+        var selectedInstances = SelectInstances(EnumerateComponentInstances(assy), hierarchyPaths);
+        if (selectedInstances.Count != 2)
+        {
+            throw SolidWorksApiErrorFactory.FromValidationFailure(
+                "IModeler.CheckInterferenceBetweenTwoBodies",
+                "The two requested component hierarchy paths must each resolve to exactly one instance.",
+                new Dictionary<string, object?>
+                {
+                    ["requestedHierarchyPaths"] = string.Join(" | ", hierarchyPaths),
+                    ["resolvedInstanceCount"] = selectedInstances.Count,
+                });
+        }
+
+        // A missing body AABB must not make an exact audit silently incomplete. Keep the
+        // transformed body and route every pair involving it directly to the modeler kernel.
+        // Bodies with valid AABBs still benefit from the normal broad-phase shortcut.
+        var firstBodies = GetWorldSpaceSolidBodies(selectedInstances[0], includeBodiesWithoutBoundingBoxes: true);
+        var secondBodies = GetWorldSpaceSolidBodies(selectedInstances[1], includeBodiesWithoutBoundingBoxes: true);
+        if (firstBodies.Count == 0 || secondBodies.Count == 0)
+        {
+            throw SolidWorksApiErrorFactory.FromValidationFailure(
+                "IComponent2.GetBodies3",
+                "Both requested modules must resolve to at least one solid body. Resolve lightweight components and retry.",
+                new Dictionary<string, object?>
+                {
+                    ["firstHierarchyPath"] = selectedInstances[0].Info.HierarchyPath,
+                    ["firstBodyCount"] = firstBodies.Count,
+                    ["secondHierarchyPath"] = selectedInstances[1].Info.HierarchyPath,
+                    ["secondBodyCount"] = secondBodies.Count,
+                });
+        }
+        var modeler = _cm.SwApp!.GetModeler();
+
+        int aabbCandidateCount = 0;
+        long broadPhaseBypassedBodyPairCount = 0;
+        int exactCompletedCount = 0;
+        int primaryCheckReturnedFalseCount = 0;
+        int fallbackExactCompletedCount = 0;
+        int booleanFallbackCompletedCount = 0;
+        int booleanFallbackNoIntersectionCount = 0;
+        int interferingBodyPairCount = 0;
+        var failures = new List<string>();
+        var interferingInfos = new List<ComponentInstanceInfo>();
+        var interferingBodyPairs = new List<LeafBodyInterferencePairInfo>();
+
+        foreach (var first in firstBodies)
+        {
+            foreach (var second in secondBodies)
+            {
+                bool hasBothBoundingBoxes = first.BoundingBox.Length >= 6 && second.BoundingBox.Length >= 6;
+                if (hasBothBoundingBoxes
+                    && AreBoundingBoxesSeparated(first.BoundingBox, second.BoundingBox, InterferenceAabbSeparationTolerance))
+                {
+                    continue;
+                }
+
+                if (!hasBothBoundingBoxes)
+                {
+                    broadPhaseBypassedBodyPairCount++;
+                }
+
+                aabbCandidateCount++;
+                try
+                {
+                    bool booleanFallbackInterference = false;
+                    string detectionMethod = "CheckInterferenceBetweenTwoBodies";
+                    object firstFacesRaw;
+                    object secondFacesRaw;
+                    object intersectionBodiesRaw;
+                    bool succeeded = modeler.CheckInterferenceBetweenTwoBodies(
+                        first.Body,
+                        second.Body,
+                        treatCoincidenceAsInterference,
+                        out firstFacesRaw,
+                        out secondFacesRaw,
+                        out intersectionBodiesRaw);
+
+                    if (!succeeded)
+                    {
+                        primaryCheckReturnedFalseCount++;
+                        int options = (int)swCheckInterferenceOption_e.swBodyInterference_OptionDefault
+                            | (int)swCheckInterferenceOption_e.swBodyInterference_ReturnInterferingObject;
+                        if (treatCoincidenceAsInterference)
+                        {
+                            options |= (int)swCheckInterferenceOption_e.swBodyInterference_IncludeCoincidentFaces;
+                        }
+
+                        succeeded = modeler.CheckInterference3(
+                            new object[] { first.Body },
+                            new object[] { second.Body },
+                            options,
+                            ref firstFacesRaw,
+                            ref secondFacesRaw,
+                            ref intersectionBodiesRaw);
+                        if (!succeeded)
+                        {
+                            detectionMethod = "IBody2.Operations2(SWBODYINTERSECT)";
+                            int operationError;
+                            var booleanResult = first.Body.ICopy().Operations2(
+                                (int)swBodyOperationType_e.SWBODYINTERSECT,
+                                second.Body.ICopy(),
+                                out operationError);
+                            if (operationError == (int)swBodyOperationError_e.swBodyOperationNoError
+                                && CountComArray(booleanResult) > 0)
+                            {
+                                booleanFallbackInterference = true;
+                                booleanFallbackCompletedCount++;
+                            }
+                            else if (operationError == (int)swBodyOperationError_e.swBodyOperationNoError
+                                || operationError == (int)swBodyOperationError_e.swBodyOperationDisjointBodies
+                                || operationError == (int)swBodyOperationError_e.swBodyOperationNoIntersect)
+                            {
+                                booleanFallbackCompletedCount++;
+                                booleanFallbackNoIntersectionCount++;
+                            }
+                            else
+                            {
+                                failures.Add($"{first.Component.HierarchyPath} <-> {second.Component.HierarchyPath}: modeler checks returned false and Boolean intersection returned error {operationError}");
+                                continue;
+                            }
+                        }
+                        else
+                        {
+                            detectionMethod = "CheckInterference3";
+                            fallbackExactCompletedCount++;
+                        }
+                    }
+
+                    exactCompletedCount++;
+                    int firstFaceCount = CountComArray(firstFacesRaw);
+                    int secondFaceCount = CountComArray(secondFacesRaw);
+                    int intersectionBodyCount = CountComArray(intersectionBodiesRaw);
+                    if (booleanFallbackInterference
+                        || firstFaceCount > 0
+                        || secondFaceCount > 0
+                        || intersectionBodyCount > 0)
+                    {
+                        interferingBodyPairCount++;
+                        interferingInfos.Add(first.Component);
+                        interferingInfos.Add(second.Component);
+                        interferingBodyPairs.Add(new LeafBodyInterferencePairInfo(
+                            FirstComponent: first.Component,
+                            SecondComponent: second.Component,
+                            FirstBoundingBoxWorld: first.BoundingBox,
+                            SecondBoundingBoxWorld: second.BoundingBox,
+                            AabbOverlapWorld: hasBothBoundingBoxes
+                                ? GetBoundingBoxOverlap(first.BoundingBox, second.BoundingBox)
+                                : Array.Empty<double>(),
+                            DetectionMethod: detectionMethod));
+                    }
+                }
+                catch (COMException ex)
+                {
+                    failures.Add($"{first.Component.HierarchyPath} <-> {second.Component.HierarchyPath}: 0x{ex.HResult:X8} {ex.Message}");
+                }
+            }
+        }
+
+        var firstLeaves = firstBodies
+            .Select(item => item.Component.HierarchyPath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+        var secondLeaves = secondBodies
+            .Select(item => item.Component.HierarchyPath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+        var distinctInterferingInfos = interferingInfos
+            .DistinctBy(info => info.HierarchyPath, StringComparer.OrdinalIgnoreCase)
+            .ToList()
+            .AsReadOnly();
+
+        return new LeafBodyInterferenceCheckResult(
+            HasInterference: interferingBodyPairCount > 0,
+            TreatCoincidenceAsInterference: treatCoincidenceAsInterference,
+            ExactCheckComplete: failures.Count == 0 && exactCompletedCount == aabbCandidateCount,
+            CheckedTopLevelComponentCount: selectedInstances.Count,
+            FirstLeafComponentCount: firstLeaves,
+            SecondLeafComponentCount: secondLeaves,
+            FirstBodyCount: firstBodies.Count,
+            SecondBodyCount: secondBodies.Count,
+            TotalBodyPairCount: (long)firstBodies.Count * secondBodies.Count,
+            AabbCandidateBodyPairCount: aabbCandidateCount,
+            BodyWithoutBoundingBoxCount: firstBodies.Count(item => item.BoundingBox.Length < 6)
+                + secondBodies.Count(item => item.BoundingBox.Length < 6),
+            BroadPhaseBypassedBodyPairCount: broadPhaseBypassedBodyPairCount,
+            ExactCompletedBodyPairCount: exactCompletedCount,
+            PrimaryCheckReturnedFalseCount: primaryCheckReturnedFalseCount,
+            FallbackExactCompletedBodyPairCount: fallbackExactCompletedCount,
+            BooleanFallbackCompletedBodyPairCount: booleanFallbackCompletedCount,
+            BooleanFallbackNoIntersectionBodyPairCount: booleanFallbackNoIntersectionCount,
+            FailedBodyPairCount: failures.Count,
+            InterferingBodyPairCount: interferingBodyPairCount,
+            InterferingComponents: distinctInterferingInfos,
+            InterferingBodyPairs: interferingBodyPairs.AsReadOnly(),
+            Failures: failures.AsReadOnly());
+    }
+
+    public LeafBodyEnvelopeCaptureResult CaptureLeafBodyEnvelopes(string hierarchyPath)
+    {
+        if (string.IsNullOrWhiteSpace(hierarchyPath))
+        {
+            throw new ArgumentException("A component hierarchy path is required.", nameof(hierarchyPath));
+        }
+
+        _cm.EnsureConnected();
+        var assy = GetAssemblyDoc();
+        if (string.Equals(hierarchyPath.Trim(), "@root", StringComparison.OrdinalIgnoreCase))
+        {
+            var activeModel = (IModelDoc2)assy;
+            var activePath = activeModel.GetPathName() ?? string.Empty;
+            var activeTitle = activeModel.GetTitle() ?? System.IO.Path.GetFileName(activePath);
+            var capturedRootBodies = new List<WorldSpaceSolidBody>();
+            var rootFailures = new List<string>();
+            var topLevelComponents = (assy.GetComponents(true) as object[] ?? [])
+                .OfType<IComponent2>()
+                .ToList();
+            foreach (var component in topLevelComponents)
+            {
+                string componentName = component.Name2 ?? "Component";
+                TraverseWorldSpaceSolidBodies(
+                    component,
+                    componentName,
+                    0,
+                    capturedRootBodies,
+                    rootFailures);
+            }
+
+            var rootEnvelopes = capturedRootBodies
+                .Select(item => new LeafBodyEnvelopeInfo(
+                    item.Component,
+                    item.BodyIndex,
+                    item.BoundingBox,
+                    item.BoundingBoxSource))
+                .ToList()
+                .AsReadOnly();
+            int rootLeafCount = rootEnvelopes
+                .Select(item => item.Component.HierarchyPath)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count();
+            var rootInfo = new ComponentInstanceInfo(
+                activeTitle,
+                activePath,
+                "@root",
+                -1);
+            return new LeafBodyEnvelopeCaptureResult(
+                rootInfo,
+                rootLeafCount,
+                rootEnvelopes.Count,
+                rootEnvelopes,
+                rootFailures.Count,
+                rootFailures.Count == 0,
+                rootFailures.AsReadOnly());
+        }
+        var selectedInstances = SelectInstances(
+            EnumerateComponentInstances(assy),
+            new[] { hierarchyPath });
+        if (selectedInstances.Count != 1)
+        {
+            throw SolidWorksApiErrorFactory.FromValidationFailure(
+                "IComponent2.GetBodies3",
+                "The requested component hierarchy path must resolve to exactly one instance.",
+                new Dictionary<string, object?>
+                {
+                    ["requestedHierarchyPath"] = hierarchyPath,
+                    ["resolvedInstanceCount"] = selectedInstances.Count,
+                });
+        }
+
+        var capturedBodies = new List<WorldSpaceSolidBody>();
+        var failures = new List<string>();
+        TraverseWorldSpaceSolidBodies(
+            selectedInstances[0].Component,
+            selectedInstances[0].Info.HierarchyPath,
+            selectedInstances[0].Info.Depth,
+            capturedBodies,
+            failures);
+        var bodies = capturedBodies.AsReadOnly();
+        var envelopes = bodies
+            .Select(item => new LeafBodyEnvelopeInfo(
+                item.Component,
+                item.BodyIndex,
+                item.BoundingBox,
+                item.BoundingBoxSource))
+            .ToList()
+            .AsReadOnly();
+        int leafCount = envelopes
+            .Select(item => item.Component.HierarchyPath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+
+        return new LeafBodyEnvelopeCaptureResult(
+            selectedInstances[0].Info,
+            leafCount,
+            envelopes.Count,
+            envelopes,
+            failures.Count,
+            failures.Count == 0,
+            failures.AsReadOnly());
+    }
 
     private static ITreeControlItem? GetFeatureTreeRootItem(IFeatureManager featureManager)
     {
@@ -1761,6 +3047,220 @@ public class AssemblyService : IAssemblyService
         return results.AsReadOnly();
     }
 
+    private static IReadOnlyList<WorldSpaceSolidBody> GetWorldSpaceSolidBodies(
+        ComponentInstance root,
+        bool includeBodiesWithoutBoundingBoxes = false)
+    {
+        var results = new List<WorldSpaceSolidBody>();
+        TraverseWorldSpaceSolidBodies(
+            root.Component,
+            root.Info.HierarchyPath,
+            root.Info.Depth,
+            results,
+            includeBodiesWithoutBoundingBoxes: includeBodiesWithoutBoundingBoxes);
+        return results.AsReadOnly();
+    }
+
+    private static void TraverseWorldSpaceSolidBodies(
+        IComponent2 component,
+        string hierarchyPath,
+        int depth,
+        ICollection<WorldSpaceSolidBody> results,
+        ICollection<string>? captureFailures = null,
+        bool includeBodiesWithoutBoundingBoxes = false)
+    {
+        string name = component.Name2 ?? $"Component{depth}";
+        string path = component.GetPathName() ?? string.Empty;
+        var info = new ComponentInstanceInfo(name, path, hierarchyPath, depth);
+
+        object bodyInfo;
+        var bodies = (component.GetBodies3((int)swBodyType_e.swSolidBody, out bodyInfo) as object[] ?? [])
+            .OfType<IBody2>()
+            .ToList();
+        MathTransform? worldTransform;
+        try
+        {
+            worldTransform = component.GetTotalTransform(true) as MathTransform
+                ?? component.Transform2 as MathTransform;
+        }
+        catch (COMException)
+        {
+            worldTransform = component.Transform2 as MathTransform;
+        }
+
+        for (int bodyIndex = 0; bodyIndex < bodies.Count; bodyIndex++)
+        {
+            var sourceBody = bodies[bodyIndex];
+            var body = sourceBody.ICopy();
+            if (body == null)
+            {
+                RecordCaptureFailureOrThrow(
+                    captureFailures,
+                    $"Failed to copy body {bodyIndex} for '{hierarchyPath}'.");
+                continue;
+            }
+            if (worldTransform != null && !body.ApplyTransform(worldTransform))
+            {
+                RecordCaptureFailureOrThrow(
+                    captureFailures,
+                    $"Failed to transform body {bodyIndex} for '{hierarchyPath}' into assembly coordinates.");
+                continue;
+            }
+
+            var boundingBox = ToDoubleArray(body.GetBodyBox());
+            string boundingBoxSource = "body-box";
+            if (boundingBox == null || boundingBox.Length < 6)
+            {
+                boundingBox = GetBodyBoundingBoxFromFaces(body);
+                boundingBoxSource = "face-box-union-fallback";
+            }
+            if (boundingBox == null || boundingBox.Length < 6)
+            {
+                if (includeBodiesWithoutBoundingBoxes)
+                {
+                    results.Add(new WorldSpaceSolidBody(
+                        body,
+                        info,
+                        bodyIndex,
+                        Array.Empty<double>(),
+                        "unavailable"));
+                    continue;
+                }
+
+                RecordCaptureFailureOrThrow(
+                    captureFailures,
+                    $"Failed to obtain a body bounding box for body {bodyIndex} of '{hierarchyPath}'.");
+                continue;
+            }
+
+            results.Add(new WorldSpaceSolidBody(
+                body,
+                info,
+                bodyIndex,
+                NormalizeBoundingBox(boundingBox),
+                boundingBoxSource));
+        }
+
+        var children = component.GetChildren() as object[] ?? [];
+        foreach (var child in children.OfType<IComponent2>())
+        {
+            string childName = child.Name2 ?? "Component";
+            TraverseWorldSpaceSolidBodies(
+                child,
+                $"{hierarchyPath}/{childName}",
+                depth + 1,
+                results,
+                captureFailures,
+                includeBodiesWithoutBoundingBoxes);
+        }
+    }
+
+    private static void RecordCaptureFailureOrThrow(
+        ICollection<string>? captureFailures,
+        string message)
+    {
+        if (captureFailures == null)
+        {
+            throw new InvalidOperationException(message);
+        }
+
+        captureFailures.Add(message);
+    }
+
+    private static double[]? GetBodyBoundingBoxFromFaces(IBody2 body)
+    {
+        try
+        {
+            var faceBoxes = (body.GetFaces() as object[] ?? [])
+                .OfType<IFace2>()
+                .Select(face => ToDoubleArray(face.GetBox()))
+                .Where(box => box is { Length: >= 6 })
+                .Select(box => NormalizeBoundingBox(box!))
+                .ToList();
+            if (faceBoxes.Count == 0)
+            {
+                return null;
+            }
+
+            return
+            [
+                faceBoxes.Min(box => box[0]),
+                faceBoxes.Min(box => box[1]),
+                faceBoxes.Min(box => box[2]),
+                faceBoxes.Max(box => box[3]),
+                faceBoxes.Max(box => box[4]),
+                faceBoxes.Max(box => box[5]),
+            ];
+        }
+        catch (COMException)
+        {
+            return null;
+        }
+        catch (InvalidCastException)
+        {
+            return null;
+        }
+    }
+
+    private static int CountComArray(object? value)
+    {
+        return value switch
+        {
+            null => 0,
+            Array array => array.Length,
+            _ => 1,
+        };
+    }
+
+    private static double[]? ToDoubleArray(object? value)
+    {
+        if (value is double[] doubles)
+        {
+            return doubles;
+        }
+
+        if (value is Array array)
+        {
+            try
+            {
+                return array.Cast<object>().Select(Convert.ToDouble).ToArray();
+            }
+            catch (Exception) when (value is not double[])
+            {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    private static ComponentInstance? ResolveComponentForTransform(IAssemblyDoc assy, string componentName)
+    {
+        // IAssemblyDoc.GetComponentByName avoids recursively expanding every subassembly when the
+        // requested component is already addressable by its instance name (the normal Replay case).
+        // Some legacy/nested targets are not returned by this API, so retain the existing full-tree
+        // search as a fallback instead of changing the public resolution semantics.
+        try
+        {
+            if (assy.GetComponentByName(componentName) is IComponent2 direct)
+            {
+                var resolvedName = direct.Name2 ?? componentName;
+                var path = direct.GetPathName() ?? string.Empty;
+                return new ComponentInstance(
+                    direct,
+                    new ComponentInstanceInfo(resolvedName, path, resolvedName, 0));
+            }
+        }
+        catch (COMException)
+        {
+            // Fall through to the established recursive resolver when the direct COM lookup is not
+            // supported by the active document state.
+        }
+
+        return EnumerateComponentInstances(assy).FirstOrDefault(instance =>
+            string.Equals(instance.Info.Name, componentName, StringComparison.OrdinalIgnoreCase));
+    }
+
     private static IReadOnlyList<ComponentInstance> SelectInstances(
         IReadOnlyList<ComponentInstance> instances,
         IReadOnlyList<string>? hierarchyPaths)
@@ -1841,7 +3341,15 @@ public class AssemblyService : IAssemblyService
 
     private static ComponentPoseInfo ToComponentPoseInfo(IComponent2 component, ComponentInstanceInfo info)
     {
+        // GetBox 返回组件在当前装配体坐标系下的近似轴对齐包围盒。
+        // 该数据只用于布局规划阶段估算占地范围，不替代最终的干涉检查。
+        var boundingBoxWorld = GetComponentBoundingBox(component);
         var transform = component.Transform2?.ArrayData as double[];
+        var totalTransform = SafeTotalTransformData(component);
+        var totalTranslation = ExtractTransformTranslation(totalTransform);
+        var totalXAxis = ExtractTransformAxis(totalTransform, 0);
+        var totalYAxis = ExtractTransformAxis(totalTransform, 3);
+        var totalZAxis = ExtractTransformAxis(totalTransform, 6);
         if (transform == null || transform.Length < 13)
         {
             return new ComponentPoseInfo(
@@ -1853,7 +3361,16 @@ public class AssemblyService : IAssemblyService
                 null,
                 null,
                 null,
-                null);
+                null,
+                boundingBoxWorld,
+                SafeReferencedConfiguration(component),
+                SafeComponentSolvingState(component),
+                SafeComponentSolvingStateName(component),
+                totalTransform,
+                totalTranslation,
+                totalXAxis,
+                totalYAxis,
+                totalZAxis);
         }
 
         var data = (double[])transform.Clone();
@@ -1866,7 +3383,136 @@ public class AssemblyService : IAssemblyService
             [data[9], data[10], data[11]],
             NormalizeVector([data[0], data[1], data[2]]),
             NormalizeVector([data[3], data[4], data[5]]),
-            NormalizeVector([data[6], data[7], data[8]]));
+            NormalizeVector([data[6], data[7], data[8]]),
+            boundingBoxWorld,
+            SafeReferencedConfiguration(component),
+            SafeComponentSolvingState(component),
+            SafeComponentSolvingStateName(component),
+            totalTransform,
+            totalTranslation,
+            totalXAxis,
+            totalYAxis,
+            totalZAxis);
+    }
+
+    private static double[]? SafeTotalTransformData(IComponent2 component)
+    {
+        try
+        {
+            var values = (component.GetTotalTransform(true) as MathTransform)?.ArrayData as double[];
+            return values == null ? null : (double[])values.Clone();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static double[]? ExtractTransformTranslation(double[]? transform)
+        => transform is { Length: >= 12 }
+            ? [transform[9], transform[10], transform[11]]
+            : null;
+
+    private static double[]? ExtractTransformAxis(double[]? transform, int offset)
+        => transform is { Length: >= 9 }
+            ? NormalizeVector([transform[offset], transform[offset + 1], transform[offset + 2]])
+            : null;
+
+    private static string? SafeReferencedConfiguration(IComponent2 component)
+    {
+        try { return component.ReferencedConfiguration; }
+        catch { return null; }
+    }
+
+    private static int? SafeComponentSolvingState(IComponent2 component)
+    {
+        try { return component.Solving; }
+        catch { return null; }
+    }
+
+    private static string? SafeComponentSolvingStateName(IComponent2 component)
+    {
+        int? state = SafeComponentSolvingState(component);
+        return state.HasValue
+            ? ((swComponentSolvingOption_e)state.Value).ToString()
+            : null;
+    }
+
+    private static double[]? GetComponentBoundingBox(IComponent2 component)
+    {
+        try
+        {
+            var values = component.GetBox(false, false);
+            if (values is double[] doubles && doubles.Length >= 6)
+            {
+                return NormalizeBoundingBox(doubles);
+            }
+
+            if (values is Array array && array.Length >= 6)
+            {
+                var converted = array.Cast<object>()
+                    .Take(6)
+                    .Select(Convert.ToDouble)
+                    .ToArray();
+                return NormalizeBoundingBox(converted);
+            }
+        }
+        catch (COMException)
+        {
+            // Lightweight or unresolved components may not expose a box. Callers treat null as unavailable geometry.
+        }
+        catch (InvalidCastException)
+        {
+        }
+
+        return null;
+    }
+
+    private static double[] NormalizeBoundingBox(double[] box)
+        =>
+        [
+            Math.Min(box[0], box[3]),
+            Math.Min(box[1], box[4]),
+            Math.Min(box[2], box[5]),
+            Math.Max(box[0], box[3]),
+            Math.Max(box[1], box[4]),
+            Math.Max(box[2], box[5]),
+        ];
+
+    internal static bool AreBoundingBoxesSeparated(
+        double[]? first,
+        double[]? second,
+        double tolerance = InterferenceAabbSeparationTolerance)
+    {
+        if (first == null || second == null || first.Length < 6 || second.Length < 6)
+        {
+            return false;
+        }
+
+        var a = NormalizeBoundingBox(first);
+        var b = NormalizeBoundingBox(second);
+        double safeTolerance = Math.Max(tolerance, 0);
+        return a[3] + safeTolerance < b[0]
+            || b[3] + safeTolerance < a[0]
+            || a[4] + safeTolerance < b[1]
+            || b[4] + safeTolerance < a[1]
+            || a[5] + safeTolerance < b[2]
+            || b[5] + safeTolerance < a[2];
+    }
+
+    private static double[] GetBoundingBoxOverlap(double[] first, double[] second)
+    {
+        var a = NormalizeBoundingBox(first);
+        var b = NormalizeBoundingBox(second);
+        return
+        [
+            Math.Max(a[0], b[0]),
+            Math.Max(a[1], b[1]),
+            Math.Max(a[2], b[2]),
+            Math.Min(a[3], b[3]),
+            Math.Min(a[4], b[4]),
+            Math.Min(a[5], b[5]),
+        ];
     }
 
     private static double[] NormalizeVector(double[] vector)

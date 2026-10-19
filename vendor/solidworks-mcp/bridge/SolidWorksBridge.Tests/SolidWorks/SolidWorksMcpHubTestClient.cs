@@ -380,6 +380,9 @@ internal sealed class McpDocumentService : IDocumentService
     public SwOpenResult OpenDocument(string path)
         => _client.CallTool<SwOpenResult>("OpenDocument", SolidWorksMcpHubTestClient.Args(("path", path)));
 
+    public SwDocumentInfo ActivateDocumentByTitle(string title)
+        => _client.CallTool<SwDocumentInfo>("ActivateDocumentByTitle", SolidWorksMcpHubTestClient.Args(("title", title)));
+
     public void CloseDocument(string path)
         => _client.CallToolText("CloseDocument", SolidWorksMcpHubTestClient.Args(("path", path)));
 
@@ -398,6 +401,12 @@ internal sealed class McpDocumentService : IDocumentService
             ("sourcePath", sourcePath),
             ("saveAsCopy", saveAsCopy)));
 
+    public SwSaveResult SaveDocumentAsByTitle(string outputPath, string sourceTitle, bool saveAsCopy = true)
+        => _client.CallTool<SwSaveResult>("SaveDocumentAsByTitle", SolidWorksMcpHubTestClient.Args(
+            ("outputPath", outputPath),
+            ("sourceTitle", sourceTitle),
+            ("saveAsCopy", saveAsCopy)));
+
     public void Undo(int steps = 1)
         => _client.CallToolText("Undo", SolidWorksMcpHubTestClient.Args(("steps", steps)));
 
@@ -410,12 +419,13 @@ internal sealed class McpDocumentService : IDocumentService
             ("yDegrees", yDegrees),
             ("zDegrees", zDegrees)));
 
-    public SwImageExportResult ExportCurrentViewPng(string outputPath, int width = 1600, int height = 900, bool includeBase64Data = false)
+    public SwImageExportResult ExportCurrentViewPng(string outputPath, int width = 1600, int height = 900, bool includeBase64Data = false, bool fitToView = true)
         => _client.CallTool<SwImageExportResult>("ExportCurrentViewPng", SolidWorksMcpHubTestClient.Args(
             ("outputPath", outputPath),
             ("width", width),
             ("height", height),
-            ("includeBase64Data", includeBase64Data)));
+            ("includeBase64Data", includeBase64Data),
+            ("fitToView", fitToView)));
 
     public SwStandardViewImageExportResult ExportStandardViewPngSet(
         string outputDirectory,
@@ -435,6 +445,23 @@ internal sealed class McpDocumentService : IDocumentService
 
     public SwDocumentInfo? GetActiveDocument()
         => _client.CallToolNullable<SwDocumentInfo>("GetActiveDocument");
+
+    public SwDocumentConfigurationInventory InspectActiveDocumentConfigurations()
+        => _client.CallTool<SwDocumentConfigurationInventory>("InspectActiveDocumentConfigurations");
+
+    public SwDocumentConfigurationSwitchResult SetActiveDocumentConfiguration(
+        string configurationName,
+        bool rebuild = true)
+        => _client.CallTool<SwDocumentConfigurationSwitchResult>(
+            "SetActiveDocumentConfiguration",
+            SolidWorksMcpHubTestClient.Args(
+                ("configurationName", configurationName),
+                ("rebuild", rebuild)));
+
+    public SwDocumentConfigurationInventory InspectDocumentConfigurations(string path)
+        => _client.CallTool<SwDocumentConfigurationInventory>(
+            "InspectDocumentConfigurations",
+            SolidWorksMcpHubTestClient.Args(("path", path)));
 }
 
 internal sealed class McpSelectionService : ISelectionService
@@ -457,6 +484,31 @@ internal sealed class McpSelectionService : ISelectionService
         => _client.CallTool<List<SelectableEntityInfo>>("ListEntities", SolidWorksMcpHubTestClient.Args(
             ("entityType", entityType?.ToString()),
             ("componentName", componentName)));
+
+    public FaceGeometryListResult ListFaceGeometry(string componentName, bool planarOnly = true)
+        => _client.CallTool<FaceGeometryListResult>("ListFaceGeometry", SolidWorksMcpHubTestClient.Args(
+            ("componentName", componentName),
+            ("planarOnly", planarOnly)));
+
+    public SelectionResult SelectFaceGeometry(string componentName, int faceIndex, bool append = false, int mark = 0)
+        => _client.CallTool<SelectionResult>("SelectFaceGeometry", SolidWorksMcpHubTestClient.Args(
+            ("componentName", componentName),
+            ("faceIndex", faceIndex),
+            ("append", append),
+            ("mark", mark)));
+
+    public SelectionResult ActivateLeafComponentDocument(string componentName)
+        => _client.CallTool<SelectionResult>("ActivateLeafComponentDocument", SolidWorksMcpHubTestClient.Args(
+            ("componentName", componentName)));
+
+    public SelectionResult SelectActivePartFaceGeometry(int faceIndex, bool append = false, int mark = 0)
+        => _client.CallTool<SelectionResult>("SelectActivePartFaceGeometry", SolidWorksMcpHubTestClient.Args(
+            ("faceIndex", faceIndex),
+            ("append", append),
+            ("mark", mark)));
+
+    public SelectionResult ZoomToSelection()
+        => _client.CallTool<SelectionResult>("ZoomToSelection");
 
     public IReadOnlyList<ReferencePlaneInfo> ListReferencePlanes()
         => _client.CallTool<List<ReferencePlaneInfo>>("ListReferencePlanes");
@@ -515,6 +567,10 @@ internal sealed class McpSelectionService : ISelectionService
 
     public FaceMappingResult RecordFaceMapping(string faceName, string componentName)
         => _client.CallTool<FaceMappingResult>("RecordFaceMapping", SolidWorksMcpHubTestClient.Args(
+            ("faceName", faceName), ("componentName", componentName)));
+
+    public FaceMappingResult RecordFirstFaceMapping(string faceName, string componentName)
+        => _client.CallTool<FaceMappingResult>("RecordFirstFaceMapping", SolidWorksMcpHubTestClient.Args(
             ("faceName", faceName), ("componentName", componentName)));
 
     public FaceMappingResult SelectFaceByName(string faceName, string componentName, bool append = false, int mark = 0)
@@ -690,19 +746,307 @@ internal sealed class McpAssemblyService : IAssemblyService
             ("align", (int)align)));
 
     public IReadOnlyList<ComponentInfo> ListComponents()
-        => throw new NotSupportedException("ListComponents is intentionally not exposed through the MCP test client.");
+        => _client.CallTool<List<ComponentInfo>>(
+            "ListComponents",
+            SolidWorksMcpHubTestClient.Args());
+
+    public TopLevelComponentIsolationResult SuppressTopLevelComponentsExcept(
+        IReadOnlyList<string> keepComponentNames,
+        bool rebuild = true)
+        => _client.CallTool<TopLevelComponentIsolationResult>(
+            "SuppressTopLevelComponentsExcept",
+            SolidWorksMcpHubTestClient.Args(
+                ("keepComponentNames", keepComponentNames.ToArray()),
+                ("rebuild", rebuild)));
+
+    public TopLevelComponentVisibilityIsolationResult HideTopLevelComponentsExcept(
+        IReadOnlyList<string> keepComponentNames,
+        bool rebuild = true)
+        => _client.CallTool<TopLevelComponentVisibilityIsolationResult>(
+            "HideTopLevelComponentsExcept",
+            SolidWorksMcpHubTestClient.Args(
+                ("keepComponentNames", keepComponentNames.ToArray()),
+                ("rebuild", rebuild)));
+
+    public ComponentSolvingStateResult SetTopLevelComponentSolvingState(
+        string hierarchyPath,
+        int solvingState,
+        bool rebuild = true)
+        => _client.CallTool<ComponentSolvingStateResult>(
+            "SetTopLevelComponentSolvingState",
+            SolidWorksMcpHubTestClient.Args(
+                ("hierarchyPath", hierarchyPath),
+                ("solvingState", solvingState),
+                ("rebuild", rebuild)));
+
+    public ComponentSolvingStateResult SetComponentSolvingState(
+        string hierarchyPath,
+        int solvingState,
+        bool rebuild = true)
+        => _client.CallTool<ComponentSolvingStateResult>(
+            "SetComponentSolvingState",
+            SolidWorksMcpHubTestClient.Args(
+                ("hierarchyPath", hierarchyPath),
+                ("solvingState", solvingState),
+                ("rebuild", rebuild)));
+
+    public ResolveLightweightComponentsResult ResolveAllLightweightComponents(
+        bool warnIfNotResolved = false,
+        bool rebuild = true)
+        => _client.CallTool<ResolveLightweightComponentsResult>(
+            "ResolveAllLightweightComponents",
+            SolidWorksMcpHubTestClient.Args(
+                ("warnIfNotResolved", warnIfNotResolved),
+                ("rebuild", rebuild)));
 
     public IReadOnlyList<ComponentInstanceInfo> ListComponentsRecursive()
-        => throw new NotSupportedException("ListComponentsRecursive is intentionally not exposed through the MCP test client.");
+        => _client.CallTool<List<ComponentInstanceInfo>>(
+            "ListComponentsRecursive",
+            SolidWorksMcpHubTestClient.Args());
 
     public IReadOnlyList<ComponentPoseInfo> ListComponentPoses(bool topLevelOnly = true)
         => _client.CallTool<List<ComponentPoseInfo>>("ListComponentPoses", SolidWorksMcpHubTestClient.Args(("topLevelOnly", topLevelOnly)));
 
+    public IReadOnlyList<ComponentPoseInfo> ListTopLevelComponentSubtreePoses(string hierarchyPath)
+        => _client.CallTool<List<ComponentPoseInfo>>(
+            "ListTopLevelComponentSubtreePoses",
+            SolidWorksMcpHubTestClient.Args(("hierarchyPath", hierarchyPath)));
+
     public AssemblyTargetResolutionResult ResolveComponentTarget(string? componentName = null, string? hierarchyPath = null, string? componentPath = null)
-        => throw new NotSupportedException("ResolveComponentTarget is intentionally not exposed through the MCP test client.");
+        => _client.CallTool<AssemblyTargetResolutionResult>(
+            "ResolveComponentTarget",
+            SolidWorksMcpHubTestClient.Args(
+                ("componentName", componentName),
+                ("hierarchyPath", hierarchyPath),
+                ("componentPath", componentPath)));
 
     public SharedPartEditImpactResult AnalyzeSharedPartEditImpact(string? componentName = null, string? hierarchyPath = null, string? componentPath = null)
-        => throw new NotSupportedException("AnalyzeSharedPartEditImpact is intentionally not exposed through the MCP test client.");
+        => _client.CallTool<SharedPartEditImpactResult>(
+            "AnalyzeSharedPartEditImpact",
+            SolidWorksMcpHubTestClient.Args(
+                ("componentName", componentName),
+                ("hierarchyPath", hierarchyPath),
+                ("componentPath", componentPath)));
+
+    public AssemblyMatePairExportResult ExportMatePair(
+        string sourceAssemblyPath,
+        string firstModuleSelector,
+        string secondModuleSelector,
+        string? outputPath = null,
+        bool saveJson = true)
+        => _client.CallTool<AssemblyMatePairExportResult>("ExportMatePair", SolidWorksMcpHubTestClient.Args(
+            ("sourceAssemblyPath", sourceAssemblyPath),
+            ("firstModuleSelector", firstModuleSelector),
+            ("secondModuleSelector", secondModuleSelector),
+            ("outputPath", outputPath),
+            ("saveJson", saveJson)));
+
+    public AssemblyMatePairCandidateResult FindMatePairCandidates(
+        string sourceAssemblyPath,
+        IReadOnlyList<string>? allowedModuleTokens = null,
+        int maxResults = 10)
+        => _client.CallTool<AssemblyMatePairCandidateResult>("FindMatePairCandidates", SolidWorksMcpHubTestClient.Args(
+            ("sourceAssemblyPath", sourceAssemblyPath),
+            ("allowedModuleTokens", allowedModuleTokens?.ToArray()),
+            ("maxResults", maxResults)));
+
+    public AssemblyMatePairRoundTripResult RoundTripMatePair(
+        string sourceAssemblyPath,
+        string firstModuleSelector,
+        string secondModuleSelector,
+        string outputAssemblyPath,
+        string? exportJsonPath = null,
+        bool allowAutomaticFallback = true,
+        IReadOnlyList<string>? allowedModuleTokens = null)
+        => _client.CallTool<AssemblyMatePairRoundTripResult>("RoundTripMatePair", SolidWorksMcpHubTestClient.Args(
+            ("sourceAssemblyPath", sourceAssemblyPath),
+            ("firstModuleSelector", firstModuleSelector),
+            ("secondModuleSelector", secondModuleSelector),
+            ("outputAssemblyPath", outputAssemblyPath),
+            ("exportJsonPath", exportJsonPath),
+            ("allowAutomaticFallback", allowAutomaticFallback),
+            ("allowedModuleTokens", allowedModuleTokens?.ToArray())));
+
+    public AssemblyModuleMateGraphResult ExportModuleMateGraph(
+        string sourceAssemblyPath,
+        IReadOnlyList<string>? moduleTokens = null,
+        string? outputPath = null,
+        bool saveJson = true)
+        => _client.CallTool<AssemblyModuleMateGraphResult>("ExportModuleMateGraph", SolidWorksMcpHubTestClient.Args(
+            ("sourceAssemblyPath", sourceAssemblyPath),
+            ("moduleTokens", moduleTokens?.ToArray()),
+            ("outputPath", outputPath),
+            ("saveJson", saveJson)));
+
+    public AssemblyTopLevelMateAuditResult AuditTopLevelMateFeatures(
+        string sourceAssemblyPath,
+        string? outputPath = null,
+        bool saveJson = true)
+        => _client.CallTool<AssemblyTopLevelMateAuditResult>("AuditTopLevelMateFeatures", SolidWorksMcpHubTestClient.Args(
+            ("sourceAssemblyPath", sourceAssemblyPath),
+            ("outputPath", outputPath),
+            ("saveJson", saveJson)));
+
+    public AssemblySlotMateUpdateResult UpdateTopLevelSlotMate(
+        string assemblyPath,
+        string mateName,
+        int constraint,
+        double distance = 0,
+        double percent = 0,
+        bool flipDirection = false,
+        bool save = true)
+        => _client.CallTool<AssemblySlotMateUpdateResult>("UpdateTopLevelSlotMate", SolidWorksMcpHubTestClient.Args(
+            ("assemblyPath", assemblyPath),
+            ("mateName", mateName),
+            ("constraint", constraint),
+            ("distance", distance),
+            ("percent", percent),
+            ("flipDirection", flipDirection),
+            ("save", save)));
+
+    public AssemblyModuleMateReconstructionExperimentResult RunModuleMateReconstructionExperiment(
+        string sourceAssemblyPath,
+        string outputAssemblyPath,
+        string mode,
+        string baseModuleToken = "A600",
+        IReadOnlyList<string>? moduleTokens = null,
+        IReadOnlyList<string>? residualAnchorModuleSelectors = null,
+        double poseToleranceMeters = 1e-5,
+        double rotationTolerance = 1e-6)
+        => _client.CallTool<AssemblyModuleMateReconstructionExperimentResult>(
+            "RunModuleMateReconstructionExperiment",
+            SolidWorksMcpHubTestClient.Args(
+                ("sourceAssemblyPath", sourceAssemblyPath),
+                ("outputAssemblyPath", outputAssemblyPath),
+                ("mode", mode),
+                ("baseModuleToken", baseModuleToken),
+                ("moduleTokens", moduleTokens?.ToArray()),
+                ("residualAnchorModuleSelectors", residualAnchorModuleSelectors?.ToArray()),
+                ("poseToleranceMeters", poseToleranceMeters),
+                ("rotationTolerance", rotationTolerance)));
+
+    public AssemblyEditableMateGraphReconstructionResult RebuildAssemblyFromMateGraph(
+        string effectiveMateGraphPath,
+        string outputAssemblyPath,
+        string? baseModuleToken = null,
+        string? initialPlacementMode = null)
+        => _client.CallTool<AssemblyEditableMateGraphReconstructionResult>(
+            "RebuildAssemblyFromMateGraph",
+            SolidWorksMcpHubTestClient.Args(
+                ("effectiveMateGraphPath", effectiveMateGraphPath),
+                ("outputAssemblyPath", outputAssemblyPath),
+                ("baseModuleToken", baseModuleToken),
+                ("initialPlacementMode", initialPlacementMode)));
+
+    public AssemblyContextMateGraphReconstructionResult RemateComponentInAssemblyContextFromMateGraph(
+        string sourceAssemblyPath,
+        string effectiveMateGraphPath,
+        string outputAssemblyPath,
+        string targetModuleToken,
+        bool preserveResolvedSourceSession = false,
+        bool forceInitialDisplacement = false)
+        => _client.CallTool<AssemblyContextMateGraphReconstructionResult>(
+            "RemateComponentInAssemblyContextFromMateGraph",
+            SolidWorksMcpHubTestClient.Args(
+                ("sourceAssemblyPath", sourceAssemblyPath),
+                ("effectiveMateGraphPath", effectiveMateGraphPath),
+                ("outputAssemblyPath", outputAssemblyPath),
+                ("targetModuleToken", targetModuleToken),
+                ("preserveResolvedSourceSession", preserveResolvedSourceSession),
+                ("forceInitialDisplacement", forceInitialDisplacement)));
+
+    public AssemblyContextRelationVerificationResult VerifyRelationsInAssemblyContextFromMateGraph(
+        string sourceAssemblyPath,
+        string effectiveMateGraphPath,
+        string targetModuleToken,
+        bool preserveResolvedSourceSession = false)
+        => _client.CallTool<AssemblyContextRelationVerificationResult>(
+            "VerifyRelationsInAssemblyContextFromMateGraph",
+            SolidWorksMcpHubTestClient.Args(
+                ("sourceAssemblyPath", sourceAssemblyPath),
+                ("effectiveMateGraphPath", effectiveMateGraphPath),
+                ("targetModuleToken", targetModuleToken),
+                ("preserveResolvedSourceSession", preserveResolvedSourceSession)));
+
+    public AssemblyContextIncrementalInsertResult InsertComponentInAssemblyContextFromMateGraph(
+        string sourceAssemblyPath,
+        string effectiveMateGraphPath,
+        string outputAssemblyPath,
+        string targetModuleToken)
+        => _client.CallTool<AssemblyContextIncrementalInsertResult>(
+            "InsertComponentInAssemblyContextFromMateGraph",
+            SolidWorksMcpHubTestClient.Args(
+                ("sourceAssemblyPath", sourceAssemblyPath),
+                ("effectiveMateGraphPath", effectiveMateGraphPath),
+                ("outputAssemblyPath", outputAssemblyPath),
+                ("targetModuleToken", targetModuleToken)));
+
+    public AssemblyStaticContextSubsetResult CreateAssemblyStaticContextSubset(
+        string sourceAssemblyPath,
+        string outputAssemblyPath,
+        IReadOnlyList<string> keepComponentPaths)
+        => _client.CallTool<AssemblyStaticContextSubsetResult>(
+            "CreateAssemblyStaticContextSubset",
+            SolidWorksMcpHubTestClient.Args(
+                ("sourceAssemblyPath", sourceAssemblyPath),
+                ("outputAssemblyPath", outputAssemblyPath),
+                ("keepComponentPaths", keepComponentPaths.ToArray())));
+
+    public AssemblyFaceEndpointCatalogResult BuildFaceEndpointCatalog(
+        string sourceAssemblyPath,
+        IReadOnlyList<string> moduleTokens,
+        string? outputPath = null,
+        bool sourceMateFacesOnly = true,
+        bool planarOnly = true,
+        double minimumFaceArea = 1e-8,
+        bool saveJson = true)
+        => _client.CallTool<AssemblyFaceEndpointCatalogResult>(
+            "BuildFaceEndpointCatalog",
+            SolidWorksMcpHubTestClient.Args(
+                ("sourceAssemblyPath", sourceAssemblyPath),
+                ("moduleTokens", moduleTokens.ToArray()),
+                ("outputPath", outputPath),
+                ("sourceMateFacesOnly", sourceMateFacesOnly),
+                ("planarOnly", planarOnly),
+                ("minimumFaceArea", minimumFaceArea),
+                ("saveJson", saveJson)));
+
+    public AssemblyFaceEndpointCatalogResult BuildLeafFaceEndpointCatalog(
+        string sourceAssemblyPath,
+        string moduleToken,
+        string leafSelector,
+        string? outputPath = null,
+        bool planarOnly = true,
+        double minimumFaceArea = 1e-8,
+        int maximumFaceCount = 500,
+        bool saveJson = true)
+        => _client.CallTool<AssemblyFaceEndpointCatalogResult>(
+            "BuildLeafFaceEndpointCatalog",
+            SolidWorksMcpHubTestClient.Args(
+                ("sourceAssemblyPath", sourceAssemblyPath),
+                ("moduleToken", moduleToken),
+                ("leafSelector", leafSelector),
+                ("outputPath", outputPath),
+                ("planarOnly", planarOnly),
+                ("minimumFaceArea", minimumFaceArea),
+                ("maximumFaceCount", maximumFaceCount),
+                ("saveJson", saveJson)));
+
+    public AssemblyFaceEndpointSelectionResult SelectFaceEndpointFromCatalog(
+        string catalogPath,
+        string endpointId,
+        bool zoomToSelection = true)
+        => _client.CallTool<AssemblyFaceEndpointSelectionResult>(
+            "SelectFaceEndpointFromCatalog",
+            SolidWorksMcpHubTestClient.Args(
+                ("catalogPath", catalogPath),
+                ("endpointId", endpointId),
+                ("zoomToSelection", zoomToSelection)));
+
+    public AssemblyFaceEndpointCatalogEntry CaptureSelectedFaceEndpoint(string moduleToken)
+        => _client.CallTool<AssemblyFaceEndpointCatalogEntry>(
+            "CaptureSelectedFaceEndpoint",
+            SolidWorksMcpHubTestClient.Args(("moduleToken", moduleToken)));
 
     public AssemblyFeatureTreeTraversalResult TraverseAssemblyFeatureTrees()
         => _client.CallTool<AssemblyFeatureTreeTraversalResult>("TraverseAssemblyChildFeatureTrees");
@@ -723,6 +1067,15 @@ internal sealed class McpAssemblyService : IAssemblyService
             ("hierarchyPaths", hierarchyPaths?.ToArray()),
             ("treatCoincidenceAsInterference", treatCoincidenceAsInterference)));
 
+    public LeafBodyInterferenceCheckResult CheckInterferenceByLeafBodies(IReadOnlyList<string> hierarchyPaths, bool treatCoincidenceAsInterference = false)
+        => _client.CallTool<LeafBodyInterferenceCheckResult>("CheckInterferenceByLeafBodies", SolidWorksMcpHubTestClient.Args(
+            ("hierarchyPaths", hierarchyPaths.ToArray()),
+            ("treatCoincidenceAsInterference", treatCoincidenceAsInterference)));
+
+    public LeafBodyEnvelopeCaptureResult CaptureLeafBodyEnvelopes(string hierarchyPath)
+        => _client.CallTool<LeafBodyEnvelopeCaptureResult>("CaptureLeafBodyEnvelopes", SolidWorksMcpHubTestClient.Args(
+            ("hierarchyPath", hierarchyPath)));
+
     public AssemblyComponentReplacementResult ReplaceComponent(
         string hierarchyPath,
         string replacementFilePath,
@@ -738,20 +1091,64 @@ internal sealed class McpAssemblyService : IAssemblyService
             ("useConfigChoice", useConfigChoice),
             ("reattachMates", reattachMates)));
 
-    public ComponentTransformResult MoveComponent(string componentName, double deltaX, double deltaY, double deltaZ)
+    public ComponentTransformResult MoveComponent(string componentName, double deltaX, double deltaY, double deltaZ, bool rebuild = true)
         => _client.CallTool<ComponentTransformResult>("MoveComponent", SolidWorksMcpHubTestClient.Args(
             ("componentName", componentName),
             ("deltaX", deltaX),
             ("deltaY", deltaY),
             ("deltaZ", deltaZ)));
 
-    public ComponentTransformResult RotateComponent(string componentName, double axisX, double axisY, double axisZ, double angleDegrees)
+    public ComponentTransformResult RotateComponent(string componentName, double axisX, double axisY, double axisZ, double angleDegrees, bool rebuild = true)
         => _client.CallTool<ComponentTransformResult>("RotateComponent", SolidWorksMcpHubTestClient.Args(
             ("componentName", componentName),
             ("axisX", axisX),
             ("axisY", axisY),
             ("axisZ", axisZ),
             ("angleDegrees", angleDegrees)));
+
+    public ComponentTransformResult SetComponentOrientation(
+        string componentName,
+        IReadOnlyList<double> xAxis,
+        IReadOnlyList<double> yAxis,
+        IReadOnlyList<double> zAxis,
+        bool rebuild = true)
+        => _client.CallTool<ComponentTransformResult>("SetComponentOrientation", SolidWorksMcpHubTestClient.Args(
+            ("componentName", componentName),
+            ("xAxis", xAxis.ToArray()),
+            ("yAxis", yAxis.ToArray()),
+            ("zAxis", zAxis.ToArray()),
+            ("rebuild", rebuild)));
+
+    public ComponentTransformResult SetComponentTransform(
+        string componentName,
+        IReadOnlyList<double> transform,
+        bool rebuild = true)
+        => _client.CallTool<ComponentTransformResult>("SetComponentTransform", SolidWorksMcpHubTestClient.Args(
+            ("componentName", componentName),
+            ("transform", transform.ToArray()),
+            ("rebuild", rebuild)));
+
+    public ComponentReferencedConfigurationResult SetComponentReferencedConfiguration(
+        string componentName,
+        string configurationName,
+        bool rebuild = true)
+        => _client.CallTool<ComponentReferencedConfigurationResult>(
+            "SetComponentReferencedConfiguration",
+            SolidWorksMcpHubTestClient.Args(
+                ("componentName", componentName),
+                ("configurationName", configurationName),
+                ("rebuild", rebuild)));
+
+    public IReadOnlyList<string> SuppressTopLevelMateFeatures()
+        => throw new NotSupportedException("Internal batch-layout helper is not exposed as an MCP tool.");
+
+    public IReadOnlyList<string> RestoreTopLevelMateFeatures(IReadOnlyList<string> featureNames)
+        => throw new NotSupportedException("Internal batch-layout helper is not exposed as an MCP tool.");
+
+    public ComponentInfo RenameComponent(string currentName, string newName)
+        => _client.CallTool<ComponentInfo>("RenameComponent", SolidWorksMcpHubTestClient.Args(
+            ("currentName", currentName),
+            ("newName", newName)));
 }
 
 internal sealed class McpWorkflowService : IWorkflowService

@@ -1,5 +1,6 @@
 ﻿using ModelContextProtocol.Server;
 using SolidWorksBridge.SolidWorks;
+using SolidWorksMcpApp.Logging;
 using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -113,6 +114,7 @@ public record DemoDiscoveredLayoutComponent(
     double[]? XAxis,
     double[]? YAxis,
     double[]? ZAxis,
+    double[]? BoundingBoxWorld,
     string DefaultBottomFaceName);
 
 public record DemoLayoutComponentDiscoveryResult(
@@ -137,10 +139,14 @@ public record DemoCapturedLayoutComponent(
     double[]? ComponentZAxis,
     double[]? BottomCenterWorld,
     double[]? BottomNormalWorld,
+    double[]? BoundingBoxWorld,
     CommonBaseLayout2d? Layout2d,
     bool FaceMappingFound,
     FaceMappingResult? FaceSelection,
-    FaceMappingProbeResult? FaceProbe);
+    FaceMappingProbeResult? FaceProbe,
+    double[]? TargetXAxisWorld = null,
+    double[]? TargetYAxisWorld = null,
+    double[]? TargetZAxisWorld = null);
 
 public record DemoCapturedLayoutDocument(
     bool Success,
@@ -150,7 +156,32 @@ public record DemoCapturedLayoutDocument(
     CommonBaseFrame? BaseFrame,
     IReadOnlyList<DemoCapturedLayoutComponent> Components,
     IReadOnlyList<string> MissingFaceMappings,
-    string? OutputPath);
+    string? OutputPath,
+    string? LayoutKind = null,
+    DemoConstraintLayoutPlan? ConstraintPlan = null);
+
+public record DemoConstraintLayoutPlan(
+    IReadOnlyList<DemoPortalConstraint>? PortalConstraints = null,
+    bool KeepTopLevelMatesSuppressed = false);
+
+public record DemoPortalConstraint(
+    string PortalComponentName,
+    IReadOnlyList<string> PassThroughComponentNames,
+    double OpeningWidthRatio,
+    double OpeningHeightRatio,
+    double EstimatedOpeningWidth,
+    double EstimatedOpeningHeight,
+    double MinimumClearanceMeters,
+    bool AabbOverlapAllowed,
+    bool RequiresCadInterferenceValidation);
+
+public record DemoPortalInterferenceCheck(
+    string PortalComponentName,
+    string PassThroughComponentName,
+    bool Success,
+    double MinimumClearanceMeters,
+    AssemblyInterferenceCheckResult? InterferenceCheck,
+    string Message);
 
 public record DemoApplyCapturedLayoutComponentResult(
     string ComponentName,
@@ -164,7 +195,8 @@ public record DemoApplyCapturedLayoutComponentResult(
     double? TargetThetaDegrees,
     double? DeltaThetaDegrees,
     ComponentTransformResult? MoveResult,
-    string Message);
+    string Message,
+    string PlacementMethod = "faceProbe");
 
 public record DemoApplyCapturedLayoutResult(
     bool Success,
@@ -172,9 +204,12 @@ public record DemoApplyCapturedLayoutResult(
     string LayoutJsonPath,
     string? AssemblyPath,
     SwOpenResult? OpenedDocument,
+    SwSaveResult? SaveResult,
     RebuildExecutionResult? Rebuild,
     SwImageExportResult? Screenshot,
-    IReadOnlyList<DemoApplyCapturedLayoutComponentResult> Components);
+    IReadOnlyList<DemoApplyCapturedLayoutComponentResult> Components,
+    IReadOnlyList<string>? TemporarilySuppressedMateFeatures = null,
+    IReadOnlyList<DemoPortalInterferenceCheck>? PortalInterferenceChecks = null);
 
 [McpServerToolType]
 public class DemoTools(
@@ -434,18 +469,30 @@ public class DemoTools(
         [Description("Screenshot height in pixels.")]
         int screenshotHeight = 900,
         [Description("When true, includes base64 PNG data in the result.")]
-        bool includeScreenshotBase64Data = false)
+        bool includeScreenshotBase64Data = false,
+        [Description("Whether to run SolidWorks interference detection for declared portal pass-through pairs. Disabled by default because this COM operation can be very expensive on large assemblies.")]
+        bool validatePortalInterference = false)
     {
         var result = await sta.InvokeLoggedAsync(
             nameof(ApplyCapturedCommonBaseLayout),
-            new { layoutJsonPath, assemblyPath, screenshotPath, screenshotWidth, screenshotHeight, includeScreenshotBase64Data },
+            new
+            {
+                layoutJsonPath,
+                assemblyPath,
+                screenshotPath,
+                screenshotWidth,
+                screenshotHeight,
+                includeScreenshotBase64Data,
+                validatePortalInterference
+            },
             () => ApplyCapturedCommonBaseLayoutCore(
                 layoutJsonPath,
                 assemblyPath,
                 screenshotPath,
                 screenshotWidth,
                 screenshotHeight,
-                includeScreenshotBase64Data));
+                includeScreenshotBase64Data,
+                validatePortalInterference));
 
         return JsonSerializer.Serialize(result, JsonOptions);
     }
@@ -497,6 +544,7 @@ public class DemoTools(
                 item.Pose.XAxis,
                 item.Pose.YAxis,
                 item.Pose.ZAxis,
+                item.Pose.BoundingBoxWorld,
                 bottomName))
             .ToList()
             .AsReadOnly();
@@ -576,6 +624,7 @@ public class DemoTools(
                     null,
                     null,
                     null,
+                    null,
                     false,
                     null,
                     null));
@@ -606,6 +655,7 @@ public class DemoTools(
                 pose.ZAxis,
                 probe?.WorldCenter,
                 probe?.WorldNormal,
+                pose.BoundingBoxWorld,
                 null,
                 faceSelection.Success,
                 faceSelection,
@@ -704,13 +754,34 @@ public class DemoTools(
         };
     }
 
+    private static bool PoseMatchesTargetOrientation(
+        ComponentPoseInfo? pose,
+        IReadOnlyList<double> targetX,
+        IReadOnlyList<double> targetY,
+        IReadOnlyList<double> targetZ,
+        double tolerance = 1e-10)
+    {
+        if (pose?.XAxis is not { Length: >= 3 }
+            || pose.YAxis is not { Length: >= 3 }
+            || pose.ZAxis is not { Length: >= 3 })
+        {
+            return false;
+        }
+        static double Dot(IReadOnlyList<double> first, IReadOnlyList<double> second)
+            => first[0] * second[0] + first[1] * second[1] + first[2] * second[2];
+        return Dot(pose.XAxis, targetX) >= 1.0 - tolerance
+            && Dot(pose.YAxis, targetY) >= 1.0 - tolerance
+            && Dot(pose.ZAxis, targetZ) >= 1.0 - tolerance;
+    }
+
     private DemoApplyCapturedLayoutResult ApplyCapturedCommonBaseLayoutCore(
         string layoutJsonPath,
         string? assemblyPath,
         string? screenshotPath,
         int screenshotWidth,
         int screenshotHeight,
-        bool includeScreenshotBase64Data)
+        bool includeScreenshotBase64Data,
+        bool validatePortalInterference)
     {
         // Replay Layout 主流程：
         // 1. 读取 Capture 阶段生成的 layout2d；
@@ -733,6 +804,10 @@ public class DemoTools(
         var document = JsonSerializer.Deserialize<DemoCapturedLayoutDocument>(
             File.ReadAllText(normalizedLayoutPath),
             JsonOptions);
+        ServerLogBuffer.Append(
+            "INFO",
+            "Replay",
+            $"Loaded layout '{normalizedLayoutPath}' with {document?.Components.Count ?? 0} components.");
 
         if (document?.BaseFrame == null)
         {
@@ -741,6 +816,7 @@ public class DemoTools(
                 "Captured layout JSON does not contain a valid baseFrame.",
                 normalizedLayoutPath,
                 assemblyPath,
+                null,
                 null,
                 null,
                 null,
@@ -753,29 +829,60 @@ public class DemoTools(
             : Path.GetFullPath(assemblyPath);
         if (normalizedAssemblyPath != null)
         {
+            ServerLogBuffer.Append("INFO", "Replay", $"Opening target assembly '{normalizedAssemblyPath}'.");
             openedDocument = docs.OpenDocument(normalizedAssemblyPath);
+            ServerLogBuffer.Append(
+                "INFO",
+                "Replay",
+                $"Target assembly open completed: title='{openedDocument.Document.Title}', path='{openedDocument.Document.Path}'.");
         }
 
         var results = new List<DemoApplyCapturedLayoutComponentResult>();
-        foreach (var component in document.Components)
+        IReadOnlyList<string> suppressedMateFeatures = Array.Empty<string>();
+        if (string.Equals(document.LayoutKind, "constraintGenerated", StringComparison.OrdinalIgnoreCase))
         {
-            if (component.Layout2d == null)
+            // Constraint Layout may require large in-plane moves. Temporarily suppress only top-level mate
+            // features in the target assembly so Transform2 writes do not invoke the mate solver per component.
+            ServerLogBuffer.Append("INFO", "Replay", "Suppressing top-level mate features.");
+            suppressedMateFeatures = assembly.SuppressTopLevelMateFeatures();
+            ServerLogBuffer.Append(
+                "INFO",
+                "Replay",
+                $"Top-level mate suppression completed: count={suppressedMateFeatures.Count}.");
+        }
+
+        var initialPosesByName = document.Components.Any(component =>
+                component.TargetXAxisWorld is { Length: >= 3 }
+                && component.TargetYAxisWorld is { Length: >= 3 }
+                && component.TargetZAxisWorld is { Length: >= 3 })
+            ? assembly.ListComponentPoses(topLevelOnly: true).ToDictionary(
+                item => item.Name,
+                item => item,
+                StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, ComponentPoseInfo>(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            foreach (var component in document.Components)
             {
-                results.Add(new DemoApplyCapturedLayoutComponentResult(
-                    component.ComponentName,
-                    component.BottomFaceName,
-                    component.Layout2d,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    "Component has no captured layout2d."));
-                continue;
-            }
+                ServerLogBuffer.Append("INFO", "Replay", $"Component '{component.ComponentName}' started.");
+                if (component.Layout2d == null)
+                {
+                    results.Add(new DemoApplyCapturedLayoutComponentResult(
+                        component.ComponentName,
+                        component.BottomFaceName,
+                        component.Layout2d,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        "Component has no captured layout2d."));
+                    continue;
+                }
 
             var target = CommonBaseLayoutMath.PointFromLayout(component.Layout2d, document.BaseFrame);
             ComponentTransformResult? rotationResult = null;
@@ -783,10 +890,66 @@ public class DemoTools(
             double? targetThetaDegrees = component.Layout2d.ThetaDegrees;
             double? deltaThetaDegrees = null;
 
-            if (component.Layout2d.ThetaDegrees.HasValue && !string.IsNullOrWhiteSpace(component.Layout2d.ThetaAxis))
+            var hasFullTargetOrientation =
+                component.TargetXAxisWorld is { Length: >= 3 }
+                && component.TargetYAxisWorld is { Length: >= 3 }
+                && component.TargetZAxisWorld is { Length: >= 3 };
+            if (hasFullTargetOrientation)
             {
+                initialPosesByName.TryGetValue(component.ComponentName, out var pose);
+                if (PoseMatchesTargetOrientation(
+                    pose,
+                    component.TargetXAxisWorld!,
+                    component.TargetYAxisWorld!,
+                    component.TargetZAxisWorld!))
+                {
+                    rotationResult = new ComponentTransformResult(
+                        true,
+                        $"Component '{component.ComponentName}' already matches the complete target orientation.",
+                        component.ComponentName,
+                        pose?.HierarchyPath);
+                    ServerLogBuffer.Append(
+                        "INFO",
+                        "Replay",
+                        $"Component '{component.ComponentName}': complete orientation already matches; write skipped.");
+                }
+                else
+                {
+                    ServerLogBuffer.Append(
+                        "INFO",
+                        "Replay",
+                        $"Component '{component.ComponentName}': restoring complete captured orientation frame.");
+                    rotationResult = assembly.SetComponentOrientation(
+                        component.ComponentName,
+                        component.TargetXAxisWorld!,
+                        component.TargetYAxisWorld!,
+                        component.TargetZAxisWorld!,
+                        rebuild: false);
+                }
+                if (!rotationResult.Success)
+                {
+                    results.Add(new DemoApplyCapturedLayoutComponentResult(
+                        component.ComponentName,
+                        component.BottomFaceName,
+                        component.Layout2d,
+                        target,
+                        null,
+                        null,
+                        rotationResult,
+                        currentThetaDegrees,
+                        targetThetaDegrees,
+                        deltaThetaDegrees,
+                        null,
+                        rotationResult.Message));
+                    continue;
+                }
+            }
+            else if (component.Layout2d.ThetaDegrees.HasValue && !string.IsNullOrWhiteSpace(component.Layout2d.ThetaAxis))
+            {
+                ServerLogBuffer.Append("INFO", "Replay", $"Component '{component.ComponentName}': reading current pose.");
                 var pose = assembly.ListComponentPoses(topLevelOnly: true)
                     .FirstOrDefault(item => string.Equals(item.Name, component.ComponentName, StringComparison.OrdinalIgnoreCase));
+                ServerLogBuffer.Append("INFO", "Replay", $"Component '{component.ComponentName}': current pose read completed.");
                 var currentAxis = GetPoseAxis(pose, component.Layout2d.ThetaAxis);
                 currentThetaDegrees = CommonBaseLayoutMath.CalculateInPlaneRotationForAxis(currentAxis, document.BaseFrame);
                 if (currentThetaDegrees.HasValue)
@@ -796,12 +959,21 @@ public class DemoTools(
                         component.Layout2d.ThetaDegrees.Value);
                     if (Math.Abs(deltaThetaDegrees.Value) > 1e-6)
                     {
+                        ServerLogBuffer.Append(
+                            "INFO",
+                            "Replay",
+                            $"Component '{component.ComponentName}': rotating by {-deltaThetaDegrees.Value:F6} degrees.");
                         rotationResult = assembly.RotateComponent(
                             component.ComponentName,
                             document.BaseFrame.Normal[0],
                             document.BaseFrame.Normal[1],
                             document.BaseFrame.Normal[2],
-                            -deltaThetaDegrees.Value);
+                            -deltaThetaDegrees.Value,
+                            rebuild: false);
+                        ServerLogBuffer.Append(
+                            "INFO",
+                            "Replay",
+                            $"Component '{component.ComponentName}': rotation completed, success={rotationResult.Success}.");
 
                         if (!rotationResult.Success)
                         {
@@ -824,12 +996,83 @@ public class DemoTools(
                 }
             }
 
+            var canUseSourceAnchorTransform = hasFullTargetOrientation
+                && component.ComponentTranslation is { Length: >= 3 }
+                && component.ComponentXAxis is { Length: >= 3 }
+                && component.ComponentYAxis is { Length: >= 3 }
+                && component.ComponentZAxis is { Length: >= 3 }
+                && component.BottomCenterWorld is { Length: >= 3 };
+            if (canUseSourceAnchorTransform)
+            {
+                initialPosesByName.TryGetValue(component.ComponentName, out var initialPose);
+                if (initialPose?.Translation is { Length: >= 3 })
+                {
+                    var targetComponentTranslation =
+                        CommonBaseLayoutMath.ComponentTranslationForMappedPoint(
+                            component.ComponentTranslation!,
+                            component.ComponentXAxis!,
+                            component.ComponentYAxis!,
+                            component.ComponentZAxis!,
+                            component.BottomCenterWorld!,
+                            component.TargetXAxisWorld!,
+                            component.TargetYAxisWorld!,
+                            component.TargetZAxisWorld!,
+                            target);
+                    var sourceAnchorDeltaX = targetComponentTranslation[0] - initialPose.Translation[0];
+                    var sourceAnchorDeltaY = targetComponentTranslation[1] - initialPose.Translation[1];
+                    var sourceAnchorDeltaZ = targetComponentTranslation[2] - initialPose.Translation[2];
+                    var sourceAnchorMove = Math.Sqrt(
+                        sourceAnchorDeltaX * sourceAnchorDeltaX
+                        + sourceAnchorDeltaY * sourceAnchorDeltaY
+                        + sourceAnchorDeltaZ * sourceAnchorDeltaZ) <= 1e-9
+                        ? new ComponentTransformResult(
+                            true,
+                            $"Component '{component.ComponentName}' already matches its source-anchor target transform.",
+                            component.ComponentName,
+                            initialPose.HierarchyPath)
+                        : assembly.MoveComponent(
+                            component.ComponentName,
+                            sourceAnchorDeltaX,
+                            sourceAnchorDeltaY,
+                            sourceAnchorDeltaZ,
+                            rebuild: false);
+                    ServerLogBuffer.Append(
+                        "INFO",
+                        "Replay",
+                        $"Component '{component.ComponentName}': source-anchor transform completed, success={sourceAnchorMove.Success}, delta=[{sourceAnchorDeltaX:F6},{sourceAnchorDeltaY:F6},{sourceAnchorDeltaZ:F6}].");
+                    results.Add(new DemoApplyCapturedLayoutComponentResult(
+                        component.ComponentName,
+                        component.BottomFaceName,
+                        component.Layout2d,
+                        target,
+                        null,
+                        null,
+                        rotationResult,
+                        currentThetaDegrees,
+                        targetThetaDegrees,
+                        deltaThetaDegrees,
+                        sourceAnchorMove,
+                        sourceAnchorMove.Message,
+                        "sourceAnchorTransform"));
+                    continue;
+                }
+                ServerLogBuffer.Append(
+                    "WARN",
+                    "Replay",
+                    $"Component '{component.ComponentName}': source-anchor transform unavailable because its initial translation was not readable; falling back to face probe.");
+            }
+
+            ServerLogBuffer.Append("INFO", "Replay", $"Component '{component.ComponentName}': selecting bottom face.");
             selection.ClearSelection();
             var faceSelection = selection.SelectFaceByName(
                 component.BottomFaceName,
                 component.ComponentName,
                 append: false,
                 mark: 0);
+            ServerLogBuffer.Append(
+                "INFO",
+                "Replay",
+                $"Component '{component.ComponentName}': face selection completed, success={faceSelection.Success}.");
 
             if (!faceSelection.Success)
             {
@@ -849,7 +1092,12 @@ public class DemoTools(
                 continue;
             }
 
+            ServerLogBuffer.Append("INFO", "Replay", $"Component '{component.ComponentName}': probing bottom face.");
             var probe = selection.GetSelectedFaceMappingProbe(component.BottomFaceName, component.ComponentName);
+            ServerLogBuffer.Append(
+                "INFO",
+                "Replay",
+                $"Component '{component.ComponentName}': bottom-face probe completed, success={probe.Success}.");
             var center = new SelectedFaceCenterResult(
                 probe.Success && probe.WorldCenter is { Length: >= 3 },
                 probe.Message,
@@ -873,13 +1121,27 @@ public class DemoTools(
                 continue;
             }
 
-            var move = assembly.MoveComponent(
-                component.ComponentName,
-                target[0] - center.Center[0],
-                target[1] - center.Center[1],
-                target[2] - center.Center[2]);
+            var deltaX = target[0] - center.Center[0];
+            var deltaY = target[1] - center.Center[1];
+            var deltaZ = target[2] - center.Center[2];
+            var move = Math.Sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ) <= 1e-9
+                ? new ComponentTransformResult(
+                    true,
+                    $"Component '{component.ComponentName}' is already at its target bottom-center position.",
+                    component.ComponentName,
+                    null)
+                : assembly.MoveComponent(
+                    component.ComponentName,
+                    deltaX,
+                    deltaY,
+                    deltaZ,
+                    rebuild: false);
+            ServerLogBuffer.Append(
+                "INFO",
+                "Replay",
+                $"Component '{component.ComponentName}': move completed, success={move.Success}, delta=[{deltaX:F6},{deltaY:F6},{deltaZ:F6}].");
 
-            results.Add(new DemoApplyCapturedLayoutComponentResult(
+                results.Add(new DemoApplyCapturedLayoutComponentResult(
                 component.ComponentName,
                 component.BottomFaceName,
                 component.Layout2d,
@@ -891,35 +1153,156 @@ public class DemoTools(
                 targetThetaDegrees,
                 deltaThetaDegrees,
                 move,
-                move.Message));
+                    move.Message));
+            }
+        }
+        finally
+        {
+            if (suppressedMateFeatures.Count > 0 && document.ConstraintPlan?.KeepTopLevelMatesSuppressed != true)
+            {
+                ServerLogBuffer.Append(
+                    "INFO",
+                    "Replay",
+                    $"Restoring {suppressedMateFeatures.Count} top-level mate features.");
+                _ = assembly.RestoreTopLevelMateFeatures(suppressedMateFeatures);
+                ServerLogBuffer.Append("INFO", "Replay", "Top-level mate restoration completed.");
+            }
+            else if (suppressedMateFeatures.Count > 0)
+            {
+                ServerLogBuffer.Append(
+                    "INFO",
+                    "Replay",
+                    $"Keeping {suppressedMateFeatures.Count} incompatible top-level mate features suppressed for the source-independent layout.");
+            }
         }
 
+        // Replay 可能涉及多个大型、已配合组件。逐组件 EditRebuild3 会重复触发完整约束求解，
+        // 因此先批量写入 Transform2，最后统一重建一次。
         selection.ClearSelection();
+        ServerLogBuffer.Append("INFO", "Replay", "Final document rebuild started.");
         var rebuild = docs.ForceRebuildActiveDocument(topOnly: false);
+        ServerLogBuffer.Append(
+            "INFO",
+            "Replay",
+            $"Final document rebuild completed, success={rebuild.RebuildSucceeded}, status='{rebuild.StatusAfter.Summary}'.");
+        IReadOnlyList<DemoPortalInterferenceCheck> portalInterferenceChecks;
+        if (validatePortalInterference)
+        {
+            ServerLogBuffer.Append("INFO", "Replay", "Portal interference validation started.");
+            portalInterferenceChecks = CheckPortalInterferences(document);
+            ServerLogBuffer.Append(
+                "INFO",
+                "Replay",
+                $"Portal interference validation completed: count={portalInterferenceChecks.Count}, failures={portalInterferenceChecks.Count(check => !check.Success)}.");
+        }
+        else
+        {
+            portalInterferenceChecks = Array.Empty<DemoPortalInterferenceCheck>();
+            ServerLogBuffer.Append(
+                "INFO",
+                "Replay",
+                "Portal interference validation skipped. Run it separately when CAD interference diagnostics are required.");
+        }
         SwImageExportResult? screenshot = null;
         if (!string.IsNullOrWhiteSpace(screenshotPath))
         {
+            ServerLogBuffer.Append("INFO", "Replay", $"Screenshot export started: '{screenshotPath}'.");
             screenshot = docs.ExportCurrentViewPng(
                 screenshotPath,
                 screenshotWidth,
                 screenshotHeight,
                 includeScreenshotBase64Data);
+            ServerLogBuffer.Append(
+                "INFO",
+                "Replay",
+                $"Screenshot export completed: path='{screenshot.OutputPath}', size={screenshot.Width}x{screenshot.Height}.");
+        }
+
+        // Replay 改变的是当前 SolidWorks 会话中的 Transform2。必须在同一个 MCP/COM
+        // 会话内保存，否则后续独立的 save_document 调用可能连接到另一个空白
+        // SLDWORKS.exe 实例，导致内存中的最终布局没有写回目标装配体。
+        SwSaveResult? saveResult = null;
+        if (normalizedAssemblyPath != null)
+        {
+            ServerLogBuffer.Append("INFO", "Replay", $"Saving replayed assembly '{normalizedAssemblyPath}'.");
+            saveResult = docs.SaveDocument(normalizedAssemblyPath);
+            ServerLogBuffer.Append(
+                "INFO",
+                "Replay",
+                $"Replay save completed: errors={saveResult.Errors}, warnings={saveResult.Warnings}.");
         }
 
         var success = results.All(component =>
             component.MoveResult?.Success == true
-            && (component.RotationResult == null || component.RotationResult.Success));
+            && (component.RotationResult == null || component.RotationResult.Success))
+            && portalInterferenceChecks.All(check => check.Success)
+            && (saveResult == null || saveResult.Errors == 0);
         return new DemoApplyCapturedLayoutResult(
             success,
             success
                 ? "ApplyCapturedCommonBaseLayout completed."
-                : "ApplyCapturedCommonBaseLayout completed with component move errors.",
+                : saveResult?.Errors > 0
+                    ? "ApplyCapturedCommonBaseLayout completed with save errors."
+                : portalInterferenceChecks.Any(check => !check.Success)
+                    ? "ApplyCapturedCommonBaseLayout completed with portal interference errors."
+                    : "ApplyCapturedCommonBaseLayout completed with component move errors.",
             normalizedLayoutPath,
             normalizedAssemblyPath,
             openedDocument,
+            saveResult,
             rebuild,
             screenshot,
-            results.AsReadOnly());
+            results.AsReadOnly(),
+            suppressedMateFeatures,
+            portalInterferenceChecks);
+    }
+
+    private IReadOnlyList<DemoPortalInterferenceCheck> CheckPortalInterferences(
+        DemoCapturedLayoutDocument document)
+    {
+        var checks = new List<DemoPortalInterferenceCheck>();
+        foreach (var portal in document.ConstraintPlan?.PortalConstraints
+                     ?? Array.Empty<DemoPortalConstraint>())
+        {
+            if (!portal.RequiresCadInterferenceValidation)
+            {
+                continue;
+            }
+
+            foreach (var passThroughComponentName in portal.PassThroughComponentNames)
+            {
+                try
+                {
+                    var interference = assembly.CheckInterference(
+                        new[] { portal.PortalComponentName, passThroughComponentName },
+                        treatCoincidenceAsInterference: false);
+                    bool checkedBoth = interference.CheckedComponentCount >= 2;
+                    bool success = checkedBoth && !interference.HasInterference;
+                    checks.Add(new DemoPortalInterferenceCheck(
+                        portal.PortalComponentName,
+                        passThroughComponentName,
+                        success,
+                        portal.MinimumClearanceMeters,
+                        interference,
+                        !checkedBoth
+                            ? "SolidWorks could not resolve both portal constraint components."
+                            : interference.HasInterference
+                                ? "SolidWorks detected real-body interference in the allowed AABB-overlap pair."
+                                : "No real-body interference detected. The configured positive clearance remains an approximate geometry-rule check."));
+                }
+                catch (Exception ex)
+                {
+                    checks.Add(new DemoPortalInterferenceCheck(
+                        portal.PortalComponentName,
+                        passThroughComponentName,
+                        false,
+                        portal.MinimumClearanceMeters,
+                        null,
+                        $"SolidWorks portal interference validation failed: {ex.Message}"));
+                }
+            }
+        }
+        return checks.AsReadOnly();
     }
 
     private DemoInitializationResult AppendComponentsCore(
