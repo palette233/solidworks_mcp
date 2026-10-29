@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -58,11 +59,18 @@ def _write_or_verify(path: Path, value: dict) -> None:
 
 
 def main() -> int:
-    OUTPUT.mkdir(parents=True, exist_ok=True)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--demo-manifest", type=Path, default=DEMO_MANIFEST)
+    parser.add_argument("--output-root", type=Path, default=OUTPUT)
+    parser.add_argument("--chain-id", default="project02-direct-plus-project05-wastecup-demo-v2")
+    parser.add_argument("--output-name", default="project02-four-native-plus-project05-p000-demo.SLDASM")
+    args = parser.parse_args()
+    output_root = args.output_root.resolve()
+    output_root.mkdir(parents=True, exist_ok=True)
     append_manifest = rebase_single_packet_manifest_for_external_checkpoint(
-        _read(DEMO_MANIFEST), source_stage_id="direct-installation-stage"
+        _read(args.demo_manifest), source_stage_id="direct-installation-stage"
     )
-    append_path = OUTPUT / "wastecup-append.cad-transaction-manifest.json"
+    append_path = output_root / "wastecup-append.cad-transaction-manifest.json"
     _write_or_verify(append_path, append_manifest)
 
     chain = build_multi_release_cad_chain(
@@ -70,14 +78,16 @@ def main() -> int:
         direct_manifest_path=DIRECT_MANIFEST,
         direct_closure_path=DIRECT_CLOSURE,
         append_manifest_path=append_path,
-        chain_id="project02-direct-plus-project05-wastecup-demo-v2",
+        chain_id=args.chain_id,
     )
     validate_multi_release_cad_chain(ROOT, chain)
-    chain_path = OUTPUT / "multi-release-chain.json"
+    chain_path = output_root / "multi-release-chain.json"
     _write_or_verify(chain_path, chain)
 
     checkpoint = Path(chain["checkpointBinding"]["assemblyPath"])
-    planned_output = OUTPUT / "project02-four-native-plus-project05-p000-demo.SLDASM"
+    planned_output = output_root / args.output_name
+    if planned_output.parent != output_root or planned_output.suffix.upper() != ".SLDASM":
+        raise ValueError("输出必须是本轮目录中的独立SLDASM文件。")
     plan = build_global_cad_packet_execution_plan(
         ROOT,
         append_manifest,
@@ -85,7 +95,7 @@ def main() -> int:
         output_path=planned_output,
         input_checkpoint=checkpoint,
     )
-    plan_path = OUTPUT / "wastecup-append.execution-plan.json"
+    plan_path = output_root / "wastecup-append.execution-plan.json"
     _write_or_verify(plan_path, plan)
     plan_ready = bool(
         plan.get("schemaVersion") == "global-cad-packet-execution-plan/v1"
@@ -136,7 +146,7 @@ def main() -> int:
     }
     if not all(summary["checks"].values()):
         raise RuntimeError("多发布累计链离线闭合未通过。")
-    _write_or_verify(OUTPUT / "offline-closure.json", summary)
+    _write_or_verify(output_root / "offline-closure.json", summary)
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     return 0
 

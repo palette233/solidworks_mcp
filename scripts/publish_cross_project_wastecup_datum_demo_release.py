@@ -25,12 +25,14 @@ from demo_backend.global_relation_catalog_release import (  # noqa: E402
     finalize_relation_catalog_release,
     load_relation_catalog_release,
 )
+from demo_backend.cross_project_wastecup_datum_closure import (  # noqa: E402
+    close_project05_p000_to_project02_a600_datum_demo,
+)
 
 
 PACKAGE = ROOT / "demo/cross_project_substitution/wastecup-project05-to-project02-v1"
 SEMANTIC_PACKAGE = PACKAGE / "semantic-package-v1"
 CAD_RESULT = PACKAGE / "project02-A600-project05-P000-datum-v1.context-insert.result.json"
-TEMPLATE_ID = "template/project-global/p000-a600-wastecup-datum-demo/218ec01d59"
 DEFAULT_RELEASE_ID = "relation-v63-project02-project05-wastecup-datum-demo-20261015"
 
 
@@ -70,6 +72,13 @@ def _definition(catalog: dict, project_id: str, module_token: str) -> dict:
     if len(rows) != 1:
         raise RuntimeError(f"无法唯一找到{project_id}/{module_token}。")
     return rows[0]
+
+
+def _derivation_statement(base_token: str) -> str:
+    return (
+        "本证据只派生一个跨项目基准放置Demo模板；"
+        f"不证明P000与{base_token}直接机械接口兼容。"
+    )
 
 
 def _transaction_projection(value: dict) -> dict:
@@ -112,6 +121,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--release-id", default=DEFAULT_RELEASE_ID)
     parser.add_argument("--semantic-package-name", default="semantic-package-v1")
+    parser.add_argument("--package-root", type=Path, default=PACKAGE)
+    parser.add_argument("--cad-result", type=Path, default=CAD_RESULT)
     parser.add_argument("--context-prefix", default="wastecup-v63")
     parser.add_argument(
         "--output-root",
@@ -120,9 +131,30 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    semantic_package = PACKAGE / args.semantic_package_name
+    semantic_package = args.package_root.resolve() / args.semantic_package_name
+    cad_result = args.cad_result.resolve()
+    template_id = _read(semantic_package / "policy-compilation-comparison.json")["globalTemplateId"]
     catalog_path = semantic_package / "candidate_global_catalog.json"
     catalog = _read(catalog_path)
+    semantic = _read(semantic_package / "semantic_port_catalog.json")
+    support_policy = semantic.get("supportPositionDemoPolicy")
+    audit = _read(args.package_root / "candidate_audit.json")
+    base_token = audit.get("targetBaseToken", "A600")
+    base_project = audit.get("targetProjectId", "project02")
+    if support_policy:
+        # Recheck actual source evidence before authorizing a new support recipe.
+        # A new graph must never be published against the old datum-run result.
+        source_run = _read(cad_result)
+        close_project05_p000_to_project02_a600_datum_demo(
+            candidate_audit=audit,
+            cad_result=source_run,
+            effective_graph_path=args.package_root / "candidate_effective_mate_graph.json",
+            output_assembly_path=Path(source_run["outputAssemblyPath"]),
+            read_only_state=_read(args.package_root / "read-only-state-verification.json"),
+            expected_context_module_tokens=(base_token,),
+            target_base_token=base_token,
+            target_project_id=base_project,
+        )
     derivation = {
         "schemaVersion": "global-relation-derivation-evidence/v1",
         "status": "ready",
@@ -133,15 +165,12 @@ def main() -> int:
                     "semanticPortCatalogPath": (
                         semantic_package / "semantic_port_catalog.json"
                     ).relative_to(ROOT).as_posix(),
-                    "liveCadResultPath": CAD_RESULT.relative_to(ROOT).as_posix(),
+                    "liveCadResultPath": cad_result.relative_to(ROOT).as_posix(),
                 },
-                "result": {"derivedGlobalTemplateId": TEMPLATE_ID},
+                "result": {"derivedGlobalTemplateId": template_id},
             }
         ],
-        "statement": (
-            "本证据只派生一个跨项目基准放置Demo模板；"
-            "不证明P000与A600直接机械接口兼容。"
-        ),
+        "statement": _derivation_statement(base_token),
     }
     derivation_path = semantic_package / f"{args.release_id}.derivation-evidence.json"
     _write_new_or_verify(derivation_path, derivation)
@@ -149,15 +178,16 @@ def main() -> int:
     released_catalog, manifest = build_relation_catalog_release(
         catalog_path=catalog_path,
         derivation_evidence_path=derivation_path,
-        validation_evidence_paths=[CAD_RESULT],
+        validation_evidence_paths=[cad_result],
         release_id=args.release_id,
-        authorized_driving_template_ids=[TEMPLATE_ID],
+        authorized_driving_template_ids=[template_id],
         authorized_template_combination_ids=[],
         release_metadata={
             "relationExecutionMode": "datum_placement_demo",
-            "templateEvidenceClasses": {TEMPLATE_ID: "datum_placement_demo"},
+            "templateEvidenceClasses": {template_id: "datum_placement_demo"},
             "directMechanicalInterfaceCompatible": False,
             "collisionOrBrep": "not_evaluated",
+            **({"supportPositionDemoPolicy": support_policy} if support_policy else {}),
             "statement": (
                 "只允许在显式datum_placement_demo模式下执行；"
                 "默认direct_installation必须失败关闭。"
@@ -176,7 +206,7 @@ def main() -> int:
     _write_new_or_verify(manifest_output, manifest)
     load_relation_catalog_release(manifest_output, workspace_root=ROOT)
 
-    a600 = _definition(released_catalog, "project02", "A600")
+    a600 = _definition(released_catalog, base_project, base_token)
     p000 = _definition(released_catalog, "project05", "P000")
     base_command = {
         "requirement": "请先建立设备箱体与安装基座。",
@@ -184,8 +214,10 @@ def main() -> int:
     }
     wastecup_command = {
         "requirement": (
-            "请在当前设备箱体上安装一套Project05排胶杯模组，"
-            "用于收集点胶头排出的废胶。"
+            "请在当前设备箱体的支承面上增加一套排胶杯，用于收集废胶；"
+            "采用支承面和位置参数定位演示，实际固定方式暂不验证。"
+            if support_policy else
+            "请在当前设备箱体上安装一套Project05排胶杯模组，用于收集点胶头排出的废胶。"
         ),
         "moduleDefinitionId": p000["moduleDefinitionId"],
     }
@@ -247,7 +279,7 @@ def main() -> int:
         "releaseId": args.release_id,
         "releaseManifestPath": release_relative,
         "releaseDigest": manifest["releaseDigest"],
-        "authorizedTemplateId": TEMPLATE_ID,
+        "authorizedTemplateId": template_id,
         "defaultDirectInstallation": {
             "status": direct_preview.get("status"),
             "blockers": direct_preview.get("blockers") or [],
@@ -263,7 +295,8 @@ def main() -> int:
             "cadTransactionManifestPath": transaction_path.relative_to(ROOT).as_posix(),
         },
         "cadStartedInThisPublish": False,
-        "reusedCadEvidencePath": CAD_RESULT.relative_to(ROOT).as_posix(),
+        "reusedCadEvidencePath": cad_result.relative_to(ROOT).as_posix(),
+        **({"supportPositionDemoPolicy": support_policy} if support_policy else {}),
         "collisionOrBrep": "not_evaluated",
     }
     comparison_path = output / "release-policy-compilation-comparison.json"

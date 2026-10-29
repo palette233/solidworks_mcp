@@ -50,44 +50,70 @@ def normalized_document_path(value: str) -> str:
     return str(Path(value).resolve()).casefold() if value else ""
 
 
-def restore_open_document_baseline(client: McpClient, baseline_paths: set[str]) -> dict:
-    open_documents = client.call_tool("ListDocuments", {})
-    open_rows = open_documents if isinstance(open_documents, list) else []
-    new_rows = [
-        row
-        for row in open_rows
-        if document_path(row)
-        and normalized_document_path(document_path(row)) not in baseline_paths
-    ]
+def restore_open_document_baseline(
+    client: McpClient,
+    baseline_paths: set[str],
+    *,
+    settle_timeout_seconds: float = 5.0,
+    quiet_period_seconds: float = 0.75,
+    poll_seconds: float = 0.25,
+) -> dict:
+    """Close only documents opened by this action and wait for COM to settle.
+
+    SolidWorks can reopen a dependency shortly after the parent assembly has
+    closed.  A single ListDocuments snapshot therefore produces false-clean
+    evidence.  Require the original baseline to remain stable for a bounded
+    quiet period while never touching documents that were already open.
+    """
+
     closed_paths: list[str] = []
     errors: list[dict[str, str]] = []
-    for row in sorted(
-        new_rows,
-        key=lambda item: int(item.get("Type", item.get("type", 0))),
-        reverse=True,
-    ):
-        path = document_path(row)
-        current_documents = client.call_tool("ListDocuments", {})
-        current_rows = current_documents if isinstance(current_documents, list) else []
-        current_paths = {
-            normalized_document_path(document_path(item))
-            for item in current_rows
-            if document_path(item)
+    error_keys: set[tuple[str, str]] = set()
+    deadline = time.monotonic() + max(settle_timeout_seconds, 0.0)
+    stable_since: float | None = None
+    final_paths: set[str] = set()
+    while True:
+        open_documents = client.call_tool("ListDocuments", {})
+        open_rows = open_documents if isinstance(open_documents, list) else []
+        new_rows = [
+            row
+            for row in open_rows
+            if document_path(row)
+            and normalized_document_path(document_path(row)) not in baseline_paths
+        ]
+        for row in sorted(
+            new_rows,
+            key=lambda item: int(item.get("Type", item.get("type", 0))),
+            reverse=True,
+        ):
+            path = document_path(row)
+            try:
+                client.call_tool_text("CloseDocument", {"path": path})
+                if path not in closed_paths:
+                    closed_paths.append(path)
+            except Exception as exc:
+                key = (path, str(exc))
+                if key not in error_keys:
+                    errors.append({"path": path, "error": str(exc)})
+                    error_keys.add(key)
+        final_documents = client.call_tool("ListDocuments", {})
+        final_rows = final_documents if isinstance(final_documents, list) else []
+        final_paths = {
+            normalized_document_path(document_path(row))
+            for row in final_rows
+            if document_path(row)
         }
-        if normalized_document_path(path) not in current_paths:
-            continue
-        try:
-            client.call_tool_text("CloseDocument", {"path": path})
-            closed_paths.append(path)
-        except Exception as exc:
-            errors.append({"path": path, "error": str(exc)})
-    final_documents = client.call_tool("ListDocuments", {})
-    final_rows = final_documents if isinstance(final_documents, list) else []
-    final_paths = {
-        normalized_document_path(document_path(row))
-        for row in final_rows
-        if document_path(row)
-    }
+        now = time.monotonic()
+        if final_paths == baseline_paths:
+            if stable_since is None:
+                stable_since = now
+            if now - stable_since >= max(quiet_period_seconds, 0.0):
+                break
+        else:
+            stable_since = None
+        if now >= deadline:
+            break
+        time.sleep(max(poll_seconds, 0.01))
     return {
         "closedPaths": closed_paths,
         "errors": errors,

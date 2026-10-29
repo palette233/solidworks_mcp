@@ -7,7 +7,6 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
-import os
 from pathlib import Path
 import sys
 import time
@@ -18,6 +17,11 @@ if str(ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(ROOT / "scripts"))
 
 from capture_assembly_entity_annotations import McpClient
+from create_global_cad_base_wrapper import (
+    document_path,
+    normalized_document_path,
+    restore_open_document_baseline,
+)
 
 
 DEFAULT_EXE = (
@@ -41,10 +45,6 @@ def sha256_file(path: Path) -> str:
 
 def pick(payload: dict, pascal: str, default=None):
     return payload.get(pascal, payload.get(pascal[0].lower() + pascal[1:], default))
-
-
-def normalized_path(path: str | Path) -> str:
-    return os.path.normcase(os.path.abspath(os.fspath(path)))
 
 
 def project_target_context_graph(graph: dict, target_module_token: str) -> dict:
@@ -183,9 +183,9 @@ def main() -> int:
     ) as client:
         before_documents = client.call_tool("ListDocuments", {})
         before_paths = {
-            normalized_path(str(pick(item, "Path", "")))
+            normalized_document_path(document_path(item))
             for item in (before_documents or [])
-            if isinstance(item, dict) and str(pick(item, "Path", ""))
+            if isinstance(item, dict) and document_path(item)
         }
         tool_result = client.call_tool(
             "InsertComponentInAssemblyContextFromMateGraph",
@@ -206,7 +206,7 @@ def main() -> int:
         target_source_path = str(pick(tool_result, "TargetModuleSourcePath", ""))
         target_source_was_already_open = bool(
             target_source_path
-            and normalized_path(target_source_path) in before_paths
+            and normalized_document_path(target_source_path) in before_paths
         )
         target_source_closed_after_verification = False
         target_source_close_error = None
@@ -218,6 +218,10 @@ def main() -> int:
                 target_source_close_error = str(exc)
         target_source_session_clean = (
             target_source_was_already_open or target_source_closed_after_verification
+        )
+        document_cleanup = restore_open_document_baseline(client, before_paths)
+        target_source_session_clean = bool(
+            target_source_session_clean and document_cleanup.get("sessionRestored") is True
         )
     duration = time.perf_counter() - started
     source_sha_after = sha256_file(source)
@@ -252,6 +256,7 @@ def main() -> int:
         "targetSourceClosedAfterVerification": target_source_closed_after_verification,
         "targetSourceSessionClean": target_source_session_clean,
         "targetSourceCloseError": target_source_close_error,
+        "documentBaselineCleanup": document_cleanup,
         "toolResult": tool_result,
     }
     result.parent.mkdir(parents=True, exist_ok=True)

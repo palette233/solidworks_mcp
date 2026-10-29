@@ -34,19 +34,31 @@ def _read(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
-def _latest_release_catalogs(root: Path) -> list[Path]:
+def _release_catalogs(root: Path) -> list[Path]:
+    """Return every immutable relation catalog, not only the latest per project.
+
+    The candidate matrix may legitimately reference a template from an older
+    immutable release.  Keeping only the newest project release makes that
+    selected installation unrecoverable even though its evidence still exists.
+    Catalog contents are deduplicated by digest in ``main``.
+    """
+
     pattern = re.compile(r"^relation-v(?P<version>\d+)-(?P<project>project\d+)-")
-    latest: dict[str, tuple[int, Path]] = {}
+    paths: list[tuple[str, int, str, Path]] = []
     for directory in root.iterdir() if root.is_dir() else []:
         match = pattern.match(directory.name)
         catalog = directory / "global_module_catalog.json"
         if not match or not catalog.is_file():
             continue
-        key = match.group("project")
-        version = int(match.group("version"))
-        if key not in latest or version > latest[key][0]:
-            latest[key] = (version, catalog)
-    return [latest[key][1] for key in sorted(latest)]
+        paths.append(
+            (
+                match.group("project"),
+                int(match.group("version")),
+                directory.name,
+                catalog,
+            )
+        )
+    return [row[3] for row in sorted(paths)]
 
 
 def _markdown(report: dict) -> str:
@@ -77,10 +89,21 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
 
-    catalog_paths = [args.base.resolve(), *_latest_release_catalogs(args.releases.resolve())]
+    candidate_paths = [args.base.resolve(), *_release_catalogs(args.releases.resolve())]
+    catalog_paths: list[Path] = []
+    evidence_catalogs: list[dict] = []
+    seen_digests: set[str] = set()
+    for path in candidate_paths:
+        catalog = _read(path)
+        digest = str(catalog.get("catalogDigest") or "")
+        if digest in seen_digests:
+            continue
+        seen_digests.add(digest)
+        catalog_paths.append(path)
+        evidence_catalogs.append(catalog)
     report = build_alternate_slot_discovery(
         _read(args.matrix.resolve()),
-        evidence_catalogs=[_read(path) for path in catalog_paths],
+        evidence_catalogs=evidence_catalogs,
     )
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)

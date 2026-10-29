@@ -67,6 +67,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=DEFAULT_ROOT)
     parser.add_argument("--package-name", default="semantic-package-v1")
+    parser.add_argument("--context-endpoints", type=Path, default=P02_ENDPOINTS)
+    parser.add_argument("--p000-endpoints", type=Path, default=P05_ENDPOINTS)
     args = parser.parse_args()
     root = args.root.resolve()
     package_root = root / args.package_name
@@ -84,8 +86,8 @@ def main() -> int:
         base_global_catalog=_read(BASE_CATALOG),
         candidate_graph=_read(root / "candidate_effective_mate_graph.json"),
         candidate_audit=_read(root / "candidate_audit.json"),
-        a600_endpoint_catalog=_read(P02_ENDPOINTS),
-        p000_endpoint_catalog=_read(P05_ENDPOINTS),
+        context_endpoint_catalog=_read(args.context_endpoints),
+        p000_endpoint_catalog=_read(args.p000_endpoints),
         semantic_catalog_path=str(semantic_rel).replace("\\", "/"),
         endpoint_catalog_path=str(endpoint_rel).replace("\\", "/"),
         base_graph_path=str(graph_rel).replace("\\", "/"),
@@ -100,7 +102,8 @@ def main() -> int:
     context = create_global_assembly_context(
         "wastecup-datum-policy-check", catalog_digest=catalog["catalogDigest"]
     )
-    base_definition = _definition(catalog, "project02", "A600")
+    audit = _read(root / "candidate_audit.json")
+    base_definition = _definition(catalog, audit.get("targetProjectId", "project02"), audit.get("targetBaseToken", "A600"))
     p000_definition = _definition(catalog, "project05", "P000")
     base_preview = preview_global_assembly_command(
         catalog,
