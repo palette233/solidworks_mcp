@@ -1,0 +1,52 @@
+{
+  "source": {
+    "moduleDefinitionId": "project05::P000",
+    "catalogPaths": [
+      "../../demo/role_station_strengthening_20261028/functional-chain-v1/geometry/p000-cup-1.json",
+      "../../demo/role_station_strengthening_20261028/functional-chain-v1/geometry/p000-cup-2.json"
+    ],
+    "openingDirectionWorld": [0, 1, 0]
+  },
+  "native": {
+    "moduleDefinitionId": "project02::A300",
+    "catalogPaths": [
+      "../../demo/station_gap_batch_20261028/a300-measurement-v2/cup-1.json",
+      "../../demo/station_gap_batch_20261028/a300-measurement-v2/cup-2.json"
+    ],
+    "openingDirectionWorld": [0, 1, 0]
+  },
+  "measurementEvidence": {
+    "nativeWrapperResult": "../../demo/station_gap_batch_20261028/a300-measurement-v2/wrapper-result.json",
+    "historicalTargetStation": "../../demo/role_station_strengthening_20261028/wastecup/p000-a600-target-station-v3.json"
+  },
+  "captureWitnesses": {
+    "source": "../../demo/cross_project_substitution/six-role-project03-base-v1/standard/read-only-chain-verification.json",
+    "native": "../../demo/station_gap_batch_20261028/a300-measurement-v2/read-only-state.json"
+  },
+  "stationSuggestion": {
+    "existingMateGraphPath": "../../demo/cross_project_substitution/wastecup-project05-to-project02-v1/support-position-demo-v2/candidate_effective_mate_graph.json",
+    "sourceDatumCapturePath": "../../demo/semantic_ports/project05_p000_locator_discovery_v1/p000-mount-leaf-face-catalog-attempt02.json",
+    "nativeGraphPath": "../../demo/global_assembly_catalog/v1/combination-v1-preview/project02-six-addon-driving-v5/A300/assembly_plan_effective.json",
+    "observedStatePath": "../../demo/cross_project_substitution/wastecup-project05-to-project02-v1/support-position-demo-v2/read-only-state-verification.json",
+    "nativeObservedStatePath": "../../demo/station_gap_batch_20261028/a300-measurement-v2/read-only-state.json",
+    "independentGeometryCaptureRoles": ["source"],
+    "sourceToken": "P000",
+    "baseToken": "A600",
+    "sourceDatumModuleToken": "FL9C254098P000.001-2",
+    "nativeGraphModuleToken": "A300",
+    "nativeGraphBaseToken": "A600",
+    "mappingByLeaf": {
+      "FL00002-00549-1": "C000437564-2",
+      "FL00002-00549-2": "C000437564-1"
+    },
+    "parameterMateNames": {
+      "longitudinal": "P000_A600_DATUM_DISTANCE_1",
+      "lateral": "P000_A600_DATUM_DISTANCE_2"
+    },
+    "alignmentPolicy": {
+      "mode": "native_points_inside_source_openings",
+      "radialMarginMeters": 0.005
+    }
+  },
+  "boundary": "A300 native cup centers are Demo target discharge points. P000 and A300 have different two-cup spacing, so one common planar translation aligns their midpoints and each native point must remain inside the corresponding P000 opening with 5 mm radial margin. This does not validate nozzle reach, real dispensing, fastening, collision or B-rep."
+}

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "scanner-target-rule/v1",
+  "ruleId": "scanner-sm00-ss00-jj00-v1",
+  "sourceModuleDefinitionId": "project01::SM00",
+  "targetBaseDefinitionId": "project01::JJ00",
+  "transportModuleDefinitionId": "project01::SS00",
+  "referenceBaseDefinitionId": "project01::JJ00",
+  "evidenceGrade": "prototype_measured_proxy",
+  "inputs": {
+    "processEvidencePath": "demo/cross_project_substitution/cumulative-project03-v2/scanner-transport-process-validation.json",
+    "scannerGraphPath": "demo/layout_previews/project01_module_mate_graph.json",
+    "transportGraphPath": "demo/global_assembly_catalog/v1/relation-v2-preview/project01-ss00-current-insert-v1/execution-effective-mate-graph.json",
+    "targetFaceCatalogPath": "demo/cross_project_substitution/scanner-slot-discovery-v1/project01_JJ00_project03_AI00/jj00-scanner-support-leaf-face-catalog.json",
+    "targetBaseGraphPath": "demo/layout_previews/project01_module_mate_graph.json",
+    "opticalGeometryPath": "demo/layout_previews/project01_scanner_geometry.json"
+  },
+  "inputSha256": {
+    "processEvidencePath": "058702c356812f020d5315fe9780191520c114cbdc5b447c4d3c8385b5e58e62",
+    "scannerGraphPath": "c11cd41eaa3c621f53b43396e8cdfdc91cacefacc374580752cec9859c4152e5",
+    "transportGraphPath": "68833f993ab11bf3552a883e26444e16a74e234763bda567a6218cf9fdc803fd",
+    "targetFaceCatalogPath": "2cf7a8d542092d4e0f923a4f6e4074b89b1037649a2e750157594947b4bac5d7",
+    "targetBaseGraphPath": "c11cd41eaa3c621f53b43396e8cdfdc91cacefacc374580752cec9859c4152e5",
+    "opticalGeometryPath": "0547877e41554d1f632d51342b695a2857f1e9e5ac9cc869865d6e21737848c9"
+  },
+  "interpretationLimits": [
+    "Only SS00 frame, product lane and the same SR-X100 model distance range are reused from processEvidencePath; AI00 optical geometry and old pass flags are not reused.",
+    "The explicitly selected SM00 product head has a measured 200 mm prototype beam proxy; actual barcode surface, travel endpoints and scan success remain unverified.",
+    "Current SM00, SS00 and JJ00 poses must be supplied by an independently saved read-only CAD state. This rule alone is not new CAD or mechanical release evidence."
+  ],
+  "opticalMeasurementSelector": {
+    "jsonPointer": "/scanners/1",
+    "scannerModel": "KEYENCE SR-X100",
+    "purpose": "productBarcodeScanner; not the separate carrier barcode head"
+  }
+}

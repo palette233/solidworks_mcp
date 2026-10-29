@@ -495,6 +495,78 @@ def load_relation_catalog_release(
             template_by_id=template_by_id,
             authorized_template_ids=authorized_ids,
         )
+        pair_binding = metadata.get("parameterizedDatumPairBinding")
+        if pair_binding is not None:
+            # A new datum release authorizes an exact, measured recipe, not all
+            # offsets for this module/base. Recheck the actual CAD artifacts at
+            # execution time; hashing only the result JSON leaves stale solids
+            # and effective graphs undetected.
+            if (
+                pair_binding.get("schemaVersion") != "parameterized-datum-pair-release/v1"
+                or pair_binding.get("releaseDigest") != _digest({
+                    key: value for key, value in pair_binding.items() if key != "releaseDigest"
+                })
+                or pair_binding.get("nonPrototypeCadValidated") is not True
+                or pair_binding.get("prototypeTopLevelTargetPoseUsed") is not False
+                or pair_binding.get("caseAnchorUsed") is not False
+                or pair_binding.get("targetLeafPoseAnchorsUsed") is not False
+            ):
+                raise GlobalRelationCatalogReleaseError("参数化基准定位配对证据无效。")
+            for path_key, sha_key in (
+                ("effectiveGraphPath", "effectiveGraphSha256"),
+                ("cadResultPath", "cadResultSha256"),
+                ("outputAssemblyPath", "outputAssemblySha256"),
+            ):
+                path = Path(str(pair_binding.get(path_key) or "")).resolve()
+                try:
+                    path.relative_to(workspace_root)
+                except ValueError as exc:
+                    raise GlobalRelationCatalogReleaseError("参数化定位证据越出工作区。") from exc
+                if not path.is_file() or _file_sha256(path) != pair_binding.get(sha_key):
+                    raise GlobalRelationCatalogReleaseError(f"参数化定位证据缺失或已变化：{path_key}")
+        direct_pair_binding = metadata.get("directInterfacePairBinding")
+        if direct_pair_binding is not None:
+            if (
+                direct_pair_binding.get("schemaVersion")
+                != "direct-interface-pair-release/v1"
+                or direct_pair_binding.get("releaseDigest")
+                != _digest(
+                    {
+                        key: value
+                        for key, value in direct_pair_binding.items()
+                        if key != "releaseDigest"
+                    }
+                )
+                or direct_pair_binding.get("nonPrototypeCadValidated") is not True
+                or direct_pair_binding.get("prototypeTopLevelTargetPoseUsed")
+                is not False
+                or direct_pair_binding.get("caseAnchorUsed") is not False
+                or direct_pair_binding.get("targetLeafPoseAnchorsUsed") is not False
+                or direct_pair_binding.get("directMechanicalInterfaceCompatible")
+                is not True
+            ):
+                raise GlobalRelationCatalogReleaseError(
+                    "直接机械接口精确配对证据无效。"
+                )
+            for path_key, sha_key in (
+                ("effectiveGraphPath", "effectiveGraphSha256"),
+                ("cadResultPath", "cadResultSha256"),
+                ("outputAssemblyPath", "outputAssemblySha256"),
+            ):
+                path = Path(str(direct_pair_binding.get(path_key) or "")).resolve()
+                try:
+                    path.relative_to(workspace_root)
+                except ValueError as exc:
+                    raise GlobalRelationCatalogReleaseError(
+                        "直接机械接口证据越出工作区。"
+                    ) from exc
+                if (
+                    not path.is_file()
+                    or _file_sha256(path) != direct_pair_binding.get(sha_key)
+                ):
+                    raise GlobalRelationCatalogReleaseError(
+                        f"直接机械接口证据缺失或已变化：{path_key}"
+                    )
     combination_by_id = {
         str(row.get("globalCombinationId") or ""): row
         for row in catalog.get("templateCombinations") or []

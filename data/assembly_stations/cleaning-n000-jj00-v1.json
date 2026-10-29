@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "cleaning-service-region-rule/v1",
+  "ruleId": "cleaning-n000-jj00-v1",
+  "sourceRole": "CleaningWeighing",
+  "sourceModuleDefinitionId": "project05::N000",
+  "targetBaseDefinitionId": "project01::JJ00",
+  "nativeRoleModuleDefinitionId": "project01::GN00",
+  "moduleTokens": {
+    "source": "N000",
+    "targetBase": "JJ00",
+    "nativeRole": "GN00"
+  },
+  "serviceSubtrees": [
+    "FL9C251093NB00.001-1",
+    "FL9C251093NC00.001-1",
+    "FL9C251093ND00.001-1"
+  ],
+  "excludedSubtrees": [
+    "FL9C251093NA00.001-1"
+  ],
+  "initialPlacementVariant": 3,
+  "inputs": {
+    "movingOccupancy": "demo/station_gap_batch_20261028/n000-frame-binding-v1/occupancy.json",
+    "targetOccupancy": "demo/layout_previews/project01_module_occupancy.json",
+    "movingNativeGraph": "demo/layout_previews/project05_module_mate_graph.json",
+    "targetNativeGraph": "demo/semantic_ports/project01_GN00_fourth_increment_v1/assembly_plan_effective.json",
+    "datumGraph": "demo/cross_project_substitution/broad-combination-cad-validation-v1/batch-20261026-v3/queue-successor-03/validation-n000-jj00-v1/effective-mate-graph.json",
+    "movingFaces": "demo/semantic_ports/project05_n000_locator_discovery_v1/n000-mount-leaf-face-catalog.json",
+    "baseFaces": "demo/cross_project_substitution/scanner-slot-discovery-v1/project01_JJ00_project03_AI00/jj00-scanner-support-leaf-face-catalog.json"
+  },
+  "nativeGraphInstances": {
+    "source": "FL9C251093N000.001-4",
+    "nativeRole": "FL9C24N074GN00.001-1"
+  },
+  "claimBoundary": "N000 service-subtree proxy against the measured native GN00 station on JJ00. This is a Demo geometry audit, not real cleaning, weighing, fastening, collision or production approval."
+}

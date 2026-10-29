@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "saved-output-station-inspection-request/v1",
+  "cadResult": {
+    "path": "demo/semantic_ports/project02_a300_nonanchor_v1/project02-a300-nonanchor-checkpoint-v1.result.json",
+    "sha256": "eef6af8ee2b2097e5fcd25b5492ead8722b25e369b58d9490ff83407585d910d"
+  },
+  "outputAssemblySha256": "edf69fbc6d15adb6cbb756643178750646ff5b82e16a8f2ca4df7486014dd136",
+  "baseToken": "A600",
+  "targetToken": "A300",
+  "expectedTopLevelComponentCount": 2,
+  "outputStatePath": "demo/station_gap_batch_20261028/a300-a600-native-v1/read-only-v1/reopened-state.json",
+  "processReportPath": "demo/station_gap_batch_20261028/a300-a600-native-v1/read-only-v1/inspection-process.json",
+  "claimBoundary": "This request only reopens the existing non-prototype A300 to A600 native installation result. It does not recreate mates, prove cup-mouth process performance, fastening, collision/B-rep or production readiness.",
+  "requestDigest": "b11ba84ccc916adda14bc951a127604b12131ec064825edd302f2d0be7438648"
+}

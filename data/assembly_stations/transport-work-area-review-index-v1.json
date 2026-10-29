@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "transport-work-area-review-index/v1",
+  "entries": [
+    {
+      "sourceModuleDefinitionId": "project01::SS00",
+      "targetBaseDefinitionId": "project05::A000",
+      "role": "Transport",
+      "reportPath": "demo/station_gap_batch_20261028/coverage-v20/transport-work-area-review-v2.json",
+      "reportSha256": "390f0fe9100c77ecae6fd384e61f313d2b8d21590b2c87226bf9eadadb3f7415",
+      "comparisonDigest": "7106fa256f484534ea883baec30633b1f8cd4af6749c7a6fa08079a92e737e30",
+      "status": "requires_engineering_threshold_or_context_selection",
+      "publicationAllowed": false,
+      "blockingReasonCodes": [
+        "TRACK_AND_CARRIER_INTERFACE_EVIDENCE_REQUIRED",
+        "WORK_POSITION_SPACING_ACCEPTANCE_POLICY_REQUIRED",
+        "WORK_POSITION_CONTEXT_SELECTION_REQUIRED",
+        "CURRENT_CAD_WORK_POSITION_REPROJECTION_REQUIRED"
+      ]
+    },
+    {
+      "sourceModuleDefinitionId": "project03::AE00",
+      "targetBaseDefinitionId": "project05::A000",
+      "role": "Transport",
+      "reportPath": "demo/station_gap_batch_20261028/coverage-v20/transport-work-area-review-v2.json",
+      "reportSha256": "390f0fe9100c77ecae6fd384e61f313d2b8d21590b2c87226bf9eadadb3f7415",
+      "comparisonDigest": "7ece41516b1d76d70ea8b04a8c62fa622a07a7088b2fecab2de4da047e63f87e",
+      "status": "requires_engineering_threshold_or_context_selection",
+      "publicationAllowed": false,
+      "blockingReasonCodes": [
+        "TRACK_AND_CARRIER_INTERFACE_EVIDENCE_REQUIRED",
+        "WORK_POSITION_SPACING_ACCEPTANCE_POLICY_REQUIRED",
+        "WORK_POSITION_CONTEXT_SELECTION_REQUIRED",
+        "CURRENT_CAD_WORK_POSITION_REPROJECTION_REQUIRED"
+      ]
+    }
+  ],
+  "boundary": "Authenticated review index only. It refines gap classification and never authorizes CAD or publication."
+}

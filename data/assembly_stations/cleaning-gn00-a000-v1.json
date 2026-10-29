@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "cleaning-service-region-rule/v1",
+  "ruleId": "cleaning-gn00-a000-v1",
+  "sourceRole": "CleaningWeighing",
+  "sourceModuleDefinitionId": "project01::GN00",
+  "targetBaseDefinitionId": "project05::A000",
+  "nativeRoleModuleDefinitionId": "project05::N000",
+  "moduleTokens": {
+    "source": "GN00",
+    "targetBase": "A000",
+    "nativeRole": "N000"
+  },
+  "nativeGraphInstances": {
+    "source": "FL9C24N074GN00.001-1",
+    "nativeRole": "FL9C251093N000.001-4"
+  },
+  "serviceSubtrees": [
+    "FJ00",
+    "GN10",
+    "GN20",
+    "GN30"
+  ],
+  "excludedSubtrees": [
+    "GN00-common-support"
+  ],
+  "initialPlacementVariant": 3,
+  "inputs": {
+    "movingOccupancy": "demo/layout_previews/project01_module_occupancy.json",
+    "targetOccupancy": "demo/station_gap_batch_20261028/n000-frame-binding-v1/occupancy.json",
+    "movingNativeGraph": "demo/semantic_ports/project01_GN00_fourth_increment_v1/assembly_plan_effective.json",
+    "targetNativeGraph": "demo/layout_previews/project05_module_mate_graph.json",
+    "datumGraph": "demo/cross_project_substitution/parameterized-datum-placement-v1/validation-queue-20261026-v15/validation-gn00-a000-v1/effective-mate-graph.json",
+    "movingFaces": "demo/cross_project_substitution/cleaning-weighing-base-only-v1/project01_GN00_project03_AG00/gn00-primary-mount-leaf-face-catalog.json",
+    "baseFaces": "demo/semantic_ports/project05_p000_locator_discovery_v1/a000-p000-support-leaf-face-catalog.json"
+  },
+  "transportContext": {
+    "moduleDefinitionId": "project05::D000",
+    "moduleToken": "D000",
+    "occupancyInput": "targetOccupancy",
+    "nativeGraphInput": "targetNativeGraph"
+  },
+  "claimBoundary": "GN00 service-subtree occupancy is screened against the measured native N000-4 service envelopes on A000. These envelopes are Demo proxies, not verified cleaning/weighing performance, collision clearance or fastening authority."
+}

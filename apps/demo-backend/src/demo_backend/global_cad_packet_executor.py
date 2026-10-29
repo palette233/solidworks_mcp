@@ -1197,11 +1197,34 @@ def build_global_cad_packet_execution_plan(
             "required": False,
         }
     if operation == "INSERT_AND_CONNECT" and cumulative_input_kind == "base_module_source":
+        # Released incremental packets have already passed exact mate coverage.
+        # Their executable projection, not an earlier experiment's cumulative
+        # BaseGraphPolicy, defines which context modules this packet needs.
+        # Historical unbound packages keep their explicit step00 contract.
+        use_released_projection = (
+            release_authority.get("status") == "verified"
+            and strategy == "incremental_component_insert"
+        )
+        base_preparation_graph = (
+            execution_graph_view if use_released_projection else effective_graph_value
+        )
         base_context_modules = _base_context_modules(
-            effective_graph_value, target_module_token
+            base_preparation_graph, target_module_token
         )
         if len(base_context_modules) == 1:
             base_context_token, base_context_transform = base_context_modules[0]
+            if use_released_projection:
+                # Projection is not permission to use an arbitrary root file.
+                # The sole required context must be the registered input CAD.
+                projected_modules = base_preparation_graph.get("Modules") or base_preparation_graph.get("modules") or []
+                base_module = next(module for module in projected_modules if str(
+                    module.get("ModuleToken") or module.get("moduleToken") or ""
+                ).strip().upper() == base_context_token)
+                base_path = str(base_module.get("Path") or base_module.get("path") or "").strip()
+                if not base_path or str(_inside(workspace, base_path)).casefold() != str(source.resolve()).casefold():
+                    raise GlobalCadPacketExecutionError(
+                        "发布事务投影的唯一基座与登记的原始输入文件不一致。"
+                    )
             source_preparation = {
                 "mode": "wrap_root_module_as_top_level_context",
                 "required": True,

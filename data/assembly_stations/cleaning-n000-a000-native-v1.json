@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "native-cleaning-station-rule/v1",
+  "ruleId": "cleaning-n000-a000-native-v1",
+  "sourceModuleDefinitionId": "project05::N000",
+  "targetBaseDefinitionId": "project05::A000",
+  "nativeRoleModuleDefinitionId": "project05::N000",
+  "sourceToken": "N000",
+  "baseToken": "A000",
+  "sourcePortId": "N000.frame_installation",
+  "targetPortId": "A000.n000_installation",
+  "nativeInstanceHierarchyPath": "FL9C251093N000.001-4",
+  "baseInstanceHierarchyPath": "FL9C254098A000.001-1",
+  "nativeInstanceSelectionBasis": "The original 251-body capture and released four-relation installation bundle both identify N000.001-4; the duplicate N000.001-3 is not interchangeable evidence.",
+  "expectedGlobalTemplateId": "template/project05/n000-to-a000-nonanchor-driving-v2/a5c9d7e56f",
+  "occupancySource": "complete-leaf-subtree-union",
+  "inputs": {
+    "movingOccupancy": "demo/station_gap_batch_20261028/n000-frame-binding-v1/occupancy.json",
+    "subtreeLabels": "data/assembly_stations/n000-service-subtrees-v1.json",
+    "nativeGraph": "demo/layout_previews/project05_module_mate_graph.json",
+    "referenceReleasePath": "demo/global_assembly_catalog/releases/relation-v27-project05-seven-addon-portable-driving-20261011/release-manifest.json"
+  },
+  "inputSha256": {
+    "movingOccupancy": "449a1838e7c870cb498f99b837cf86d3afbe58aacd33ded11cbaad241a58d9e9",
+    "subtreeLabels": "1fa08b7969109e854ca9a7b4997be8d121fcb6254584d698dca25045c86656a6",
+    "nativeGraph": "5406c5c4223daad340bd2c0a5bc262d77f82689f30ac67fb31a45f4f416c9958",
+    "referenceReleasePath": "15db8ac16ce0cec08e1b68460f9636592223a312404103beeaed3fc573b601cb"
+  },
+  "acceptance": {
+    "groupBoundsToleranceMeters": 0.000001
+  },
+  "coordinateSystem": "A000 installation frame from the original capture; current CAD is reprojected through the actual base and N000 root transforms",
+  "interpretationLimits": [
+    "The immutable four-relation recipe drives placement; the original transform is measurement input only.",
+    "NB00, NC00 and ND00 remain separate envelope proxies. Their detailed actions and internal flexible states are not evaluated.",
+    "Matching the proxies after save/reopen does not verify real cleaning, collision/B-rep, fastening or production readiness."
+  ]
+}

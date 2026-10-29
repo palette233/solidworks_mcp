@@ -1,0 +1,21 @@
+{
+  "source": {
+    "moduleDefinitionId": "project05::P000",
+    "catalogPaths": ["../../demo/role_station_strengthening_20261028/functional-chain-v1/geometry/p000-cup-1.json", "../../demo/role_station_strengthening_20261028/functional-chain-v1/geometry/p000-cup-2.json"],
+    "openingDirectionWorld": [0, 1, 0]
+  },
+  "native": {
+    "moduleDefinitionId": "project02::A300",
+    "catalogPaths": ["../../demo/station_gap_batch_20261028/a300-measurement-v2/cup-1.json", "../../demo/station_gap_batch_20261028/a300-measurement-v2/cup-2.json"],
+    "openingDirectionWorld": [0, 1, 0]
+  },
+  "measurementEvidence": {
+    "nativeWrapperResult": "../../demo/station_gap_batch_20261028/a300-measurement-v2/wrapper-result.json",
+    "nativeReadOnlyState": "../../demo/station_gap_batch_20261028/a300-measurement-v2/read-only-state.json"
+  },
+  "captureWitnesses": {
+    "source": "../../demo/cross_project_substitution/six-role-project03-base-v1/standard/read-only-chain-verification.json",
+    "native": "../../demo/station_gap_batch_20261028/a300-measurement-v2/read-only-state.json"
+  },
+  "boundary": "Local functional geometry measurement only. The fixed A300 wrapper is a capture frame, not a new installation. No center-alignment policy relaxation or CAD execution authorization."
+}

@@ -1,0 +1,110 @@
+{
+  "schemaVersion": "scanner-transport-barcode-target-candidate-catalog/v1",
+  "catalogId": "project05-d000-barcode-target-candidates-v1",
+  "transportModuleDefinitionId": "project05::D000",
+  "transportSourcePath": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\001-给港中文AI训练用资料_20260624\\项目05\\01-项目3D图纸\\1.CITLD254098_L3 Apply epoxy glue to CMC header [4台]\\1.CITLD254098_L3 Apply epoxy glue to CMC header [4台]\\4.FL9C254098D000.001_输送模组\\FL9C254098D000.001.SLDASM",
+  "transportHierarchyPath": "FL9C254098D000.001-1",
+  "candidates": [
+    {
+      "candidateId": "project05-d000-barcode-target-candidates-v1:carrier-barcode",
+      "targetRole": "carrier-barcode",
+      "sourceBeamId": "f000-explicit-beam-b",
+      "sourcePartToken": "FL5C251093F100003.01",
+      "localBarcodeTargetMeters": [
+        -0.4150184467439851,
+        0.23398066795460015,
+        0.14587603193998394
+      ],
+      "referenceTransform": [
+        -1.1102230246251565e-16,
+        -1.7251904479988222e-16,
+        1.0000000000000002,
+        1,
+        2.8858463100247253e-15,
+        5.551115123125783e-17,
+        -2.8881804531320956e-15,
+        1.0000000000000002,
+        2.0174078894700584e-16,
+        0.3250193320453622,
+        0.6781864474056364,
+        0.08151844674398515,
+        1,
+        0,
+        0,
+        0
+      ],
+      "prototypeWorldTargetMetersForAuditOnly": [
+        0.558999999999962,
+        0.824062479345621,
+        -0.3334999999999998
+      ],
+      "installationFrameProxyMeters": {
+        "u": -0.348,
+        "v": 0.5589999999999624,
+        "normal": 0.1680624793456106
+      },
+      "targetKind": "coarse_barcode_target_proxy",
+      "roleEngineeringConfirmed": false,
+      "readyForPointPairRule": false,
+      "requiredNextDecision": "confirm_carrier_vs_product_barcode_target_role_and_axis_sign"
+    },
+    {
+      "candidateId": "project05-d000-barcode-target-candidates-v1:four-product-barcodes",
+      "targetRole": "four-product-barcodes",
+      "sourceBeamId": "f000-explicit-beam-a",
+      "sourcePartToken": "FL5C251093F110002.01",
+      "localBarcodeTargetMeters": [
+        -0.42951844674398504,
+        0.20398066795460076,
+        0.29181355259437364
+      ],
+      "referenceTransform": [
+        -1.1102230246251565e-16,
+        -1.7251904479988222e-16,
+        1.0000000000000002,
+        1,
+        2.8858463100247253e-15,
+        5.551115123125783e-17,
+        -2.8881804531320956e-15,
+        1.0000000000000002,
+        2.0174078894700584e-16,
+        0.3250193320453622,
+        0.6781864474056364,
+        0.08151844674398515,
+        1,
+        0,
+        0,
+        0
+      ],
+      "prototypeWorldTargetMetersForAuditOnly": [
+        0.5289999999999622,
+        0.9700000000000106,
+        -0.34799999999999975
+      ],
+      "installationFrameProxyMeters": {
+        "u": -0.348,
+        "v": 0.5589999999999624,
+        "normal": 0.31400000000000017
+      },
+      "targetKind": "coarse_barcode_target_proxy",
+      "roleEngineeringConfirmed": false,
+      "readyForPointPairRule": false,
+      "requiredNextDecision": "confirm_carrier_vs_product_barcode_target_role_and_axis_sign"
+    }
+  ],
+  "sourceEvidence": [
+    {
+      "path": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\layout_previews\\project05_optical_geometry.json",
+      "sha256": "9fafa41fe1fb33826827d2e40e78effe4daca2273358339eb6b48e661115241c"
+    },
+    {
+      "path": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\layout_previews\\project05_module_mate_graph.json",
+      "sha256": "5406c5c4223daad340bd2c0a5bc262d77f82689f30ac67fb31a45f4f416c9958"
+    }
+  ],
+  "roleSelectionRequired": true,
+  "prototypePoseAllowedAsCadExecutionAuthority": false,
+  "cadStarted": false,
+  "claimBoundary": "Two prototype-derived coarse target proxies are normalized into the D000 module frame. Their carrier/product roles and beam signs remain unconfirmed; this catalog is not a point-pair rule, CAD authority, physical barcode-face registration or measured scan success.",
+  "catalogDigest": "d9881bda70d7889305f3d97ed6216b5ae95b8507dc6d4c23d9e313830038933b"
+}

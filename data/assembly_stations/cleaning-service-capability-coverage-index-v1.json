@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "cleaning-service-capability-coverage-index/v1",
+  "entries": [
+    {
+      "sourceModuleDefinitionId": "project01::GN00",
+      "targetBaseDefinitionId": "project02::A600",
+      "role": "CleaningWeighing",
+      "reportPath": "demo/station_gap_batch_20261028/cleaning-capability-audit-v2/gn00-a600-capability-audit.json",
+      "reportSha256": "92d4dc77e5e6e51d3fe49077bb888fb2c7b2328abac9be73895b8f19086da0f6",
+      "auditDigest": "faa200804077551f0ef07c5daa903fb222bc587508b34bbf4799a771b09ce6bf",
+      "passed": false,
+      "missingCapabilities": [
+        "inspection"
+      ],
+      "classification": "target_service_capability_incomplete",
+      "boundary": "A700+A300+A200 provide cleaning, weighing, waste collection and vision alignment. Existing semantics do not prove that vision_alignment is equivalent to GN00 inspection."
+    },
+    {
+      "sourceModuleDefinitionId": "project03::AG00",
+      "targetBaseDefinitionId": "project02::A600",
+      "role": "CleaningWeighing",
+      "reportPath": "demo/station_gap_batch_20261028/cleaning-capability-audit-v2/ag00-a600-capability-audit.json",
+      "reportSha256": "86b6f04b2cff43dbe6024f0e6f5fc7da0a7c9d090ad009854ed91c6c5332fbaa",
+      "auditDigest": "b2d0a2f392b078f2b23c044cd0e233b8c758d44aafe0c16cff43b9cad8048236",
+      "passed": false,
+      "missingCapabilities": [
+        "inspection"
+      ],
+      "classification": "target_service_capability_incomplete",
+      "boundary": "A700+A300+A200 provide cleaning, weighing, waste collection and vision alignment. Existing semantics do not prove that vision_alignment is equivalent to AG00 inspection."
+    },
+    {
+      "sourceModuleDefinitionId": "project01::GN00",
+      "targetBaseDefinitionId": "project05::A000",
+      "role": "CleaningWeighing",
+      "reportPath": "demo/station_gap_batch_20261028/cleaning-capability-audit-v1/gn00-a000-capability-audit.json",
+      "reportSha256": "58021c9c2b757ec7aece9865297d48aded60abb416814f9ca11670fff3f15a64",
+      "auditDigest": "9257d1bef44eee11c0657bdf6b277927571218410ad3f219e56b59d30b030c6f",
+      "passed": false,
+      "missingCapabilities": [
+        "inspection",
+        "waste_collection",
+        "weighing"
+      ],
+      "classification": "target_service_capability_incomplete",
+      "boundary": "N000 provides a cleaning-only native region. It does not by itself replace the weighing, waste-collection and inspection capabilities of GN00."
+    },
+    {
+      "sourceModuleDefinitionId": "project03::AG00",
+      "targetBaseDefinitionId": "project05::A000",
+      "role": "CleaningWeighing",
+      "reportPath": "demo/station_gap_batch_20261028/cleaning-capability-audit-v1/ag00-a000-capability-audit.json",
+      "reportSha256": "4e326ab6ec28d117bb9e9fb0e3d59fa43842aae0b910f8c437f67594c731243b",
+      "auditDigest": "3ae820ec433a44dea54a25334eda6a9a2f7ca1e0495b7a9c975120d5dff055d3",
+      "passed": false,
+      "missingCapabilities": [
+        "inspection",
+        "waste_collection",
+        "weighing"
+      ],
+      "classification": "target_service_capability_incomplete",
+      "boundary": "N000 provides a cleaning-only native region. It does not by itself replace the weighing, waste-collection and inspection capabilities of AG00."
+    }
+  ]
+}

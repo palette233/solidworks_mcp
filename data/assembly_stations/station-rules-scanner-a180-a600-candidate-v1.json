@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "target-station-rule-registry/v1",
+  "scopePath": "data/assembly_stations/scope-v1.json",
+  "rules": [
+    {
+      "ruleId": "scanner-a180-a800-a600-point-pair-v1",
+      "role": "Scanner",
+      "sourceModuleDefinitionId": "project02::A180",
+      "targetBaseDefinitionId": "project02::A600",
+      "evaluator": {
+        "kind": "scanner_point_pair",
+        "inputPath": "data/assembly_stations/scanner-a180-a800-a600-point-pair-v1.json"
+      },
+      "placement": {
+        "strategy": "released_recipe"
+      },
+      "dependencies": [
+        {
+          "role": "Transport",
+          "moduleDefinitionId": "project02::A800"
+        }
+      ],
+      "requiresPrototypeEstimateAuthorization": true,
+      "validation": {
+        "status": "candidate"
+      }
+    }
+  ]
+}

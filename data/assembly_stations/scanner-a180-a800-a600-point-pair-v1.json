@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "scanner-local-point-pair-rule/v1",
+  "ruleId": "scanner-a180-a800-a600-point-pair-v1",
+  "sourceModuleDefinitionId": "project02::A180",
+  "transportModuleDefinitionId": "project02::A800",
+  "targetBaseDefinitionId": "project02::A600",
+  "inputs": {
+    "measurementPath": "demo/layout_previews/project02_scanner_barcode_points.json"
+  },
+  "componentSourcePaths": {
+    "scanner": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\001-给港中文AI训练用资料_20260624\\项目02\\01-项目3D图纸\\FL9A24D062A000.001\\FL9A24D062A180.001.SLDASM",
+    "transport": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\001-给港中文AI训练用资料_20260624\\项目02\\01-项目3D图纸\\FL9A24D062A000.001\\FL9A24D062A800.001.SLDASM",
+    "targetBase": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\001-给港中文AI训练用资料_20260624\\项目02\\01-项目3D图纸\\FL9A24D062A000.001\\FL9A24D062A600.001.SLDASM"
+  },
+  "inputSha256": {
+    "measurementPath": "f97fced19bbff9c4c326619bef409222c5c0bb0274754c038a2ae78b49abc6e8"
+  },
+  "workingDistanceRangeEvidence": {
+    "minimumMeters": 0.07,
+    "maximumMeters": 1.0,
+    "authority": "KEYENCE China official SR-X100 specifications; reused only because the measured Project02 device is identified as KEYENCE SR-X100",
+    "sourceUrl": "https://www.keyence.com.cn/products/barcode/barcode-readers/sr-x/models/sr-x100/",
+    "retrievedDate": "2026-10-12"
+  },
+  "crossTrackToleranceMeters": 0.005,
+  "interpretationLimits": [
+    "A180 optical origin is inferred from symmetric illumination-window faces, not a directly registered central lens face.",
+    "A800 target is a directly measured simulated-QR CAD face; it is still a process proxy rather than field scan success.",
+    "The current saved scanner, transport and base poses are recomputed; no prototype top-level pose drives placement."
+  ]
+}

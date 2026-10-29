@@ -1,0 +1,10 @@
+{
+  "chainId": "negative-missing-a800-aa00-station-v1",
+  "baseRequirement": "建立已确认的基座。",
+  "baseSelection": {"projectId": "project03", "moduleToken": "AA00", "confirmed": true},
+  "stationRegistryPath": "data/assembly_stations/station-rules-v11.json",
+  "allowPrototypeEstimate": true,
+  "placementValidationMode": "target_role_station",
+  "steps": [{"stageId": "transport", "requirement": "在基座上添加已确认的传输模组。",
+    "moduleSelection": {"projectId": "project02", "moduleToken": "A800", "confirmed": true}}]
+}

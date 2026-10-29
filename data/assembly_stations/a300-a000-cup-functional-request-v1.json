@@ -1,0 +1,59 @@
+{
+  "source": {
+    "moduleDefinitionId": "project02::A300",
+    "catalogPaths": [
+      "../../demo/station_gap_batch_20261028/a300-measurement-v2/cup-1.json",
+      "../../demo/station_gap_batch_20261028/a300-measurement-v2/cup-2.json"
+    ],
+    "openingDirectionWorld": [0, 1, 0]
+  },
+  "native": {
+    "moduleDefinitionId": "project05::P000",
+    "catalogPaths": [
+      "../../demo/role_station_strengthening_20261028/functional-chain-v1/geometry/p000-cup-1.json",
+      "../../demo/role_station_strengthening_20261028/functional-chain-v1/geometry/p000-cup-2.json"
+    ],
+    "openingDirectionWorld": [0, 1, 0]
+  },
+  "measurementEvidence": {
+    "sourceSingleModuleWrapper": "../../demo/station_gap_batch_20261028/a300-measurement-v2/wrapper-result.json",
+    "existingPairRelease": "../../demo/cross_project_substitution/parameterized-datum-placement-v1/validation-queue-20261026-v46/validation-a300-a000-v1/pair-release.json",
+    "nativeStationPlan": "../../demo/station_gap_batch_20261028/p000-a000-cad-v1/station-preparation/cup/station-plan.json"
+  },
+  "captureWitnesses": {
+    "source": "../../demo/station_gap_batch_20261028/a300-measurement-v2/read-only-state.json",
+    "native": "../../demo/cross_project_substitution/six-role-project03-base-v1/standard/read-only-chain-verification.json"
+  },
+  "stationSuggestion": {
+    "existingMateGraphPath": "../../demo/cross_project_substitution/parameterized-datum-placement-v1/validation-queue-20261026-v46/validation-a300-a000-v1/effective-mate-graph.json",
+    "sourceDatumCapturePath": "../../demo/cross_project_substitution/parameterized-datum-placement-v1/validation-queue-20261026-v46/validation-a300-a000-v1/selected-face-endpoint-catalog.json",
+    "nativeGraphPath": "../../demo/station_gap_batch_20261028/p000-a000-cad-v1/jobs/project05-job-094082b96cbb/packet-runs/packet-001-attempt-01/execution-effective-mate-graph.json",
+    "observedStatePath": "../../demo/station_gap_batch_20261028/a300-a000-station-v1/reopened-state.json",
+    "nativeObservedStatePath": "../../demo/station_gap_batch_20261028/p000-a000-cad-v1/cup/station-check-attempts/attempt-001/reopened-state.json",
+    "independentGeometryCaptureRoles": ["source", "native"],
+    "sourceToken": "A300",
+    "baseToken": "A000",
+    "sourceDatumModuleToken": "A300",
+    "nativeGraphModuleToken": "P000",
+    "nativeGraphBaseToken": "A000",
+    "mappingByLeaf": {
+      "C000437564-1": "FL00002-00549-1",
+      "C000437564-2": "FL00002-00549-2"
+    },
+    "parameterMateNames": {
+      "longitudinal": "MCP_IFACE_316D9CC8_LONGITUDINAL",
+      "lateral": "MCP_IFACE_316D9CC8_LATERAL"
+    },
+    "alignmentPolicy": {
+      "mode": "native_points_inside_source_openings",
+      "radialMarginMeters": 0.005
+    }
+  },
+  "publishedPoseScreeningTargets": [
+    {
+      "moduleToken": "A000",
+      "moduleDefinitionId": "project05::A000"
+    }
+  ],
+  "boundary": "Project05 P000 cup centers are the native A000 target discharge points. A300 and P000 have different two-cup spacing, so one planar translation aligns the cluster midpoint and each P000 target point must remain inside the corresponding A300 opening with 5 mm radial margin. The request still requires an independent read-only observation of the already published A300 to A000 output; it does not validate real dispensing, fastening, collision/B-rep or production readiness."
+}

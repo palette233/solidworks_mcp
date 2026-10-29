@@ -160,8 +160,14 @@ def build_project05_p000_to_project02_a600_datum_candidate(
     p000_graph: dict[str, Any],
     p000_semantic_catalog: dict[str, Any],
     p000_endpoint_catalog: dict[str, Any],
+    longitudinal_distance_meters: float = 0.08,
+    lateral_distance_meters: float = 0.39,
 ) -> dict[str, Any]:
     """Return an effective graph and audit report for a three-plane candidate."""
+
+    for value in (longitudinal_distance_meters, lateral_distance_meters):
+        if isinstance(value, bool) or not math.isfinite(value) or value < 0:
+            raise CrossProjectWasteCupDatumError("Position distances must be finite non-negative metres.")
 
     a600_port = _port(a300_semantic_catalog, "A600.a300_installation")
     p000_port = _port(p000_semantic_catalog, "P000.frame_installation")
@@ -195,7 +201,7 @@ def build_project05_p000_to_project02_a600_datum_candidate(
             "swMateAlignALIGNED",
             p000_longitudinal,
             a600_by_role["mate_1_context_1"],
-            distance=0.08,
+            distance=longitudinal_distance_meters,
         ),
         _mate(
             "P000_A600_DATUM_DISTANCE_2",
@@ -205,7 +211,7 @@ def build_project05_p000_to_project02_a600_datum_candidate(
             "swMateAlignALIGNED",
             p000_lateral,
             a600_by_role["mate_2_context_1"],
-            distance=0.39,
+            distance=lateral_distance_meters,
         ),
         _mate(
             "P000_A600_DATUM_SUPPORT",

@@ -1,0 +1,390 @@
+{
+  "schemaVersion": "station-measurement-reuse-index/v1",
+  "entries": [
+    {
+      "targetBaseDefinitionId": "project02::A600",
+      "role": "WasteCup",
+      "nativeRoleModuleDefinitionId": "project02::A300",
+      "paths": [
+        "demo/role_station_strengthening_20261028/wastecup/p000-a600-target-station-v3.json",
+        "demo/semantic_ports/project02_service_installations_v1/A300/face_endpoint_catalog.json",
+        "data/assembly_stations/a300-p000-cup-measurement-v2.json",
+        "demo/station_gap_batch_20261028/a300-measurement-v2/cup-function-points-bound.json"
+      ],
+      "available": [
+        "native_signed_installation_datums",
+        "target_reference_frame",
+        "two_A300_cup_mouth_points_and_opening_directions",
+        "independent_single_module_capture_binding"
+      ],
+      "stillRequired": [
+        "explicit_source_to_target_cup_function_policy_for_90mm_vs_130mm_spacing"
+      ],
+      "acquisitionStatus": "captured_in_isolated_single_module_measurement_wrapper",
+      "boundary": "A300 cup spacing is 90 mm and P000 cup spacing is 130 mm. Strict two-center coincidence is impossible by rigid translation; cup-interior targeting requires an explicit separate policy."
+    },
+    {
+      "targetBaseDefinitionId": "project02::A600",
+      "role": "CleaningWeighing",
+      "nativeRoleModuleDefinitionId": "project02::A700",
+      "paths": [
+        "demo/goal_role_station_and_matched_slot_cases_20261028/n000-a600-a700-role-station-audit.json"
+      ],
+      "available": [
+        "native_role_envelope_in_A600_installation_frame",
+        "N000_replacement_footprint_measurement"
+      ],
+      "stillRequired": [
+        "static_target_service_station_datum_binding",
+        "source_service_function_region_mapping"
+      ],
+      "boundary": "Reuse outer role region only; no A700 internal mechanism work. Envelope fit alone does not authorize placement."
+    },
+    {
+      "targetBaseDefinitionId": "project05::A000",
+      "role": "WasteCup",
+      "nativeRoleModuleDefinitionId": "project05::P000",
+      "paths": [
+        "data/assembly_stations/cup-p000-a000-native-v1.json",
+        "demo/layout_previews/project05_module_mate_graph.json",
+        "demo/role_station_strengthening_20261028/functional-chain-v1/geometry/p000-cup-1.json",
+        "demo/role_station_strengthening_20261028/functional-chain-v1/geometry/p000-cup-2.json",
+        "demo/station_gap_batch_20261028/p000-a000-cad-v1/cup/station-check-attempts/attempt-001/postcheck.json"
+      ],
+      "available": [
+        "explicit_native_P000_instance_2",
+        "two_rigid_analytic_cup_mouths_in_module_local_frame",
+        "target_mouths_in_A000_local_frame",
+        "new_nonprototype_CAD_saved_reopen_projection_postcheck"
+      ],
+      "stillRequired": [
+        "explicit_function_point_correspondence_for_different_cup_models"
+      ],
+      "boundary": "P000-to-A000 validated through four active mates, not fixed placement. Other cup models still need explicit mapping and fresh CAD; real dispensing and fastening remain unknown."
+    },
+    {
+      "targetBaseDefinitionId": "project05::A000",
+      "role": "CleaningWeighing",
+      "nativeRoleModuleDefinitionId": "project05::N000",
+      "paths": [
+        "demo/station_gap_batch_20261028/n000-frame-binding-v1/occupancy.json",
+        "demo/layout_previews/project05_n000_world_leaf_envelopes.json",
+        "demo/layout_previews/project05_module_mate_graph.json",
+        "data/assembly_stations/n000-service-subtrees-v1.json",
+        "demo/global_assembly_catalog/v1/combination-v1-preview/project05-nonanchor-driving-v7/N000/assembly_plan_effective.json",
+        "demo/global_assembly_catalog/releases/relation-v61-project05-complete-seven-addon-driving-20261014/release-manifest.json"
+      ],
+      "available": [
+        "native_N000_complete_251_leaf_body_occupancy",
+        "original_capture_to_installation_frame_binding",
+        "explicit_native_N000_instance_4",
+        "NA00_external_installation_support_group",
+        "NB00_NC00_ND00_separate_service_proxy_groups",
+        "released_nonprototype_four_relation_static_installation_bundle"
+      ],
+      "stillRequired": [
+        "bind_service_proxy_to_released_installation_rule",
+        "current_saved_CAD_station_postcheck"
+      ],
+      "boundary": "The three service groups are measured envelopes, not one cleaning point. Detailed actions, real cleaning performance and collision remain unverified."
+    },
+    {
+      "targetBaseDefinitionId": "project01::JJ00",
+      "role": "Scanner",
+      "nativeRoleModuleDefinitionId": "project01::SM00",
+      "paths": [
+        "demo/layout_previews/project01_scanner_geometry.json",
+        "demo/layout_previews/project01_module_mate_graph.json",
+        "data/assembly_stations/scanner-sm00-ss00-jj00-v1.json"
+      ],
+      "available": [
+        "two_SM00_optical_beam_proxies",
+        "carrier_and_product_barcode_target_proxies_in_installation_frame",
+        "native_JJ00_SM00_module_graph",
+        "existing_SM00_SS00_JJ00_scanner_target_rule"
+      ],
+      "stillRequired": [
+        "bind_exact_selected_transport_instance_and_pose_for_each_candidate",
+        "bind_each_replacement_scanner_local_optical_frame_to_target_proxy",
+        "recompute_current_context_working_distance_and_axis_sign"
+      ],
+      "boundary": "Prototype beam endpoints are coarse barcode proxies, not physical printed barcode faces or measured scan success."
+    },
+    {
+      "targetBaseDefinitionId": "project02::A600",
+      "role": "Scanner",
+      "nativeRoleModuleDefinitionId": "project02::A180",
+      "paths": [
+        "demo/layout_previews/project02_scanner_barcode_points.json",
+        "demo/layout_previews/project02_scanner_optical_face_review.json",
+        "demo/global_assembly_contexts/checkpoint-graphs/project02-full-static-graph-v1/project02-job-635438e6d96f-4e686e861b08.mate-graph.json"
+      ],
+      "available": [
+        "A180_inferred_optical_origin_in_module_frame",
+        "A800_direct_barcode_face_point_and_normal",
+        "persistent_A800_barcode_face_reference",
+        "native_A600_A180_A800_module_graph"
+      ],
+      "stillRequired": [
+        "bind_exact_selected_transport_instance_and_pose_for_each_candidate",
+        "bind_replacement_scanner_local_optical_frame_to_A800_barcode_target",
+        "resolve_current_context_optical_axis_sign_and_working_distance"
+      ],
+      "boundary": "A180 optical origin is inferred from symmetric illumination windows; it is not a directly registered central lens face."
+    },
+    {
+      "targetBaseDefinitionId": "project03::AA00",
+      "role": "Scanner",
+      "nativeRoleModuleDefinitionId": "project03::AI00",
+      "paths": [
+        "demo/layout_previews/project03_scanner_geometry.json",
+        "demo/layout_previews/project03_module_mate_graph.json",
+        "data/assembly_stations/scanner-ai00-ss00-aa00-v1.json"
+      ],
+      "available": [
+        "AI00_explicit_100mm_beam_proxy",
+        "AI00_product_barcode_endpoint_proxy",
+        "native_AA00_AI00_module_graph",
+        "existing_AI00_SS00_AA00_scanner_target_rule"
+      ],
+      "stillRequired": [
+        "bind_exact_selected_transport_instance_and_pose_for_each_candidate",
+        "bind_replacement_scanner_local_optical_frame_to_selected_transport_barcode_target",
+        "resolve_carrier_identity_device_role_if_requested"
+      ],
+      "boundary": "The endpoint is a modeled product target proxy. The separate carrier identity head role remains only medium confidence."
+    },
+    {
+      "targetBaseDefinitionId": "project05::A000",
+      "role": "Scanner",
+      "nativeRoleModuleDefinitionId": "project05::F000",
+      "paths": [
+        "demo/layout_previews/project05_optical_geometry.json",
+        "demo/layout_previews/project05_module_mate_graph.json"
+      ],
+      "available": [
+        "F000_two_explicit_beam_proxies",
+        "carrier_and_product_target_proxies_in_installation_frame",
+        "native_A000_F000_module_graph",
+        "coarse_scan_station_center"
+      ],
+      "stillRequired": [
+        "confirm_or_explicitly_authorize_beam_role_mapping",
+        "bind_exact_selected_D000_transport_instance_and_pose",
+        "bind_replacement_scanner_local_optical_frame_to_selected_target",
+        "confirm_current_context_working_distance"
+      ],
+      "boundary": "Beam roles and barcode faces are not engineering-confirmed; this is reusable coarse geometry only."
+    },
+    {
+      "targetBaseDefinitionId": "project01::JJ00",
+      "role": "CleaningWeighing",
+      "nativeRoleModuleDefinitionId": "project01::GN00",
+      "paths": [
+        "demo/cross_project_substitution/parameterized-datum-placement-v1/engineering-decision-review-20261026-v75-zero-pending/native-role-station-evidence.json",
+        "demo/cross_project_substitution/cleaning-weighing-base-only-v1/project01_GN00_project03_AG00/gn00-primary-mount-leaf-face-catalog.json",
+        "demo/cross_project_substitution/scanner-slot-discovery-v1/project01_JJ00_project03_AI00/jj00-scanner-support-leaf-face-catalog.json",
+        "demo/global_assembly_catalog/releases/relation-v65-project01-gn00-base-only-two-hole-driving-20261022/release-manifest.json"
+      ],
+      "available": [
+        "reviewed_native_role_station_signed_parameters",
+        "complete_three_plane_datum_contracts",
+        "immutable_native_relation_release",
+        "shared_source_assembly_measurement_frame"
+      ],
+      "stillRequired": [
+        "bind_source_service_subtrees_to_target_service_station",
+        "verify_target_capability_coverage"
+      ],
+      "nativeStationParametersMeters": {
+        "longitudinal": 0.354,
+        "lateral": 0.2535,
+        "supportGap": 0.0
+      },
+      "nativeStationEvidenceDigest": "c3fc803628b00b139e4a3cfa4720e7b142e6925b344f17aab9de158cccc2c8a8",
+      "acquisitionStatus": "reviewed_prototype_native_station_measurement",
+      "boundary": "Review-only native station measurement. It may seed an exact cross-project candidate after semantic binding, but it is not a prototype-pose execution authority or CAD validation."
+    },
+    {
+      "targetBaseDefinitionId": "project03::AA00",
+      "role": "CleaningWeighing",
+      "nativeRoleModuleDefinitionId": "project03::AG00",
+      "paths": [
+        "demo/cross_project_substitution/parameterized-datum-placement-v1/engineering-decision-review-20261026-v75-zero-pending/native-role-station-evidence.json",
+        "demo/cross_project_substitution/parameterized-datum-placement-v1/ag00-reference-leaf-face-catalog.json",
+        "demo/cross_project_substitution/scanner-slot-discovery-v1/project03_AA00_project01_SM00/aa00-scanner-support-leaf-face-catalog.json",
+        "demo/global_assembly_catalog/releases/relation-v54-project03-ag00-three-datum-driving-20261014/release-manifest.json"
+      ],
+      "available": [
+        "reviewed_native_role_station_signed_parameters",
+        "complete_three_plane_datum_contracts",
+        "immutable_native_relation_release",
+        "shared_source_assembly_measurement_frame"
+      ],
+      "stillRequired": [
+        "bind_source_service_subtrees_to_target_service_station",
+        "verify_target_capability_coverage"
+      ],
+      "nativeStationParametersMeters": {
+        "longitudinal": 0.54,
+        "lateral": 0.2385,
+        "supportGap": 0.0
+      },
+      "nativeStationEvidenceDigest": "a0c873a282be9dba576c1d218b77db244b004a01db53073a6d4c272a16a5f2ef",
+      "acquisitionStatus": "reviewed_prototype_native_station_measurement",
+      "boundary": "Review-only native station measurement. It may seed an exact cross-project candidate after semantic binding, but it is not a prototype-pose execution authority or CAD validation."
+    },
+    {
+      "targetBaseDefinitionId": "project01::JJ00",
+      "role": "Transport",
+      "nativeRoleModuleDefinitionId": "project01::SS00",
+      "paths": [
+        "demo/cross_project_substitution/parameterized-datum-placement-v1/engineering-decision-review-20261026-v75-zero-pending/native-role-station-evidence.json",
+        "demo/cross_project_substitution/transport-three-plane-port-acquisition-v1/project01-ss00-static-mount-leaf-face-catalog.json",
+        "demo/cross_project_substitution/scanner-slot-discovery-v1/project01_JJ00_project03_AI00/jj00-scanner-support-leaf-face-catalog.json",
+        "demo/global_assembly_catalog/releases/relation-v50-project01-jj00-transport-scanner-calibration-driving-20261014/release-manifest.json"
+      ],
+      "available": [
+        "reviewed_native_role_station_signed_parameters",
+        "complete_three_plane_datum_contracts",
+        "immutable_native_relation_release",
+        "shared_source_assembly_measurement_frame"
+      ],
+      "stillRequired": [
+        "bind_source_track_and_work_area_to_target_native_transport_station",
+        "recompute_scanner_target_association_for_selected_transport_instance"
+      ],
+      "nativeStationParametersMeters": {
+        "longitudinal": 0.101,
+        "lateral": 0.0185,
+        "supportGap": 0.0
+      },
+      "nativeStationEvidenceDigest": "2c531d05a1c10ebf6745cfd7f8ce5cb09d91d6f02f9d20c1d7e3be8f364f102c",
+      "acquisitionStatus": "reviewed_prototype_native_station_measurement",
+      "boundary": "Review-only native station measurement. It may seed an exact cross-project candidate after semantic binding, but it is not a prototype-pose execution authority or CAD validation."
+    },
+    {
+      "targetBaseDefinitionId": "project02::A600",
+      "role": "Transport",
+      "nativeRoleModuleDefinitionId": "project02::A800",
+      "paths": [
+        "demo/cross_project_substitution/parameterized-datum-placement-v1/engineering-decision-review-20261026-v75-zero-pending/native-role-station-evidence.json",
+        "demo/global_assembly_catalog/v1/combination-v1-preview/project02-a800-a180-driving-v1/A800/face_endpoint_catalog.json",
+        "demo/semantic_ports/project02_service_installations_v1/A300/face_endpoint_catalog.json",
+        "demo/global_assembly_catalog/releases/relation-v30-project02-a800-a180-portable-driving-20261011/release-manifest.json"
+      ],
+      "available": [
+        "reviewed_native_role_station_signed_parameters",
+        "complete_three_plane_datum_contracts",
+        "immutable_native_relation_release",
+        "shared_source_assembly_measurement_frame"
+      ],
+      "stillRequired": [
+        "bind_source_track_and_work_area_to_target_native_transport_station",
+        "recompute_scanner_target_association_for_selected_transport_instance"
+      ],
+      "nativeStationParametersMeters": {
+        "longitudinal": 0.3095,
+        "lateral": 1.59,
+        "supportGap": 0.0
+      },
+      "nativeStationEvidenceDigest": "afa6ba9f0d7a14ea82793ca83e6f97eff04c306198d3b4b0a376498401eb0c9a",
+      "acquisitionStatus": "reviewed_prototype_native_station_measurement",
+      "boundary": "Review-only native station measurement. It may seed an exact cross-project candidate after semantic binding, but it is not a prototype-pose execution authority or CAD validation."
+    },
+    {
+      "targetBaseDefinitionId": "project03::AA00",
+      "role": "Transport",
+      "nativeRoleModuleDefinitionId": "project03::AE00",
+      "paths": [
+        "demo/cross_project_substitution/parameterized-datum-placement-v1/engineering-decision-review-20261026-v75-zero-pending/native-role-station-evidence.json",
+        "demo/cross_project_substitution/transport-three-plane-port-acquisition-v1/project03-ae00-static-mount-leaf-face-catalog.json",
+        "demo/cross_project_substitution/scanner-slot-discovery-v1/project03_AA00_project01_SM00/aa00-scanner-support-leaf-face-catalog.json",
+        "demo/global_assembly_catalog/releases/relation-v48-project03-aa00-transport-scanner-calibration-driving-20261012/release-manifest.json"
+      ],
+      "available": [
+        "reviewed_native_role_station_signed_parameters",
+        "complete_three_plane_datum_contracts",
+        "immutable_native_relation_release",
+        "shared_source_assembly_measurement_frame"
+      ],
+      "stillRequired": [
+        "bind_source_track_and_work_area_to_target_native_transport_station",
+        "recompute_scanner_target_association_for_selected_transport_instance"
+      ],
+      "nativeStationParametersMeters": {
+        "longitudinal": 0.101,
+        "lateral": 0.0185,
+        "supportGap": 0.0
+      },
+      "nativeStationEvidenceDigest": "d68ef914cc2a0391192f94778332955452675f9ba1f54fe8f203d49fd729faef",
+      "acquisitionStatus": "reviewed_prototype_native_station_measurement",
+      "boundary": "Review-only native station measurement. It may seed an exact cross-project candidate after semantic binding, but it is not a prototype-pose execution authority or CAD validation."
+    },
+    {
+      "targetBaseDefinitionId": "project05::A000",
+      "role": "Transport",
+      "nativeRoleModuleDefinitionId": "project05::D000",
+      "paths": [
+        "demo/cross_project_substitution/parameterized-datum-placement-v1/engineering-decision-review-20261026-v75-zero-pending/native-role-station-evidence.json",
+        "demo/global_assembly_catalog/coverage-v2/d000-deterministic-candidate-v1/face_endpoint_catalog.json",
+        "demo/semantic_ports/project05_p000_locator_discovery_v1/a000-p000-support-leaf-face-catalog.json",
+        "demo/global_assembly_catalog/releases/relation-v60-project05-d000-deterministic-driving-20261014/release-manifest.json"
+      ],
+      "available": [
+        "reviewed_native_role_station_signed_parameters",
+        "complete_three_plane_datum_contracts",
+        "immutable_native_relation_release",
+        "shared_source_assembly_measurement_frame"
+      ],
+      "stillRequired": [
+        "bind_source_track_and_work_area_to_target_native_transport_station",
+        "recompute_scanner_target_association_for_selected_transport_instance"
+      ],
+      "nativeStationParametersMeters": {
+        "longitudinal": 0.092,
+        "lateral": 1.3635,
+        "supportGap": 0.0
+      },
+      "nativeStationEvidenceDigest": "939f81dd2506618da8f38768d4166a7c71c6ed14d4d4853d8a4f5177b47bad1e",
+      "acquisitionStatus": "reviewed_prototype_native_station_measurement",
+      "boundary": "Review-only native station measurement. It may seed an exact cross-project candidate after semantic binding, but it is not a prototype-pose execution authority or CAD validation."
+    },
+    {
+      "targetBaseDefinitionId": "project02::A600",
+      "role": "Calibration",
+      "nativeRoleModuleDefinitionId": "project02::A500",
+      "paths": [
+        "demo/cross_project_substitution/parameterized-datum-placement-v1/engineering-decision-review-20261026-v75-zero-pending/native-role-station-evidence.json",
+        "demo/global_assembly_catalog/v1/combination-v1-preview/project02-a800-a180-a500-driving-v2/A500/face_endpoint_catalog.json",
+        "demo/semantic_ports/project02_service_installations_v1/A300/face_endpoint_catalog.json",
+        "demo/global_assembly_catalog/releases/relation-v31-project02-a800-a180-a500-portable-driving-20261011/release-manifest.json"
+      ],
+      "available": [
+        "reviewed_native_role_station_signed_parameters",
+        "complete_three_plane_datum_contracts",
+        "immutable_native_relation_release",
+        "shared_source_assembly_measurement_frame"
+      ],
+      "stillRequired": [
+        "bind_source_calibration_function_point_to_target_native_station"
+      ],
+      "nativeStationParametersMeters": {
+        "longitudinal": 0.09,
+        "lateral": 0.65,
+        "supportGap": 0.018
+      },
+      "nativeStationEvidenceDigest": "2139e804fa69a8f3fbe04cf2ae8bfad5c63cc6d8a758514365d5d116bd5d2073",
+      "acquisitionStatus": "reviewed_prototype_native_station_measurement",
+      "boundary": "Review-only native station measurement. It may seed an exact cross-project candidate after semantic binding, but it is not a prototype-pose execution authority or CAD validation."
+    }
+  ],
+  "generation": {
+    "baseIndexPath": "data/assembly_stations/measurement-reuse-index-v4.json",
+    "baseIndexSha256": "e10b22c65dc78b932706593dd5e3d68e9069aef840fd2cde6b716def18d24449",
+    "nativeEvidencePath": "demo/cross_project_substitution/parameterized-datum-placement-v1/engineering-decision-review-20261026-v75-zero-pending/native-role-station-evidence.json",
+    "nativeEvidenceSha256": "2a7e681728a481d9774e0725e3b270c34f921e19c9e79db8fd2f38976ed224dd",
+    "addedNativeStationCount": 7,
+    "cadExecuted": false
+  }
+}

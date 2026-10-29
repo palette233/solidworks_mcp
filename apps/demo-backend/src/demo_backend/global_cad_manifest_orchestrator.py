@@ -45,6 +45,9 @@ from .semantic_assembly_jobs import (
 MANIFEST_JOB_PLAN_SCHEMA = "global-cad-manifest-job-plan/v1"
 STEP_EVIDENCE_SCHEMA = "global-cad-manifest-step-evidence/v1"
 COMMAND_AUDIT_BINDING_SCHEMA = "global-manifest-job-command-audit-binding/v1"
+# SolidWorks SaveAs still observes a legacy Windows path limit even when Python
+# can create longer paths. Reserve room for the CAD application's save helpers.
+CAD_OUTPUT_PATH_MAX_CHARS = 240
 
 
 class GlobalCadManifestOrchestrationError(AssemblyJobError):
@@ -689,6 +692,27 @@ def run_manifest_job(
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
 
 
+def _cad_output_path(run_dir: Path, context_id: str, packet_id: str) -> Path:
+    """Keep legacy readable names when safe, otherwise shorten deterministically."""
+    run_dir = run_dir.resolve()
+    output = run_dir / f"{context_id}-{packet_id}.SLDASM"
+
+    def windows_length(path: Path) -> int:
+        return len(str(path).encode("utf-16-le")) // 2
+
+    if windows_length(output) <= CAD_OUTPUT_PATH_MAX_CHARS:
+        return output
+    key = _digest({"contextId": context_id, "packetId": packet_id})[:12]
+    output = run_dir / f"asm-{key}.SLDASM"
+    if windows_length(output) > CAD_OUTPUT_PATH_MAX_CHARS:
+        raise GlobalCadManifestOrchestrationError(
+            "CAD输出目录过长，缩短文件名后仍超过"
+            f"{CAD_OUTPUT_PATH_MAX_CHARS}字符预算；请使用更短的任务目录。"
+            "已在启动CAD前阻断，未覆盖任何装配体。"
+        )
+    return output
+
+
 def manifest_cad_step_runner(
     workspace: Path,
     store: DurableAssemblyJobStore,
@@ -783,7 +807,7 @@ def manifest_cad_step_runner(
 
         attempt = int(step.get("attemptCount") or 1)
         run_dir = store._dir(str(job["jobId"])) / "packet-runs" / f"{packet_id}-attempt-{attempt:02d}"
-        output = run_dir / f"{plan.get('contextId')}-{packet_id}.SLDASM"
+        output = _cad_output_path(run_dir, str(plan.get("contextId") or ""), packet_id)
         command = [
             sys.executable,
             str(workspace / "scripts" / "run_global_cad_transaction_packet.py"),

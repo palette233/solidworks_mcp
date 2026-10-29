@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "bounded-role-station-config/v1",
+  "ruleId": "cleaning-n000-a600-bounded-role-station-v1",
+  "sourceModuleDefinitionId": "project05::N000",
+  "targetBaseDefinitionId": "project02::A600",
+  "role": "CleaningWeighing",
+  "selectionStrategy": "interval_center",
+  "roleStationAuditPath": "demo/goal_role_station_and_matched_slot_cases_20261028/n000-a600-a700-role-station-audit.json",
+  "roleStationAuditSha256": "e047af70483f0bfe40042dfd496b9f2a702c6c901bee712ff6cfea608361b798",
+  "referenceEndpointReleasePath": "demo/global_assembly_catalog/releases/relation-datum-project05-n000-project02-a600-f7ef830c8b4e/release-manifest.json",
+  "replacesSafetyReasonCode": "TRANSPORT_OCCUPANCY_REGION_OVERLAP",
+  "notes": "Reuse the registered N000/A600 three-plane endpoint bundle only. Derive a new datum at the center of the bounded A700 native role station; do not reuse the revoked 465/712.5 mm station or its execution authority."
+}

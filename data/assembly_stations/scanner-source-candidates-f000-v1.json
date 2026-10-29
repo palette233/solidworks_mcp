@@ -1,0 +1,416 @@
+{
+  "schemaVersion": "scanner-optical-source-candidate-catalog/v1",
+  "catalogId": "project05-f000-optical-source-candidates-v1",
+  "scannerModuleDefinitionId": "project05::F000",
+  "scannerSourcePath": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\001-给港中文AI训练用资料_20260624\\项目05\\01-项目3D图纸\\1.CITLD254098_L3 Apply epoxy glue to CMC header [4台]\\1.CITLD254098_L3 Apply epoxy glue to CMC header [4台]\\6.FL9C254098F000.001_扫码模组\\FL9C254098F000.001.SLDASM",
+  "scannerHierarchyPath": "FL9C254098F000.001-1",
+  "candidates": [
+    {
+      "candidateId": "project05-f000-optical-source-candidates-v1:f000-explicit-beam-a:carrier-barcode:endpoint_0_to_1",
+      "sourceBeamId": "f000-explicit-beam-a",
+      "sourcePartToken": "FL5C251093F110002.01",
+      "targetRole": "carrier-barcode",
+      "directionSignChoice": "endpoint_0_to_1",
+      "localOpticalOriginMeters": [
+        -0.11550000000000003,
+        0.3140000000000001,
+        -0.11500000000000007
+      ],
+      "localOpticalDirection": [
+        0.0,
+        -1.3528148419289339e-17,
+        1.0
+      ],
+      "referenceTransform": [
+        0,
+        2.220024839658697e-16,
+        -1,
+        -1.3528148419289339e-17,
+        1,
+        2.7702882066483304e-16,
+        1,
+        1.1071282111488222e-17,
+        1.6653345369377348e-16,
+        0.5589999999999622,
+        0.6560000000000106,
+        -0.46349999999999986,
+        1,
+        0,
+        0,
+        0
+      ],
+      "prototypeWorldOriginForAuditOnly": [
+        0.4439999999999621,
+        0.9700000000000106,
+        -0.34799999999999975
+      ],
+      "prototypeWorldDirectionForAuditOnly": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "roleEngineeringConfirmed": false,
+      "directionSignEngineeringConfirmed": false,
+      "readyForPointPairRule": false,
+      "requiredNextDecision": "select_scanner_head_role_and_emitting_direction"
+    },
+    {
+      "candidateId": "project05-f000-optical-source-candidates-v1:f000-explicit-beam-a:carrier-barcode:endpoint_1_to_0",
+      "sourceBeamId": "f000-explicit-beam-a",
+      "sourcePartToken": "FL5C251093F110002.01",
+      "targetRole": "carrier-barcode",
+      "directionSignChoice": "endpoint_1_to_0",
+      "localOpticalOriginMeters": [
+        -0.11550000000000003,
+        0.3140000000000001,
+        0.05499999999999996
+      ],
+      "localOpticalDirection": [
+        0.0,
+        1.3528148419289339e-17,
+        -1.0
+      ],
+      "referenceTransform": [
+        0,
+        2.220024839658697e-16,
+        -1,
+        -1.3528148419289339e-17,
+        1,
+        2.7702882066483304e-16,
+        1,
+        1.1071282111488222e-17,
+        1.6653345369377348e-16,
+        0.5589999999999622,
+        0.6560000000000106,
+        -0.46349999999999986,
+        1,
+        0,
+        0,
+        0
+      ],
+      "prototypeWorldOriginForAuditOnly": [
+        0.6139999999999621,
+        0.9700000000000106,
+        -0.34799999999999975
+      ],
+      "prototypeWorldDirectionForAuditOnly": [
+        -1.0,
+        0.0,
+        0.0
+      ],
+      "roleEngineeringConfirmed": false,
+      "directionSignEngineeringConfirmed": false,
+      "readyForPointPairRule": false,
+      "requiredNextDecision": "select_scanner_head_role_and_emitting_direction"
+    },
+    {
+      "candidateId": "project05-f000-optical-source-candidates-v1:f000-explicit-beam-a:four-product-barcodes:endpoint_0_to_1",
+      "sourceBeamId": "f000-explicit-beam-a",
+      "sourcePartToken": "FL5C251093F110002.01",
+      "targetRole": "four-product-barcodes",
+      "directionSignChoice": "endpoint_0_to_1",
+      "localOpticalOriginMeters": [
+        -0.11550000000000003,
+        0.3140000000000001,
+        -0.11500000000000007
+      ],
+      "localOpticalDirection": [
+        0.0,
+        -1.3528148419289339e-17,
+        1.0
+      ],
+      "referenceTransform": [
+        0,
+        2.220024839658697e-16,
+        -1,
+        -1.3528148419289339e-17,
+        1,
+        2.7702882066483304e-16,
+        1,
+        1.1071282111488222e-17,
+        1.6653345369377348e-16,
+        0.5589999999999622,
+        0.6560000000000106,
+        -0.46349999999999986,
+        1,
+        0,
+        0,
+        0
+      ],
+      "prototypeWorldOriginForAuditOnly": [
+        0.4439999999999621,
+        0.9700000000000106,
+        -0.34799999999999975
+      ],
+      "prototypeWorldDirectionForAuditOnly": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "roleEngineeringConfirmed": false,
+      "directionSignEngineeringConfirmed": false,
+      "readyForPointPairRule": false,
+      "requiredNextDecision": "select_scanner_head_role_and_emitting_direction"
+    },
+    {
+      "candidateId": "project05-f000-optical-source-candidates-v1:f000-explicit-beam-a:four-product-barcodes:endpoint_1_to_0",
+      "sourceBeamId": "f000-explicit-beam-a",
+      "sourcePartToken": "FL5C251093F110002.01",
+      "targetRole": "four-product-barcodes",
+      "directionSignChoice": "endpoint_1_to_0",
+      "localOpticalOriginMeters": [
+        -0.11550000000000003,
+        0.3140000000000001,
+        0.05499999999999996
+      ],
+      "localOpticalDirection": [
+        0.0,
+        1.3528148419289339e-17,
+        -1.0
+      ],
+      "referenceTransform": [
+        0,
+        2.220024839658697e-16,
+        -1,
+        -1.3528148419289339e-17,
+        1,
+        2.7702882066483304e-16,
+        1,
+        1.1071282111488222e-17,
+        1.6653345369377348e-16,
+        0.5589999999999622,
+        0.6560000000000106,
+        -0.46349999999999986,
+        1,
+        0,
+        0,
+        0
+      ],
+      "prototypeWorldOriginForAuditOnly": [
+        0.6139999999999621,
+        0.9700000000000106,
+        -0.34799999999999975
+      ],
+      "prototypeWorldDirectionForAuditOnly": [
+        -1.0,
+        0.0,
+        0.0
+      ],
+      "roleEngineeringConfirmed": false,
+      "directionSignEngineeringConfirmed": false,
+      "readyForPointPairRule": false,
+      "requiredNextDecision": "select_scanner_head_role_and_emitting_direction"
+    },
+    {
+      "candidateId": "project05-f000-optical-source-candidates-v1:f000-explicit-beam-b:carrier-barcode:endpoint_0_to_1",
+      "sourceBeamId": "f000-explicit-beam-b",
+      "sourcePartToken": "FL5C251093F100003.01",
+      "targetRole": "carrier-barcode",
+      "directionSignChoice": "endpoint_0_to_1",
+      "localOpticalOriginMeters": [
+        -0.07000000000000002,
+        0.1680624793456105,
+        -2.0852659604527573e-16
+      ],
+      "localOpticalDirection": [
+        -1.0,
+        2.7702882066483304e-16,
+        1.6653345369377348e-16
+      ],
+      "referenceTransform": [
+        0,
+        2.220024839658697e-16,
+        -1,
+        -1.3528148419289339e-17,
+        1,
+        2.7702882066483304e-16,
+        1,
+        1.1071282111488222e-17,
+        1.6653345369377348e-16,
+        0.5589999999999622,
+        0.6560000000000106,
+        -0.46349999999999986,
+        1,
+        0,
+        0,
+        0
+      ],
+      "prototypeWorldOriginForAuditOnly": [
+        0.558999999999962,
+        0.824062479345621,
+        -0.3934999999999998
+      ],
+      "prototypeWorldDirectionForAuditOnly": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "roleEngineeringConfirmed": false,
+      "directionSignEngineeringConfirmed": false,
+      "readyForPointPairRule": false,
+      "requiredNextDecision": "select_scanner_head_role_and_emitting_direction"
+    },
+    {
+      "candidateId": "project05-f000-optical-source-candidates-v1:f000-explicit-beam-b:carrier-barcode:endpoint_1_to_0",
+      "sourceBeamId": "f000-explicit-beam-b",
+      "sourcePartToken": "FL5C251093F100003.01",
+      "targetRole": "carrier-barcode",
+      "directionSignChoice": "endpoint_1_to_0",
+      "localOpticalOriginMeters": [
+        -0.19000000000000003,
+        0.16806247934561053,
+        -1.8854258160202292e-16
+      ],
+      "localOpticalDirection": [
+        1.0,
+        -2.7702882066483304e-16,
+        -1.6653345369377348e-16
+      ],
+      "referenceTransform": [
+        0,
+        2.220024839658697e-16,
+        -1,
+        -1.3528148419289339e-17,
+        1,
+        2.7702882066483304e-16,
+        1,
+        1.1071282111488222e-17,
+        1.6653345369377348e-16,
+        0.5589999999999622,
+        0.6560000000000106,
+        -0.46349999999999986,
+        1,
+        0,
+        0,
+        0
+      ],
+      "prototypeWorldOriginForAuditOnly": [
+        0.558999999999962,
+        0.824062479345621,
+        -0.2734999999999998
+      ],
+      "prototypeWorldDirectionForAuditOnly": [
+        0.0,
+        0.0,
+        -1.0
+      ],
+      "roleEngineeringConfirmed": false,
+      "directionSignEngineeringConfirmed": false,
+      "readyForPointPairRule": false,
+      "requiredNextDecision": "select_scanner_head_role_and_emitting_direction"
+    },
+    {
+      "candidateId": "project05-f000-optical-source-candidates-v1:f000-explicit-beam-b:four-product-barcodes:endpoint_0_to_1",
+      "sourceBeamId": "f000-explicit-beam-b",
+      "sourcePartToken": "FL5C251093F100003.01",
+      "targetRole": "four-product-barcodes",
+      "directionSignChoice": "endpoint_0_to_1",
+      "localOpticalOriginMeters": [
+        -0.07000000000000002,
+        0.1680624793456105,
+        -2.0852659604527573e-16
+      ],
+      "localOpticalDirection": [
+        -1.0,
+        2.7702882066483304e-16,
+        1.6653345369377348e-16
+      ],
+      "referenceTransform": [
+        0,
+        2.220024839658697e-16,
+        -1,
+        -1.3528148419289339e-17,
+        1,
+        2.7702882066483304e-16,
+        1,
+        1.1071282111488222e-17,
+        1.6653345369377348e-16,
+        0.5589999999999622,
+        0.6560000000000106,
+        -0.46349999999999986,
+        1,
+        0,
+        0,
+        0
+      ],
+      "prototypeWorldOriginForAuditOnly": [
+        0.558999999999962,
+        0.824062479345621,
+        -0.3934999999999998
+      ],
+      "prototypeWorldDirectionForAuditOnly": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "roleEngineeringConfirmed": false,
+      "directionSignEngineeringConfirmed": false,
+      "readyForPointPairRule": false,
+      "requiredNextDecision": "select_scanner_head_role_and_emitting_direction"
+    },
+    {
+      "candidateId": "project05-f000-optical-source-candidates-v1:f000-explicit-beam-b:four-product-barcodes:endpoint_1_to_0",
+      "sourceBeamId": "f000-explicit-beam-b",
+      "sourcePartToken": "FL5C251093F100003.01",
+      "targetRole": "four-product-barcodes",
+      "directionSignChoice": "endpoint_1_to_0",
+      "localOpticalOriginMeters": [
+        -0.19000000000000003,
+        0.16806247934561053,
+        -1.8854258160202292e-16
+      ],
+      "localOpticalDirection": [
+        1.0,
+        -2.7702882066483304e-16,
+        -1.6653345369377348e-16
+      ],
+      "referenceTransform": [
+        0,
+        2.220024839658697e-16,
+        -1,
+        -1.3528148419289339e-17,
+        1,
+        2.7702882066483304e-16,
+        1,
+        1.1071282111488222e-17,
+        1.6653345369377348e-16,
+        0.5589999999999622,
+        0.6560000000000106,
+        -0.46349999999999986,
+        1,
+        0,
+        0,
+        0
+      ],
+      "prototypeWorldOriginForAuditOnly": [
+        0.558999999999962,
+        0.824062479345621,
+        -0.2734999999999998
+      ],
+      "prototypeWorldDirectionForAuditOnly": [
+        0.0,
+        0.0,
+        -1.0
+      ],
+      "roleEngineeringConfirmed": false,
+      "directionSignEngineeringConfirmed": false,
+      "readyForPointPairRule": false,
+      "requiredNextDecision": "select_scanner_head_role_and_emitting_direction"
+    }
+  ],
+  "roleAndDirectionSelectionRequired": true,
+  "prototypePoseAllowedAsCadExecutionAuthority": false,
+  "cadStarted": false,
+  "sourceEvidence": [
+    {
+      "path": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\layout_previews\\project05_optical_geometry.json",
+      "sha256": "9fafa41fe1fb33826827d2e40e78effe4daca2273358339eb6b48e661115241c"
+    },
+    {
+      "path": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\layout_previews\\project05_module_mate_graph.json",
+      "sha256": "5406c5c4223daad340bd2c0a5bc262d77f82689f30ac67fb31a45f4f416c9958"
+    }
+  ],
+  "claimBoundary": "All modeled F000 beam, barcode-role and direction-sign alternatives are normalized into the scanner module frame. No alternative is selected; this is not a point-pair rule, CAD authority or measured scan success.",
+  "catalogDigest": "aa52d96063cd6479d94ba2dae02481b55e2593f263c01f7e2f663913d36ad680"
+}

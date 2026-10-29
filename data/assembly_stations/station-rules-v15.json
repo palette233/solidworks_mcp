@@ -1,0 +1,408 @@
+{
+  "schemaVersion": "target-station-rule-registry/v1",
+  "scopePath": "data/assembly_stations/scope-v1.json",
+  "rules": [
+    {
+      "ruleId": "transport-ss00-aa00-v1",
+      "role": "Transport",
+      "sourceModuleDefinitionId": "project01::SS00",
+      "targetBaseDefinitionId": "project03::AA00",
+      "evaluator": {
+        "kind": "released_mate_parameters",
+        "inputPath": "data/assembly_stations/transport-ss00-aa00-v1.json"
+      },
+      "placement": {
+        "strategy": "released_recipe"
+      },
+      "validation": {
+        "status": "experimental_cad_verified",
+        "profile": "declared_demo_geometry",
+        "kind": "station_plan_current_postcheck",
+        "configurationSha256": "bbcdbb3cdb6c841bd34e72383d4be70a5c06919ce054d853dd5fd92cda70eb56",
+        "planPath": "demo/unified_six_role_goal_20261028/full-chain-v1/station-preparation/s01-transport/station-plan.json",
+        "cadResultPath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\unified_six_role_goal_20261028\\full-chain-v1\\jobs\\project01-job-69c216b71c9d\\packet-runs\\packet-001-attempt-01\\cad-result.json",
+        "savedStatePath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\unified_six_role_goal_20261028\\full-chain-v1\\s01-transport\\station-check-attempts\\attempt-001\\reopened-state.json"
+      }
+    },
+    {
+      "ruleId": "calibration-bd00-aa00-v1",
+      "role": "Calibration",
+      "sourceModuleDefinitionId": "project01::BD00",
+      "targetBaseDefinitionId": "project03::AA00",
+      "evaluator": {
+        "kind": "released_mate_parameters",
+        "inputPath": "data/assembly_stations/calibration-bd00-aa00-v1.json"
+      },
+      "placement": {
+        "strategy": "released_recipe"
+      },
+      "validation": {
+        "status": "experimental_cad_verified",
+        "profile": "declared_demo_geometry",
+        "kind": "station_plan_current_postcheck",
+        "configurationSha256": "dca3b4af06e6f467206e81f21b4c153a02ec9e6f472dfc138cf8e2d8f0fbefb4",
+        "planPath": "demo/unified_six_role_goal_20261028/full-chain-v1/station-preparation/s03-calibration/station-plan.json",
+        "cadResultPath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\unified_six_role_goal_20261028\\full-chain-v1\\jobs\\project01-job-f5939fd75502\\packet-runs\\packet-001-attempt-01\\cad-result.json",
+        "savedStatePath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\unified_six_role_goal_20261028\\full-chain-v1\\s03-calibration\\station-check-attempts\\attempt-001\\reopened-state.json"
+      }
+    },
+    {
+      "ruleId": "cleaning-gn00-aa00-v1",
+      "role": "CleaningWeighing",
+      "sourceModuleDefinitionId": "project01::GN00",
+      "targetBaseDefinitionId": "project03::AA00",
+      "evaluator": {
+        "kind": "cleaning_service_region",
+        "inputPath": "data/assembly_stations/cleaning-gn00-aa00-v1.json"
+      },
+      "placement": {
+        "strategy": "target_role_region"
+      },
+      "requiresPrototypeEstimateAuthorization": true,
+      "validation": {
+        "status": "released_demo",
+        "profile": "declared_demo_geometry",
+        "kind": "station_plan_current_postcheck",
+        "configurationSha256": "d99ee4b9b4bd721c3f48328c02360ec6d5b4066cfeb416dc92b7a5f842fc23e3",
+        "planPath": "demo/unified_six_role_goal_20261028/station-preparation-v2/s04-cleaning/station-plan.json",
+        "cadResultPath": "demo/unified_six_role_goal_20261028/station-preparation-v2/s04-cleaning/cad-result.json",
+        "savedStatePath": "demo/unified_six_role_goal_20261028/station-preparation-v2/s04-cleaning/reopened-state.json",
+        "releaseManifestPath": "demo/global_assembly_catalog/releases/relation-station-gn00-aa00-20261028-v1/release-manifest.json"
+      }
+    },
+    {
+      "ruleId": "cleaning-ag00-aa00-native-v1",
+      "role": "CleaningWeighing",
+      "sourceModuleDefinitionId": "project03::AG00",
+      "targetBaseDefinitionId": "project03::AA00",
+      "evaluator": {
+        "kind": "cleaning_service_region",
+        "inputPath": "data/assembly_stations/cleaning-ag00-aa00-native-v1.json"
+      },
+      "placement": {
+        "strategy": "target_role_region"
+      },
+      "requiresPrototypeEstimateAuthorization": true,
+      "validation": {
+        "status": "candidate",
+        "profile": "declared_demo_geometry"
+      }
+    },
+    {
+      "ruleId": "cup-p000-aa00-v1",
+      "role": "WasteCup",
+      "sourceModuleDefinitionId": "project05::P000",
+      "targetBaseDefinitionId": "project03::AA00",
+      "evaluator": {
+        "kind": "cup_projection",
+        "inputPath": "data/assembly_stations/cup-p000-aa00-v1.json"
+      },
+      "placement": {
+        "strategy": "target_function_points"
+      },
+      "requiresPrototypeEstimateAuthorization": true,
+      "validation": {
+        "status": "released_demo",
+        "profile": "declared_demo_geometry",
+        "kind": "station_plan_current_postcheck",
+        "configurationSha256": "52db8009b08ffda12034996c5e12efefc8f1b12e25658d78ef79d03d79fd2b12",
+        "planPath": "demo/unified_six_role_goal_20261028/station-preparation-v2/s05-cup/station-plan.json",
+        "cadResultPath": "demo/unified_six_role_goal_20261028/station-preparation-v2/s05-cup/cad-result.json",
+        "savedStatePath": "demo/unified_six_role_goal_20261028/station-preparation-v2/s05-cup/reopened-state.json",
+        "releaseManifestPath": "demo/global_assembly_catalog/releases/relation-station-p000-aa00-20261028-v1/release-manifest.json"
+      }
+    },
+    {
+      "ruleId": "scanner-ai00-ss00-aa00-v1",
+      "role": "Scanner",
+      "sourceModuleDefinitionId": "project03::AI00",
+      "targetBaseDefinitionId": "project03::AA00",
+      "evaluator": {
+        "kind": "scanner_target",
+        "inputPath": "data/assembly_stations/scanner-ai00-ss00-aa00-v1.json"
+      },
+      "placement": {
+        "strategy": "released_recipe"
+      },
+      "dependencies": [
+        {
+          "role": "Transport",
+          "moduleDefinitionId": "project01::SS00"
+        }
+      ],
+      "requiresPrototypeEstimateAuthorization": true,
+      "validation": {
+        "status": "experimental_cad_verified",
+        "profile": "declared_demo_geometry",
+        "kind": "station_plan_current_postcheck",
+        "configurationSha256": "3d6dae14023ce749f32eab2148daff2920a779eff400523f39f0dd509e63b8ec",
+        "planPath": "demo/unified_six_role_goal_20261028/full-chain-v1/station-preparation/s02-scanner/station-plan.json",
+        "cadResultPath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\unified_six_role_goal_20261028\\full-chain-v1\\jobs\\project03-job-3a22d8f23bba\\packet-runs\\packet-001-attempt-01\\cad-result.json",
+        "savedStatePath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\unified_six_role_goal_20261028\\full-chain-v1\\s02-scanner\\station-check-attempts\\attempt-002\\reopened-state.json"
+      }
+    },
+    {
+      "ruleId": "scanner-sm00-ss00-jj00-v1",
+      "role": "Scanner",
+      "sourceModuleDefinitionId": "project01::SM00",
+      "targetBaseDefinitionId": "project01::JJ00",
+      "evaluator": {
+        "kind": "scanner_target",
+        "inputPath": "data/assembly_stations/scanner-sm00-ss00-jj00-v1.json"
+      },
+      "placement": {
+        "strategy": "released_recipe"
+      },
+      "dependencies": [
+        {
+          "role": "Transport",
+          "moduleDefinitionId": "project01::SS00"
+        }
+      ],
+      "requiresPrototypeEstimateAuthorization": true,
+      "validation": {
+        "status": "experimental_cad_verified",
+        "profile": "declared_demo_geometry",
+        "kind": "station_plan_current_postcheck",
+        "configurationSha256": "68fd0582c5a14676ca9cffa468d613142b2e81e6e511c986b3423f5d6813be77",
+        "planPath": "demo/unified_six_role_goal_20261028/full-chain-jj00-v2/station-preparation/s02-scanner/station-plan.json",
+        "cadResultPath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\unified_six_role_goal_20261028\\full-chain-jj00-v2\\jobs\\project01-job-f20736e00aba\\packet-runs\\packet-001-attempt-01\\cad-result.json",
+        "savedStatePath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\unified_six_role_goal_20261028\\full-chain-jj00-v2\\s02-scanner\\station-check-attempts\\attempt-001\\reopened-state.json"
+      }
+    },
+    {
+      "ruleId": "calibration-ah00-aa00-v1",
+      "role": "Calibration",
+      "sourceModuleDefinitionId": "project03::AH00",
+      "targetBaseDefinitionId": "project03::AA00",
+      "evaluator": {
+        "kind": "released_mate_parameters",
+        "inputPath": "data/assembly_stations/calibration-ah00-aa00-v1.json"
+      },
+      "placement": {
+        "strategy": "released_recipe"
+      },
+      "validation": {
+        "status": "experimental_cad_verified",
+        "profile": "declared_demo_geometry",
+        "kind": "station_plan_current_postcheck",
+        "configurationSha256": "50db2d021fb2acb1510f1034bf4e534e24978edc6174f4920d17851ac63f6d42",
+        "planPath": "demo/unified_six_role_goal_20261028/full-chain-v2-ah00/station-preparation/s03-calibration/station-plan.json",
+        "cadResultPath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\unified_six_role_goal_20261028\\full-chain-v2-ah00\\jobs\\project03-job-2483e3d5d86b\\packet-runs\\packet-001-attempt-01\\cad-result.json",
+        "savedStatePath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\unified_six_role_goal_20261028\\full-chain-v2-ah00\\s03-calibration\\station-check-attempts\\attempt-001\\reopened-state.json"
+      }
+    },
+    {
+      "ruleId": "transport-ss00-jj00-v1",
+      "role": "Transport",
+      "sourceModuleDefinitionId": "project01::SS00",
+      "targetBaseDefinitionId": "project01::JJ00",
+      "evaluator": {
+        "kind": "released_mate_parameters",
+        "inputPath": "data/assembly_stations/transport-ss00-jj00-v1.json"
+      },
+      "placement": {
+        "strategy": "released_recipe"
+      },
+      "validation": {
+        "status": "experimental_cad_verified",
+        "profile": "declared_demo_geometry",
+        "kind": "station_plan_current_postcheck",
+        "configurationSha256": "9646bea4c67d236c73ec662bd679c89dc24f90f9dd1dc73942c8cda7678106fb",
+        "planPath": "demo/unified_six_role_goal_20261028/full-chain-jj00-v2/station-preparation/s01-transport/station-plan.json",
+        "cadResultPath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\unified_six_role_goal_20261028\\full-chain-jj00-v2\\jobs\\project01-job-dc7f2b495d61\\packet-runs\\packet-001-attempt-01\\cad-result.json",
+        "savedStatePath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\unified_six_role_goal_20261028\\full-chain-jj00-v2\\s01-transport\\station-check-attempts\\attempt-001\\reopened-state.json"
+      }
+    },
+    {
+      "ruleId": "calibration-bd00-jj00-v2",
+      "role": "Calibration",
+      "sourceModuleDefinitionId": "project01::BD00",
+      "targetBaseDefinitionId": "project01::JJ00",
+      "evaluator": {
+        "kind": "released_mate_parameters",
+        "inputPath": "data/assembly_stations/calibration-bd00-jj00-v2.json"
+      },
+      "placement": {
+        "strategy": "released_recipe"
+      },
+      "validation": {
+        "status": "experimental_cad_verified",
+        "profile": "declared_demo_geometry",
+        "kind": "station_plan_current_postcheck",
+        "configurationSha256": "86ada70e02ab3961c42c3ee16146dc7516aba486737de0b8ccc35c154a7c53a3",
+        "planPath": "demo/unified_six_role_goal_20261028/full-chain-jj00-v2/station-preparation/s03-calibration/station-plan.json",
+        "cadResultPath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\unified_six_role_goal_20261028\\full-chain-jj00-v2\\jobs\\project-global-job-dac5c6ff901f\\packet-runs\\packet-001-attempt-01\\cad-result.json",
+        "savedStatePath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\unified_six_role_goal_20261028\\full-chain-jj00-v2\\s03-calibration\\station-check-attempts\\attempt-001\\reopened-state.json"
+      }
+    },
+    {
+      "ruleId": "cleaning-ag00-jj00-v1",
+      "role": "CleaningWeighing",
+      "sourceModuleDefinitionId": "project03::AG00",
+      "targetBaseDefinitionId": "project01::JJ00",
+      "evaluator": {
+        "kind": "cleaning_service_region",
+        "inputPath": "data/assembly_stations/cleaning-ag00-jj00-v1.json"
+      },
+      "placement": {
+        "strategy": "target_role_region"
+      },
+      "requiresPrototypeEstimateAuthorization": true,
+      "validation": {
+        "status": "released_demo",
+        "profile": "declared_demo_geometry",
+        "kind": "station_plan_current_postcheck",
+        "configurationSha256": "8c57512d661e824dec2d8217f1293f6b29c9f5a8948c9ff04b3f9dd0868e40ca",
+        "planPath": "demo/unified_six_role_goal_20261028/jj00-ag00-candidate-v1/s01-cleaning/station-plan.json",
+        "cadResultPath": "demo/unified_six_role_goal_20261028/jj00-ag00-cad-v1/cad-result.json",
+        "savedStatePath": "demo/unified_six_role_goal_20261028/jj00-ag00-cad-v1/reopened-state.json",
+        "releaseManifestPath": "demo/global_assembly_catalog/releases/relation-station-ag00-jj00-20261028-v1/release-manifest.json"
+      }
+    },
+    {
+      "ruleId": "cup-p000-jj00-v1",
+      "role": "WasteCup",
+      "sourceModuleDefinitionId": "project05::P000",
+      "targetBaseDefinitionId": "project01::JJ00",
+      "evaluator": {
+        "kind": "cup_projection",
+        "inputPath": "data/assembly_stations/cup-p000-jj00-v1.json"
+      },
+      "placement": {
+        "strategy": "target_function_points"
+      },
+      "requiresPrototypeEstimateAuthorization": true,
+      "validation": {
+        "status": "released_demo",
+        "profile": "declared_demo_geometry",
+        "kind": "station_plan_current_postcheck",
+        "configurationSha256": "00047cf3b407677f06c3b56160cc175010c93656987fd4451cb3989908e99787",
+        "planPath": "demo/unified_six_role_goal_20261028/jj00-p000-candidate-v3/s01-cup/station-plan.json",
+        "cadResultPath": "demo/unified_six_role_goal_20261028/jj00-p000-cad-v1/cad-result.json",
+        "savedStatePath": "demo/unified_six_role_goal_20261028/jj00-p000-cad-v1/reopened-state.json",
+        "releaseManifestPath": "demo/global_assembly_catalog/releases/relation-station-p000-jj00-20261028-v1/release-manifest.json"
+      }
+    },
+    {
+      "ruleId": "batch-project05-G000-to-project05-A000-v1",
+      "role": "Calibration",
+      "sourceModuleDefinitionId": "project05::G000",
+      "targetBaseDefinitionId": "project05::A000",
+      "evaluator": {
+        "kind": "released_mate_parameters",
+        "inputPath": "data/assembly_stations/batch-20261028-v2/batch-project05-G000-to-project05-A000-v1.json"
+      },
+      "placement": {
+        "strategy": "released_recipe"
+      },
+      "validation": {
+        "status": "candidate"
+      }
+    },
+    {
+      "ruleId": "cup-p000-a000-native-v1",
+      "role": "WasteCup",
+      "sourceModuleDefinitionId": "project05::P000",
+      "targetBaseDefinitionId": "project05::A000",
+      "evaluator": {
+        "kind": "native_cup_station",
+        "inputPath": "data/assembly_stations/cup-p000-a000-native-v1.json"
+      },
+      "placement": {
+        "strategy": "released_recipe",
+        "postcheck": "native_cup_mouth_projection"
+      },
+      "requiresPrototypeEstimateAuthorization": true,
+      "validation": {
+        "status": "experimental_cad_verified",
+        "profile": "declared_demo_geometry",
+        "kind": "station_plan_current_postcheck",
+        "configurationSha256": "5fa2ba193eec7b6740f8ff81b526705ea3e53c4b40c90e3e8936b3eba9e77117",
+        "planPath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\station_gap_batch_20261028\\p000-a000-cad-v1\\station-preparation\\cup\\station-plan.json",
+        "cadResultPath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\station_gap_batch_20261028\\p000-a000-cad-v1\\jobs\\project05-job-094082b96cbb\\packet-runs\\packet-001-attempt-01\\cad-result.json",
+        "savedStatePath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\station_gap_batch_20261028\\p000-a000-cad-v1\\cup\\station-check-attempts\\attempt-001\\reopened-state.json"
+      }
+    },
+    {
+      "ruleId": "batch-project02-A500-to-project02-A600-v1",
+      "role": "Calibration",
+      "sourceModuleDefinitionId": "project02::A500",
+      "targetBaseDefinitionId": "project02::A600",
+      "evaluator": {
+        "kind": "released_mate_parameters",
+        "inputPath": "data/assembly_stations/batch-20261028-v2/batch-project02-A500-to-project02-A600-v1.json"
+      },
+      "placement": {
+        "strategy": "released_recipe"
+      },
+      "validation": {
+        "status": "experimental_cad_verified",
+        "profile": "declared_demo_geometry",
+        "kind": "station_plan_current_postcheck",
+        "configurationSha256": "83b82df9777197492e762884b49cb48900ac1e400fcef9b6c89f53375e3d715b",
+        "planPath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\station_gap_batch_20261028\\a500-a600-cad-v1\\station-preparation\\install\\station-plan.json",
+        "cadResultPath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\station_gap_batch_20261028\\a500-a600-cad-v1\\jobs\\project02-job-e85525aeec93\\packet-runs\\packet-001-attempt-01\\cad-result.json",
+        "savedStatePath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\station_gap_batch_20261028\\a500-a600-cad-v1\\install\\station-check-attempts\\attempt-001\\reopened-state.json"
+      }
+    },
+    {
+      "ruleId": "batch-project02-A800-to-project02-A600-v1",
+      "role": "Transport",
+      "sourceModuleDefinitionId": "project02::A800",
+      "targetBaseDefinitionId": "project02::A600",
+      "evaluator": {
+        "kind": "released_mate_parameters",
+        "inputPath": "data/assembly_stations/batch-20261028-v2/batch-project02-A800-to-project02-A600-v1.json"
+      },
+      "placement": {
+        "strategy": "released_recipe"
+      },
+      "validation": {
+        "status": "experimental_cad_verified",
+        "profile": "declared_demo_geometry",
+        "kind": "station_plan_current_postcheck",
+        "configurationSha256": "3af826807a1abfad41321cc5a54b3d51ce8b4420a2a35dd4292093eec905077f",
+        "planPath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\station_gap_batch_20261028\\a800-a600-cad-v1\\station-preparation\\install\\station-plan.json",
+        "cadResultPath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\station_gap_batch_20261028\\a800-a600-cad-v1\\jobs\\project02-job-5f1305f0962e\\packet-runs\\packet-001-attempt-01\\cad-result.json",
+        "savedStatePath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\station_gap_batch_20261028\\a800-a600-cad-v1\\install\\station-check-attempts\\attempt-001\\reopened-state.json"
+      }
+    },
+    {
+      "ruleId": "batch-project05-D000-to-project05-A000-v1",
+      "role": "Transport",
+      "sourceModuleDefinitionId": "project05::D000",
+      "targetBaseDefinitionId": "project05::A000",
+      "evaluator": {
+        "kind": "released_mate_parameters",
+        "inputPath": "data/assembly_stations/batch-20261028-v2/batch-project05-D000-to-project05-A000-v1.json"
+      },
+      "placement": {
+        "strategy": "released_recipe"
+      },
+      "validation": {
+        "status": "experimental_cad_verified",
+        "profile": "declared_demo_geometry",
+        "kind": "station_plan_current_postcheck",
+        "configurationSha256": "defb6c201f1ec49e63cd84978d02a77c1fced0c0c71024e2e7681f98859ac436",
+        "planPath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\station_gap_batch_20261028\\d000-a000-cad-v1\\station-preparation\\install\\station-plan.json",
+        "cadResultPath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\station_gap_batch_20261028\\d000-a000-cad-v1\\jobs\\project05-job-183e48d9d180\\packet-runs\\packet-001-attempt-01\\cad-result.json",
+        "savedStatePath": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\station_gap_batch_20261028\\d000-a000-cad-v1\\install\\station-check-attempts\\attempt-001\\reopened-state.json"
+      }
+    }
+  ],
+  "parameterRecipes": [
+    {
+      "ruleId": "cleaning-gn00-aa00-v1",
+      "positionParametersMeters": {
+        "longitudinal": 0.36630906453119677,
+        "lateral": 0.231,
+        "supportGap": 0
+      },
+      "planPath": "demo/unified_six_role_goal_20261028/gn00-plus10mm-candidate-v1/s04-cleaning/station-plan.json",
+      "cadResultPath": "demo/unified_six_role_goal_20261028/gn00-plus10mm-cad-v1/cad-result.json",
+      "savedStatePath": "demo/unified_six_role_goal_20261028/gn00-plus10mm-cad-v1/reopened-state.json",
+      "releaseManifestPath": "demo/global_assembly_catalog/releases/relation-station-gn00-aa00-plus10mm-20261028-v1/release-manifest.json"
+    }
+  ]
+}

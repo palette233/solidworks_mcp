@@ -1,0 +1,92 @@
+{
+  "schemaVersion": "station-measurement-reuse-index/v1",
+  "entries": [
+    {
+      "targetBaseDefinitionId": "project02::A600",
+      "role": "WasteCup",
+      "nativeRoleModuleDefinitionId": "project02::A300",
+      "paths": [
+        "demo/role_station_strengthening_20261028/wastecup/p000-a600-target-station-v3.json",
+        "demo/semantic_ports/project02_service_installations_v1/A300/face_endpoint_catalog.json",
+        "data/assembly_stations/a300-p000-cup-measurement-v2.json",
+        "demo/station_gap_batch_20261028/a300-measurement-v2/cup-function-points-bound.json"
+      ],
+      "available": [
+        "native_signed_installation_datums",
+        "target_reference_frame",
+        "two_A300_cup_mouth_points_and_opening_directions",
+        "independent_single_module_capture_binding"
+      ],
+      "stillRequired": [
+        "explicit_source_to_target_cup_function_policy_for_90mm_vs_130mm_spacing"
+      ],
+      "acquisitionStatus": "captured_in_isolated_single_module_measurement_wrapper",
+      "boundary": "A300 cup spacing is 90 mm and P000 cup spacing is 130 mm. Strict two-center coincidence is impossible by rigid translation; cup-interior targeting requires an explicit separate policy."
+    },
+    {
+      "targetBaseDefinitionId": "project02::A600",
+      "role": "CleaningWeighing",
+      "nativeRoleModuleDefinitionId": "project02::A700",
+      "paths": [
+        "demo/goal_role_station_and_matched_slot_cases_20261028/n000-a600-a700-role-station-audit.json"
+      ],
+      "available": [
+        "native_role_envelope_in_A600_installation_frame",
+        "N000_replacement_footprint_measurement"
+      ],
+      "stillRequired": [
+        "static_target_service_station_datum_binding",
+        "source_service_function_region_mapping"
+      ],
+      "boundary": "Reuse outer role region only; no A700 internal mechanism work. Envelope fit alone does not authorize placement."
+    },
+    {
+      "targetBaseDefinitionId": "project05::A000",
+      "role": "WasteCup",
+      "nativeRoleModuleDefinitionId": "project05::P000",
+      "paths": [
+        "data/assembly_stations/cup-p000-a000-native-v1.json",
+        "demo/layout_previews/project05_module_mate_graph.json",
+        "demo/role_station_strengthening_20261028/functional-chain-v1/geometry/p000-cup-1.json",
+        "demo/role_station_strengthening_20261028/functional-chain-v1/geometry/p000-cup-2.json",
+        "demo/station_gap_batch_20261028/p000-a000-cad-v1/cup/station-check-attempts/attempt-001/postcheck.json"
+      ],
+      "available": [
+        "explicit_native_P000_instance_2",
+        "two_rigid_analytic_cup_mouths_in_module_local_frame",
+        "target_mouths_in_A000_local_frame",
+        "new_nonprototype_CAD_saved_reopen_projection_postcheck"
+      ],
+      "stillRequired": [
+        "explicit_function_point_correspondence_for_different_cup_models"
+      ],
+      "boundary": "P000-to-A000 validated through four active mates, not fixed placement. Other cup models still need explicit mapping and fresh CAD; real dispensing and fastening remain unknown."
+    },
+    {
+      "targetBaseDefinitionId": "project05::A000",
+      "role": "CleaningWeighing",
+      "nativeRoleModuleDefinitionId": "project05::N000",
+      "paths": [
+        "demo/station_gap_batch_20261028/n000-frame-binding-v1/occupancy.json",
+        "demo/layout_previews/project05_n000_world_leaf_envelopes.json",
+        "demo/layout_previews/project05_module_mate_graph.json",
+        "data/assembly_stations/n000-service-subtrees-v1.json",
+        "demo/global_assembly_catalog/v1/combination-v1-preview/project05-nonanchor-driving-v7/N000/assembly_plan_effective.json",
+        "demo/global_assembly_catalog/releases/relation-v61-project05-complete-seven-addon-driving-20261014/release-manifest.json"
+      ],
+      "available": [
+        "native_N000_complete_251_leaf_body_occupancy",
+        "original_capture_to_installation_frame_binding",
+        "explicit_native_N000_instance_4",
+        "NA00_external_installation_support_group",
+        "NB00_NC00_ND00_separate_service_proxy_groups",
+        "released_nonprototype_four_relation_static_installation_bundle"
+      ],
+      "stillRequired": [
+        "bind_service_proxy_to_released_installation_rule",
+        "current_saved_CAD_station_postcheck"
+      ],
+      "boundary": "The three service groups are measured envelopes, not one cleaning point. Detailed actions, real cleaning performance and collision remain unverified."
+    }
+  ]
+}

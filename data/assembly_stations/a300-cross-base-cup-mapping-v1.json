@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "wastecup-function-mapping-batch/v1",
+  "entries": [
+    {
+      "sourceModuleDefinitionId": "project02::A300",
+      "targetBaseDefinitionId": "project01::JJ00",
+      "sourceGeometryRequestPath": "data/assembly_stations/a300-p000-cup-measurement-v2.json",
+      "sourceGeometryRole": "native",
+      "targetGeometryRequestPath": "demo/unified_six_role_goal_20261028/jj00-cup-measurement-v1/cup-function-point-request.json",
+      "targetGeometryRole": "native",
+      "pairCadResultPath": "demo/cross_project_substitution/parameterized-datum-placement-v1/validation-queue-20261026-v71-native-projection-3/validation-a300-jj00-v1/cad-result.json",
+      "pairGraphPath": "demo/cross_project_substitution/parameterized-datum-placement-v1/validation-queue-20261026-v71-native-projection-3/validation-a300-jj00-v1/effective-mate-graph.json",
+      "nativeGraphPath": "demo/semantic_ports/project01_GN00_fourth_increment_v1/assembly_plan_effective.json",
+      "sourceToken": "A300",
+      "baseToken": "JJ00",
+      "nativeModuleToken": "GN00",
+      "nativeBaseToken": "JJ00",
+      "radialMarginMeters": 0.005
+    },
+    {
+      "sourceModuleDefinitionId": "project02::A300",
+      "targetBaseDefinitionId": "project03::AA00",
+      "sourceGeometryRequestPath": "data/assembly_stations/a300-p000-cup-measurement-v2.json",
+      "sourceGeometryRole": "native",
+      "targetGeometryRequestPath": "demo/role_station_strengthening_20261028/functional-chain-v1/cup-function-point-request.json",
+      "targetGeometryRole": "native",
+      "pairCadResultPath": "demo/cross_project_substitution/parameterized-datum-placement-v1/validation-queue-20261026-v28/validation-a300-aa00-v1/cad-result.json",
+      "pairGraphPath": "demo/cross_project_substitution/parameterized-datum-placement-v1/validation-queue-20261026-v28/validation-a300-aa00-v1/effective-mate-graph.json",
+      "nativeGraphPath": "demo/layout_previews/project03_module_mate_graph.json",
+      "sourceToken": "A300",
+      "baseToken": "AA00",
+      "nativeModuleToken": "FL9A24D063AG00",
+      "nativeBaseToken": "FL9A24D063AA00",
+      "radialMarginMeters": 0.005
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "scanner-target-rule/v1",
+  "ruleId": "scanner-ai00-ss00-aa00-v1",
+  "sourceModuleDefinitionId": "project03::AI00",
+  "targetBaseDefinitionId": "project03::AA00",
+  "transportModuleDefinitionId": "project01::SS00",
+  "referenceBaseDefinitionId": "project01::JJ00",
+  "evidenceGrade": "prototype_measured_proxy",
+  "inputs": {
+    "processEvidencePath": "demo/cross_project_substitution/cumulative-project03-v2/scanner-transport-process-validation.json",
+    "scannerGraphPath": "demo/global_assembly_contexts/manifest_jobs/project-global-job-f0aa2d732403/packet-runs/packet-003-attempt-01/execution-effective-mate-graph.json",
+    "transportGraphPath": "demo/global_assembly_catalog/v1/relation-v2-preview/project01-ss00-current-insert-v1/execution-effective-mate-graph.json",
+    "targetFaceCatalogPath": "demo/cross_project_substitution/scanner-slot-discovery-v1/project01_JJ00_project03_AI00/jj00-scanner-support-leaf-face-catalog.json",
+    "targetBaseGraphPath": "demo/global_assembly_contexts/manifest_jobs/project-global-job-f0aa2d732403/packet-runs/packet-003-attempt-01/execution-effective-mate-graph.json"
+  },
+  "inputSha256": {
+    "processEvidencePath": "058702c356812f020d5315fe9780191520c114cbdc5b447c4d3c8385b5e58e62",
+    "scannerGraphPath": "ee869104f1c3e0cf642071a48e533e5dd8eef704b0045d043e4eb6f9448d9306",
+    "transportGraphPath": "68833f993ab11bf3552a883e26444e16a74e234763bda567a6218cf9fdc803fd",
+    "targetFaceCatalogPath": "2cf7a8d542092d4e0f923a4f6e4074b89b1037649a2e750157594947b4bac5d7",
+    "targetBaseGraphPath": "ee869104f1c3e0cf642071a48e533e5dd8eef704b0045d043e4eb6f9448d9306"
+  },
+  "interpretationLimits": [
+    "Optical axis and barcode lane are prototype measurements, not a physical barcode-face identification or measured scan success.",
+    "Reference transforms are read-only coordinate bridges, never insertion poses or mechanical release authority.",
+    "Every new current state must independently rebind scanner, transport and base instances and recompute geometry."
+  ]
+}

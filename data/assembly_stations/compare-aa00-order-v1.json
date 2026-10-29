@@ -1,0 +1,5 @@
+{
+  "beforeStatePath": "demo/unified_six_role_goal_20261028/full-chain-v1/s05-cup/station-check-attempts/attempt-001/reopened-state.json",
+  "afterStatePath": "demo/unified_six_role_goal_20261028/full-chain-reordered-v1/s02-scanner/station-check-attempts/attempt-001/reopened-state.json",
+  "baseToken": "AA00"
+}

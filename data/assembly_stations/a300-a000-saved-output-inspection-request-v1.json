@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "saved-output-station-inspection-request/v1",
+  "cadResult": {
+    "path": "demo/cross_project_substitution/parameterized-datum-placement-v1/validation-queue-20261026-v46/validation-a300-a000-v1/cad-result.json",
+    "sha256": "140b418b7ea200298f584d0ad8907c78264a7ff267f59c401b9538b49e4a2492"
+  },
+  "outputAssemblySha256": "7bd1c04ef3af97b30291efc714aa3f0a73b681a01d97ea8ef48a751047f901e6",
+  "baseToken": "A000",
+  "targetToken": "A300",
+  "expectedTopLevelComponentCount": 2,
+  "outputStatePath": "demo/station_gap_batch_20261028/a300-a000-station-v1/reopened-state.json",
+  "processReportPath": "demo/station_gap_batch_20261028/a300-a000-station-v1/inspection-process.json",
+  "claimBoundary": "This request only reopens an already published non-prototype A300 to A000 pair and records current read-only state. It does not recreate the pair, validate the target cup station by itself, or evaluate fastening, collision/B-rep or production readiness.",
+  "requestDigest": "65c59a27d42552c6db4983ae4ed7e63fae24bc37082b0d8e847a90b68826a182"
+}

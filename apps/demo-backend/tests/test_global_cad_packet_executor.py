@@ -248,6 +248,53 @@ def test_project03_first_packet_reuses_verified_composite_base_context(tmp_path)
     assert Path(plan["sourcePreparation"]["evidencePath"]).is_file()
 
 
+def test_released_ag00_first_packet_uses_required_aa00_not_historical_context(tmp_path):
+    """A reordered released chain must not require unrelated prototype modules."""
+    manifest = _load(
+        "demo/global_assembly_contexts/"
+        "six-role-project03-direct-20261023-v1-reordered.cad-transaction-manifest.json"
+    )
+    manifest_before = copy.deepcopy(manifest)
+    graph_path = WORKSPACE / (
+        "demo/global_assembly_catalog/coverage-v2/ag00-three-datum-candidate-v1/"
+        "assembly_plan_effective.nonprototype.json"
+    )
+    graph_bytes = graph_path.read_bytes()
+    graph = json.loads(graph_bytes.decode("utf-8-sig"))
+    assert len(graph["BaseGraphPolicy"]["moduleTokens"]) == 5
+    plan = build_global_cad_packet_execution_plan(
+        WORKSPACE, manifest, "packet-001", output_path=tmp_path / "ag00-first.SLDASM",
+    )
+    assert plan["releaseAuthority"]["status"] == "verified"
+    assert plan["targetModuleAlias"] == "AG00"
+    assert plan["effectiveGraphMateCoverage"]["status"] == "exact"
+    assert plan["requestedDrivingMateCount"] == 3
+    assert plan["sourcePreparation"]["mode"] == "wrap_root_module_as_top_level_context"
+    assert plan["sourcePreparation"]["baseContextModuleToken"] == "FL9A24D063AA00"
+    assert plan["sourceAssemblyPath"].endswith("FL9A24D063AA00.001.SLDASM")
+    projected = plan["effectiveMateGraphExecutionView"]
+    assert projected["BaseGraphPolicy"]["moduleTokens"] == ["FL9A24D063AA00"]
+    assert {row["ModuleToken"] for row in projected["Modules"]} == {"FL9A24D063AA00", "FL9A24D063AG00"}
+    assert not projected["EditPolicy"]["caseAnchoredModuleTokens"]
+    assert manifest == manifest_before
+    assert graph_path.read_bytes() == graph_bytes
+
+
+def test_released_single_context_projection_rejects_wrong_registered_root(tmp_path):
+    manifest = copy.deepcopy(_load(
+        "demo/global_assembly_contexts/"
+        "six-role-project03-direct-20261023-v1-reordered.cad-transaction-manifest.json"
+    ))
+    packet = manifest["packets"][0]
+    packet["cumulativeInput"]["cadSources"][0]["path"] = packet["targetCadSources"][0]["path"]
+    packet["packetDigest"] = _digest({key: value for key, value in packet.items() if key != "packetDigest"})
+    manifest["manifestDigest"] = _digest({key: value for key, value in manifest.items() if key != "manifestDigest"})
+    with pytest.raises(GlobalCadPacketExecutionError, match="唯一基座与登记的原始输入文件不一致"):
+        build_global_cad_packet_execution_plan(
+            WORKSPACE, manifest, "packet-001", output_path=tmp_path / "wrong-base.SLDASM",
+        )
+
+
 def test_later_packet_uses_checkpoint_without_root_wrapper(tmp_path):
     manifest = _load(
         "demo/global_assembly_contexts/project05-full-static-graph-v1.cad-transaction-manifest.json"

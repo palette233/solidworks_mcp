@@ -1,0 +1,29 @@
+{
+  "chainId": "station-aa00-cleaning-plus10mm-released-v2",
+  "baseRequirement": "建立一套设备箱体与固定安装基座。",
+  "baseSelection": {
+    "projectId": "project03",
+    "moduleToken": "AA00",
+    "confirmed": true
+  },
+  "stationRegistryPath": "data/assembly_stations/station-rules-v6.json",
+  "allowPrototypeEstimate": true,
+  "placementValidationMode": "target_role_station",
+  "steps": [
+    {
+      "stageId": "s04-cleaning",
+      "requirement": "在当前基座上新增清洁称重模组，采用已确认的位置参数，允许基准定位Demo。",
+      "moduleSelection": {
+        "projectId": "project01",
+        "moduleToken": "GN00",
+        "confirmed": true
+      },
+      "allowDatumFallback": true,
+      "positionParametersMeters": {
+        "longitudinal": 0.36630906453119677,
+        "lateral": 0.231,
+        "supportGap": 0
+      }
+    }
+  ]
+}

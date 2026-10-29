@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "scanner-local-point-pair-rule/v1",
+  "ruleId": "scanner-a180-ss00-jj00-point-pair-v1",
+  "sourceModuleDefinitionId": "project02::A180",
+  "transportModuleDefinitionId": "project01::SS00",
+  "targetBaseDefinitionId": "project01::JJ00",
+  "inputs": {
+    "measurementPath": "data/assembly_stations/scanner-point-pair-a180-ss00-v1.json"
+  },
+  "componentSourcePaths": {
+    "scanner": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\001-给港中文AI训练用资料_20260624\\项目02\\01-项目3D图纸\\FL9A24D062A000.001\\FL9A24D062A180.001.SLDASM",
+    "transport": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\001-给港中文AI训练用资料_20260624\\项目01\\01-项目3D图纸\\CITLB24N074&CITLB24N075\\5.FL9C24N074SS00.001_输送模组\\FL9C24N074SS00.001.SLDASM",
+    "targetBase": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\001-给港中文AI训练用资料_20260624\\项目01\\01-项目3D图纸\\CITLB24N074&CITLB24N075\\1.FL9C24N074JJ00.001_机架模组\\FL9C24N074JJ00.001.SLDASM"
+  },
+  "inputSha256": {
+    "measurementPath": "2680502dd46fad4b69a350e631f85492c585bdf1c6317537ac057207a818a89e"
+  },
+  "workingDistanceRangeEvidence": {
+    "minimumMeters": 0.07,
+    "maximumMeters": 1.0,
+    "authority": "KEYENCE China official SR-X100 specifications",
+    "sourceUrl": "https://www.keyence.com.cn/products/barcode/barcode-readers/sr-x/models/sr-x100/",
+    "retrievedDate": "2026-10-12"
+  },
+  "crossTrackToleranceMeters": 0.005,
+  "interpretationLimits": [
+    "A180 optical origin and SS00 barcode lane are coarse proxies converted to their owning module frames. Current CAD must reproject both; this is not a physical barcode face or measured scan success.",
+    "The target base changes only the mechanical installation context; scanner and transport points are rebound from the current saved CAD state.",
+    "The rule is not CAD authority, a physical barcode-face registration or measured scan success."
+  ],
+  "status": "review_candidate_requires_current_saved_context",
+  "cadLaunchAllowed": false,
+  "prototypePoseAllowedAsCadExecutionAuthority": false,
+  "ruleDigest": "5dc55a6cd337394c55a995061a30872364a1066417e9bf07b5e23c6b72392b73"
+}

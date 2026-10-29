@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "released-station-parameters-rule/v1",
+  "ruleId": "calibration-ah00-aa00-v1",
+  "sourceModuleDefinitionId": "project03::AH00",
+  "targetBaseDefinitionId": "project03::AA00",
+  "nativeRoleModuleDefinitionId": "project03::AH00",
+  "sourcePortId": "AH00.frame_installation",
+  "targetPortId": "AA00.ah00_installation",
+  "inputs": {
+    "referenceReleasePath": "demo/global_assembly_catalog/releases/relation-v15-project03-five-module-driving-20261011/release-manifest.json"
+  },
+  "coordinateSystem": "target_registered_support_plane_and_two_hole_axes",
+  "interpretationLimits": [
+    "Use target AA00's registered AH00 mounting datums; do not copy source world pose.",
+    "Current CAD and save/reopen validation required; calibration reachability and fastening unverified."
+  ]
+}

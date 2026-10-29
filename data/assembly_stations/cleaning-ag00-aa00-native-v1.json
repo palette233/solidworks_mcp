@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "cleaning-service-region-rule/v1",
+  "ruleId": "cleaning-ag00-aa00-native-v1",
+  "sourceRole": "CleaningWeighing",
+  "sourceModuleDefinitionId": "project03::AG00",
+  "targetBaseDefinitionId": "project03::AA00",
+  "nativeRoleModuleDefinitionId": "project03::AG00",
+  "moduleTokens": {"source": "AG00", "targetBase": "AA00", "nativeRole": "AG00"},
+  "serviceSubtrees": ["AG10", "AG20", "AG30", "AG40"],
+  "excludedSubtrees": ["AG00-common-structure"],
+  "initialPlacementVariant": 3,
+  "inputs": {
+    "movingOccupancy": "demo/layout_previews/project03_module_occupancy.json",
+    "targetOccupancy": "demo/layout_previews/project03_module_occupancy.json",
+    "movingNativeGraph": "demo/semantic_ports/project03_AG00_fourth_increment_calibrated_v2/assembly_plan_effective.json",
+    "targetNativeGraph": "demo/semantic_ports/project03_AG00_fourth_increment_calibrated_v2/assembly_plan_effective.json",
+    "datumGraph": "demo/cross_project_substitution/parameterized-datum-placement-v1/validation-queue-20261026-v7/validation-ag00-aa00-v1/effective-mate-graph.json",
+    "movingFaces": "demo/cross_project_substitution/parameterized-datum-placement-v1/ag00-reference-leaf-face-catalog.json",
+    "baseFaces": "demo/cross_project_substitution/scanner-slot-discovery-v1/project03_AA00_project01_SM00/aa00-scanner-support-leaf-face-catalog.json"
+  },
+  "transportContext": {"moduleDefinitionId": "project03::AE00", "moduleToken": "AE00", "occupancyInput": "targetOccupancy", "nativeGraphInput": "targetNativeGraph"},
+  "claimBoundary": "Data-only native-role analytical candidate using captured geometry; no new CAD run, engineering permission or current Transport context is claimed."
+}

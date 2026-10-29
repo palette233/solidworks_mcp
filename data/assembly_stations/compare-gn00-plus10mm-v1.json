@@ -1,0 +1,15 @@
+{
+  "beforeStatePath": "demo/unified_six_role_goal_20261028/full-chain-v1/s04-cleaning/station-check-attempts/attempt-001/reopened-state.json",
+  "afterStatePath": "demo/unified_six_role_goal_20261028/gn00-plus10mm-cad-v1/reopened-state.json",
+  "baseToken": "AA00",
+  "movedToken": "GN00",
+  "expectedDisplacementMeters": [0.01, 0, 0],
+  "expectedParameterChanges": {
+    "MCP_GRAPH_MCP_IFACE_324BD614_LONGITUDINAL": [0.35630906453119676, 0.36630906453119677]
+  },
+  "mateNameMap": {
+    "MCP_GRAPH_MCP_IFACE_324BD614_LONGITUDINAL": "MCP_GRAPH_MCP_IFACE_3E32854D_LONGITUDINAL",
+    "MCP_GRAPH_MCP_IFACE_324BD614_LATERAL": "MCP_GRAPH_MCP_IFACE_3E32854D_LATERAL",
+    "MCP_GRAPH_MCP_IFACE_324BD614_SUPPORT": "MCP_GRAPH_MCP_IFACE_3E32854D_SUPPORT"
+  }
+}

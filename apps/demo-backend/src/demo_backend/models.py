@@ -358,9 +358,22 @@ class GlobalCadManifestJobStartRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class ConfirmedModuleSelection(BaseModel):
+    module_definition_id: str = Field(alias="moduleDefinitionId", min_length=1)
+    confirmed: bool = Field(strict=True)
+
+    model_config = {"populate_by_name": True, "extra": "forbid"}
+
+
 class GlobalNaturalLanguageManifestJobRequest(BaseModel):
     context_id: str = Field(alias="contextId", min_length=1, max_length=80)
     requirements: list[str] = Field(min_length=2, max_length=20)
+    confirmed_module_selections: list[ConfirmedModuleSelection] | None = Field(
+        default=None, alias="confirmedModuleSelections"
+    )
+    relation_execution_mode: Literal["direct_installation", "datum_placement_demo"] = Field(
+        default="direct_installation", alias="relationExecutionMode"
+    )
     display_name: str | None = Field(default=None, alias="displayName")
     catalog_path: str | None = Field(default=None, alias="catalogPath")
     release_manifest_path: str | None = Field(
@@ -372,6 +385,9 @@ class GlobalNaturalLanguageManifestJobRequest(BaseModel):
     idempotency_key: str | None = Field(default=None, alias="idempotencyKey")
     auto_order_by_released_dependencies: bool = Field(
         default=False, alias="autoOrderByReleasedDependencies"
+    )
+    enforce_mechanical_interface_contracts: bool = Field(
+        default=True, alias="enforceMechanicalInterfaceContracts"
     )
 
     model_config = {"populate_by_name": True}

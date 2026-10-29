@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "bounded-cup-measurement-request/v1",
+  "purpose": "Measure P000 local mouths and JJ00 native GN00/FJ00 cup stations; no new placement authority",
+  "source": {
+    "moduleDefinitionId": "project05::P000",
+    "moduleToken": "P000",
+    "assemblyPath": "demo/cross_project_substitution/parameterized-datum-placement-v1/validation-queue-20261026-v72-native-projection-4/validation-p000-jj00-v1/project01-jj00-project05-p000-datum-validation-v1.SLDASM",
+    "leafSelectors": ["FL00002-00549-1", "FL00002-00549-2"],
+    "openingDirectionWorld": [0, 1, 0]
+  },
+  "native": {
+    "moduleDefinitionId": "project01::GN00",
+    "moduleToken": "GN00",
+    "assemblyPath": "D:/zengshuang/workspace/cuhksz/cad_data/001-给港中文AI训练用资料_20260624/项目01/01-项目3D图纸/CITLB24N074&CITLB24N075/FL9C24N074AA00.001.SLDASM",
+    "leafSelectors": ["FL00002-00549-1", "FL00002-00549-2"],
+    "openingDirectionWorld": [0, 1, 0]
+  },
+  "maximumFaceCount": 500,
+  "includeNonplanar": true,
+  "measurementOnly": true,
+  "status": "prepared_not_executed",
+  "ambiguityPolicy": "Reject multiple leaf matches; inspect hierarchy before refining selector",
+  "evidenceBoundary": "Saved-state and face scans must agree; estimated upward direction must be confirmed by analytic rim extraction"
+}

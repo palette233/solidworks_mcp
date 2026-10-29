@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "six-role-station-scope/v1",
+  "scopeId": "six-role-four-project-stations-20261028-v1",
+  "projects": ["project01", "project02", "project03", "project05"],
+  "roles": ["Base", "Transport", "Scanner", "Calibration", "CleaningWeighing", "WasteCup"],
+  "bases": [
+    {"moduleDefinitionId": "project01::JJ00", "cadModuleDefinitionId": "cad/fl9c24n074jj00-001/79d4fd749ac0", "role": "Base", "displayName": "箱体与回流固定环境"},
+    {"moduleDefinitionId": "project02::A600", "cadModuleDefinitionId": "cad/fl9a24d062a600-001-1/66606c07c8cf", "role": "Base", "displayName": "设备箱体与安装基座"},
+    {"moduleDefinitionId": "project03::AA00", "cadModuleDefinitionId": "cad/fl9a24d063aa00-001/dc4bbec17218", "role": "Base", "displayName": "箱体与回流固定环境"},
+    {"moduleDefinitionId": "project05::A000", "cadModuleDefinitionId": "cad/fl9c254098a000-001/b98ba8912621", "role": "Base", "displayName": "机架与回流固定环境"}
+  ],
+  "movingModules": [
+    {"moduleDefinitionId": "project01::SS00", "cadModuleDefinitionId": "cad/fl9c24n074ss00-001/ced014a7837b", "role": "Transport", "displayName": "上层产品传输模组"},
+    {"moduleDefinitionId": "project02::A800", "cadModuleDefinitionId": "cad/fl9a24d062a800-001-1/b11083d42500", "role": "Transport", "displayName": "产品传输与载具定位模组"},
+    {"moduleDefinitionId": "project03::AE00", "cadModuleDefinitionId": "cad/fl9a24d063ae00-001/de8d7b88328e", "role": "Transport", "displayName": "上层产品传输模组"},
+    {"moduleDefinitionId": "project05::D000", "cadModuleDefinitionId": "cad/fl9c254098d000-001/c909c9a72658", "role": "Transport", "displayName": "上层产品输送模组"},
+    {"moduleDefinitionId": "project01::SM00", "cadModuleDefinitionId": "cad/fl9c24n074sm00-001/8e71a74b8503", "role": "Scanner", "displayName": "双扫描器模组"},
+    {"moduleDefinitionId": "project02::A180", "cadModuleDefinitionId": "cad/fl9a24d062a180-001-1/0651e5c708c1", "role": "Scanner", "displayName": "条码扫描模组"},
+    {"moduleDefinitionId": "project03::AI00", "cadModuleDefinitionId": "cad/fl9a24d063ai00-001/e34df816780b", "role": "Scanner", "displayName": "条码扫描模组"},
+    {"moduleDefinitionId": "project05::F000", "cadModuleDefinitionId": "cad/fl9c254098f000-001/6fc39b59ca0f", "role": "Scanner", "displayName": "双读头条码扫描模组"},
+    {"moduleDefinitionId": "project01::BD00", "cadModuleDefinitionId": "cad/fl9c24n074bd00-001/2d2d9188dc81", "role": "Calibration", "displayName": "喷嘴校准模组"},
+    {"moduleDefinitionId": "project02::A500", "cadModuleDefinitionId": "cad/fl9a24d062a500-001-1/3b8914a96909", "role": "Calibration", "displayName": "胶阀/喷嘴校准模组"},
+    {"moduleDefinitionId": "project03::AH00", "cadModuleDefinitionId": "cad/fl9a24d063ah00-001/7c289ddb774e", "role": "Calibration", "displayName": "喷嘴校准模组"},
+    {"moduleDefinitionId": "project05::G000", "cadModuleDefinitionId": "cad/fl9c254098g000-001/142981767ea5", "role": "Calibration", "displayName": "校准与称重组合模组", "scopeNote": "按安装主角色计入校准，不重复计数称重"},
+    {"moduleDefinitionId": "project01::GN00", "cadModuleDefinitionId": "cad/fl9c24n074gn00-001/1fe0a530a501", "role": "CleaningWeighing", "displayName": "清洁称重排胶硬度测试组合模组"},
+    {"moduleDefinitionId": "project03::AG00", "cadModuleDefinitionId": "cad/fl9a24d063ag00-001/e6484bd73e6b", "role": "CleaningWeighing", "displayName": "清洁称重排胶硬度测试组合模组"},
+    {"moduleDefinitionId": "project05::N000", "cadModuleDefinitionId": "cad/fl9c251093n000-001/762e01a4df6d", "role": "CleaningWeighing", "displayName": "自动针头清洁模组"},
+    {"moduleDefinitionId": "project02::A300", "cadModuleDefinitionId": "cad/fl9a24d062a300-001-1/88a14e23c418", "role": "WasteCup", "displayName": "排胶与废胶收集模组"},
+    {"moduleDefinitionId": "project05::P000", "cadModuleDefinitionId": "cad/fl9c254098p000-001/65d8e57f8b7f", "role": "WasteCup", "displayName": "双杯排胶模组"}
+  ],
+  "expectedCounts": {"baseCount": 4, "movingModuleCount": 17, "exactPairCount": 68},
+  "exclusions": [
+    {"id": "project06", "reason": "本轮不引入Project06"},
+    {"id": "project02::A700", "reason": "柔性内部机构不是本轮刚性目录覆盖重点；保留既有问题，不以锚点兜底"},
+    {"id": "CCD/Gantry/GlueSupply", "reason": "不纳入当前六类自由替换范围"}
+  ],
+  "frozenFrom": [
+    {"path": "demo/global_assembly_catalog/v1/global_module_catalog.json", "sha256": "500ff581036ef42f79a05e152be57b63aa7661a499181c4636759205528df8df"},
+    {"path": "demo/global_assembly_catalog/short-term-cross-project-scope-v1/readiness.json", "sha256": "83263173693edf1f2024117e3def1e7791ae4fe9dac27eda5bb1262e8a974b1d"}
+  ],
+  "boundary": "68是精确模组×基座待覆盖配对数，不是工位就绪数；当前接口权威、运行时撤销和工位规则必须分别重新验证。"
+}

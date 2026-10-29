@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "released-station-parameters-rule/v1",
+  "ruleId": "calibration-bd00-aa00-v1",
+  "sourceModuleDefinitionId": "project01::BD00",
+  "targetBaseDefinitionId": "project03::AA00",
+  "nativeRoleModuleDefinitionId": "project03::AH00",
+  "sourcePortId": "BD00.frame_installation",
+  "targetPortId": "AA00.ah00_installation",
+  "inputs": {"referenceReleasePath": "demo/global_assembly_catalog/releases/relation-v45-project03-aa00-project01-bd00-calibration-driving-20261012/release-manifest.json"},
+  "coordinateSystem": "target_registered_support_plane_and_two_hole_axes",
+  "interpretationLimits": ["Use the target AH00 calibration mounting station, not BD00's source-world transform.", "Current mate solve and save/reopen still required; calibration reachability and fastening are not verified."]
+}

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "cup-projection-rule/v1",
+  "ruleId": "cup-p000-a600-functional-v1",
+  "sourceModuleDefinitionId": "project05::P000",
+  "targetBaseDefinitionId": "project02::A600",
+  "nativeRoleModuleDefinitionId": "project02::A300",
+  "inputs": {
+    "geometryRequestPath": "data/assembly_stations/p000-a600-cup-functional-request-v1.json"
+  },
+  "coordinateSystem": "A600_registered_target_datum_planes_with_native_A300_cup_function_cluster",
+  "acceptance": {
+    "mouthProjectionPolicy": "native_points_inside_source_openings",
+    "radialMarginMeters": 0.005,
+    "openingAngularToleranceDegrees": 1,
+    "equalMouthHeightRequired": false
+  },
+  "interpretationLimits": [
+    "The A300 90 mm and P000 130 mm cup spacings cannot make both centers coincident by rigid translation.",
+    "The accepted Demo policy aligns the two-cup cluster midpoint and requires each native target point to remain inside its corresponding P000 opening with 5 mm radial margin.",
+    "Native and historical transforms calibrate the target station and current datum recipe only; they are not CAD execution poses.",
+    "Fresh non-prototype CAD, active mates, save/reopen and current cup projection postcheck remain required before registration.",
+    "Nozzle reach, real dispensing, physical fastening, collision and B-rep remain unverified."
+  ]
+}

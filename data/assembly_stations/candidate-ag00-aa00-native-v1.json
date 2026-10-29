@@ -1,0 +1,24 @@
+{
+  "chainId": "batch-cleaning-ag00-aa00-native-20261028-v1",
+  "baseRequirement": "建立已确认的固定基座。",
+  "baseSelection": {
+    "projectId": "project03",
+    "moduleToken": "AA00",
+    "confirmed": true
+  },
+  "stationRegistryPath": "data/assembly_stations/station-rules-v17.json",
+  "allowPrototypeEstimate": true,
+  "placementValidationMode": "target_role_station",
+  "steps": [
+    {
+      "stageId": "cleaning",
+      "requirement": "在当前基座的原生清洁称重工位安装清洁称重模组，并复核各服务子区代理包络。",
+      "moduleSelection": {
+        "projectId": "project03",
+        "moduleToken": "AG00",
+        "confirmed": true
+      },
+      "allowDatumFallback": true
+    }
+  ]
+}

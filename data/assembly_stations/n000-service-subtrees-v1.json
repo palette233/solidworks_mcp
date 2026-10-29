@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "cleaning-service-subtree-labels/v1",
+  "moduleDefinitionId": "project05::N000",
+  "moduleToken": "N000",
+  "capturedInstanceName": "FL9C251093N000.001-4",
+  "groups": [
+    {
+      "subtree": "FL9C251093NA00.001-1",
+      "role": "external_installation_support",
+      "serviceProxyIncluded": false,
+      "basis": "All four exported top-level installation mates use a static leaf under NA00."
+    },
+    {
+      "subtree": "FL9C251093NB00.001-1",
+      "role": "cleaning_function_group",
+      "serviceProxyIncluded": true,
+      "detailedFunction": "not_evaluated"
+    },
+    {
+      "subtree": "FL9C251093NC00.001-1",
+      "role": "cleaning_function_group",
+      "serviceProxyIncluded": true,
+      "detailedFunction": "not_evaluated"
+    },
+    {
+      "subtree": "FL9C251093ND00.001-1",
+      "role": "cleaning_function_group",
+      "serviceProxyIncluded": true,
+      "detailedFunction": "not_evaluated"
+    }
+  ],
+  "claimBoundary": "NB00/NC00/ND00 are separate measured functional-group envelopes, not one cleaning point; detailed action assignment and real cleaning performance remain unverified."
+}

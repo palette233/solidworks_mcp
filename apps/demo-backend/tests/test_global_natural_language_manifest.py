@@ -10,13 +10,23 @@ from demo_backend.global_natural_language_manifest import (
 from demo_backend.assembly_conversation import load_conversation
 from demo_backend.global_assembly_workbench import context_path, load_context
 from demo_backend.semantic_assembly_jobs import DurableAssemblyJobStore
+from demo_backend.models import GlobalNaturalLanguageManifestJobRequest
 
 
 WORKSPACE = Path(__file__).resolve().parents[3]
 
 
+def test_user_facing_natural_language_request_enforces_interface_contracts_by_default():
+    request = GlobalNaturalLanguageManifestJobRequest(
+        contextId="strict-default",
+        requirements=["先安装基座", "再安装传输模组"],
+    )
+    payload = request.model_dump(by_alias=True, exclude_none=True)
+    assert payload["enforceMechanicalInterfaceContracts"] is True
+
+
 @pytest.mark.parametrize(
-    "context_id,requirements,expected_packets",
+    "context_id,requirements,expected_packets,expected_interface_status",
     [
         (
             "nl-manifest-three-step",
@@ -26,6 +36,7 @@ WORKSPACE = Path(__file__).resolve().parents[3]
                 "最后在A000上安装项目05 F000双读头条码扫描模组",
             ],
             2,
+            "ready",
         ),
         (
             "nl-manifest-five-step",
@@ -37,6 +48,7 @@ WORKSPACE = Path(__file__).resolve().parents[3]
                 "最后安装项目05 G000校准与称重组合模组",
             ],
             4,
+            "ready",
         ),
         (
             "nl-manifest-five-step-reordered",
@@ -48,11 +60,13 @@ WORKSPACE = Path(__file__).resolve().parents[3]
                 "最后安装项目05 M000产品定位CCD模组",
             ],
             4,
+            "ready",
         ),
     ],
 )
 def test_nonfixed_natural_language_order_compiles_directly_to_job(
-    tmp_path, monkeypatch, context_id, requirements, expected_packets
+    tmp_path, monkeypatch, context_id, requirements, expected_packets,
+    expected_interface_status,
 ):
     context_dir = Path(".tmp") / f"{tmp_path.name}-{context_id}"
     monkeypatch.setattr(
@@ -76,6 +90,7 @@ def test_nonfixed_natural_language_order_compiles_directly_to_job(
     assert result["job"]["progress"]["totalSteps"] == expected_packets
     assert result["cadStarted"] is False
     assert result["collisionStatus"] == "not_evaluated"
+    assert result["mechanicalInterfacePreflight"]["status"] == expected_interface_status
     assert result["timingSeconds"]["totalSeconds"] >= 0
     assert result["timingSeconds"]["phasesSeconds"]["compileTransactionDag"] >= 0
     job = store.load(result["jobId"])
@@ -98,6 +113,65 @@ def test_nonfixed_natural_language_order_compiles_directly_to_job(
     assert [binding["jobId"] for binding in latest_turn["jobs"]] == [
         result["jobId"]
     ]
+    shutil.rmtree(WORKSPACE / context_dir)
+
+
+def test_strict_interface_preflight_allows_released_project05_chain(
+    tmp_path, monkeypatch
+):
+    context_id = "nl-manifest-strict-interface-ready"
+    context_dir = Path(".tmp") / f"{tmp_path.name}-{context_id}"
+    monkeypatch.setattr(
+        "demo_backend.global_assembly_workbench.DEFAULT_CONTEXT_DIR", context_dir
+    )
+    store = DurableAssemblyJobStore(tmp_path / "jobs")
+    result = compile_natural_language_manifest_job(
+        WORKSPACE,
+        {
+            "contextId": context_id,
+            "requirements": [
+                "先安装项目05 A000机架基座",
+                "然后在A000上安装项目05 G000校准与称重组合模组",
+                "最后在A000上安装项目05 F000双读头条码扫描模组",
+            ],
+            "overwrite": True,
+            "enforceMechanicalInterfaceContracts": True,
+        },
+        store=store,
+    )
+    assert result["success"] is True
+    assert result["mechanicalInterfacePreflight"]["status"] == "ready"
+    assert result["cadStarted"] is False
+    shutil.rmtree(WORKSPACE / context_dir)
+
+
+def test_strict_interface_preflight_blocks_unregistered_module_before_job(
+    tmp_path, monkeypatch
+):
+    context_id = "nl-manifest-strict-interface-blocked"
+    context_dir = Path(".tmp") / f"{tmp_path.name}-{context_id}"
+    monkeypatch.setattr(
+        "demo_backend.global_assembly_workbench.DEFAULT_CONTEXT_DIR", context_dir
+    )
+    store = DurableAssemblyJobStore(tmp_path / "jobs")
+    result = compile_natural_language_manifest_job(
+        WORKSPACE,
+        {
+            "contextId": context_id,
+            "requirements": [
+                "先安装项目05 A000机架基座",
+                "然后安装项目05 K000供胶模组",
+            ],
+            "overwrite": True,
+            "enforceMechanicalInterfaceContracts": True,
+        },
+        store=store,
+    )
+    assert result["success"] is False
+    assert result["status"] == "blocked_by_mechanical_interface_contracts"
+    assert result["mechanicalInterfacePreflight"]["blockedConnectionCount"] == 1
+    assert result["jobCreated"] is False
+    assert result["cadStarted"] is False
     shutil.rmtree(WORKSPACE / context_dir)
 
 

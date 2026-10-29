@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "scanner-local-point-pair-rule/v1",
+  "ruleId": "scanner-ai00-a800-a600-point-pair-v1",
+  "sourceModuleDefinitionId": "project03::AI00",
+  "transportModuleDefinitionId": "project02::A800",
+  "targetBaseDefinitionId": "project02::A600",
+  "inputs": {
+    "measurementPath": "data/assembly_stations/scanner-point-pair-ai00-a800-v1.json"
+  },
+  "componentSourcePaths": {
+    "scanner": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\001-给港中文AI训练用资料_20260624\\项目03\\01-项目3D图纸\\FL9A24D063A000.001-0415\\FL9A24D063AI00.001.SLDASM",
+    "transport": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\001-给港中文AI训练用资料_20260624\\项目02\\01-项目3D图纸\\FL9A24D062A000.001\\FL9A24D062A800.001.SLDASM",
+    "targetBase": "D:\\zengshuang\\workspace\\cuhksz\\cad_data\\001-给港中文AI训练用资料_20260624\\项目02\\01-项目3D图纸\\FL9A24D062A000.001\\FL9A24D062A600.001.SLDASM"
+  },
+  "inputSha256": {
+    "measurementPath": "644a4f34264c82ccfee50c8bd9e5783fdd6ef1d32065a2d336d249e566e6dd09"
+  },
+  "workingDistanceRangeEvidence": {
+    "minimumMeters": 0.07,
+    "maximumMeters": 1.0,
+    "authority": "KEYENCE China official SR-X100 specifications",
+    "sourceUrl": "https://www.keyence.com.cn/products/barcode/barcode-readers/sr-x/models/sr-x100/",
+    "retrievedDate": "2026-10-12"
+  },
+  "crossTrackToleranceMeters": 0.005,
+  "interpretationLimits": [
+    "The scanner optical proxy and direct transport barcode face are converted to their owning module frames. Historical world poses are not placement authority; current CAD must reproject both and real scan success remains unknown.",
+    "The target base changes only the mechanical installation context; scanner and transport points are rebound from the current saved CAD state.",
+    "The rule is not CAD authority, a physical barcode-face registration or measured scan success."
+  ],
+  "status": "review_candidate_requires_current_saved_context",
+  "cadLaunchAllowed": false,
+  "prototypePoseAllowedAsCadExecutionAuthority": false,
+  "ruleDigest": "14125e4acbd369a394d716853b6df3af5200e090a50f0c89ae58bc99efa26a9e"
+}

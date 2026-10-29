@@ -1,0 +1,87 @@
+{
+  "schemaVersion": "scanner-local-point-pair-profile/v1",
+  "profileId": "scanner-point-pair-a180-ss00-v1",
+  "sourceScanner": {
+    "moduleDefinitionId": "project02::A180",
+    "localOpticalOriginMeters": [
+      0.2654209535343681,
+      -0.21160000000000165,
+      0.011000000000000043
+    ],
+    "referenceTransform": [
+      5.121780140455107e-16,
+      1.0000000000000002,
+      1.4988010832439613e-15,
+      -0.9999999999999999,
+      5.237968200481126e-16,
+      -1.800476109640641e-17,
+      3.697066699700884e-18,
+      -1.5543122344752192e-15,
+      1,
+      -0.5336785364039835,
+      0.3569082816934776,
+      -0.38907712115896315,
+      1,
+      0,
+      0,
+      0
+    ],
+    "opticalDirectionWorld": [
+      -1.1618806002602081e-17,
+      1.0,
+      -5.551115123125823e-17
+    ],
+    "coarseLayoutUsable": true,
+    "evidenceQuality": "inferred_from_symmetric_illumination_windows"
+  },
+  "targetTransport": {
+    "moduleDefinitionId": "project01::SS00",
+    "localBarcodeTargetMeters": [
+      -0.742524791803667,
+      0.06978066795468572,
+      0.12001355259437349
+    ],
+    "referenceTransform": [
+      1.2212453270876722e-15,
+      -3.4353082579025905e-16,
+      1.0,
+      0.9999999999999999,
+      9.221431650504302e-17,
+      -1.2490009027033011e-15,
+      -8.062675362536802e-17,
+      0.9999999999999999,
+      3.799891114675716e-16,
+      -0.5691440662034042,
+      -0.20497453032211574,
+      0.14781516586532573,
+      1.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "targetKind": "barcode_lane_proxy_at_scan_station",
+    "engineeringConfirmed": false,
+    "flowCoordinateBehavior": "dynamic_with_carrier_proxy_at_selected_scan_station"
+  },
+  "workingDistanceRangeEvidence": {
+    "minimumMeters": 0.07,
+    "maximumMeters": 1.0,
+    "authority": "KEYENCE China official SR-X100 specifications",
+    "sourceUrl": "https://www.keyence.com.cn/products/barcode/barcode-readers/sr-x/models/sr-x100/",
+    "retrievedDate": "2026-10-12"
+  },
+  "crossTrackToleranceMeters": 0.005,
+  "sourceEvidence": [
+    {
+      "path": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\layout_previews\\project02_scanner_barcode_points.json",
+      "sha256": "f97fced19bbff9c4c326619bef409222c5c0bb0274754c038a2ae78b49abc6e8"
+    },
+    {
+      "path": "D:\\zengshuang\\workspace\\cuhksz\\cad\\solidworks_mcp\\demo\\cross_project_substitution\\cumulative-project03-v2\\scanner-transport-process-validation.json",
+      "sha256": "058702c356812f020d5315fe9780191520c114cbdc5b447c4d3c8385b5e58e62"
+    }
+  ],
+  "cadStarted": false,
+  "claimBoundary": "A180 optical origin and SS00 barcode lane are coarse proxies converted to their owning module frames. Current CAD must reproject both; this is not a physical barcode face or measured scan success.",
+  "profileDigest": "5dccb70fc3df1875c26330994b26c3559a6799e9e9b7aa20e86e95b0e642456f"
+}

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "native-cup-station-rule/v1",
+  "ruleId": "cup-p000-a000-native-v1",
+  "sourceModuleDefinitionId": "project05::P000",
+  "targetBaseDefinitionId": "project05::A000",
+  "nativeRoleModuleDefinitionId": "project05::P000",
+  "sourceToken": "P000",
+  "baseToken": "A000",
+  "sourcePortId": "P000.frame_installation",
+  "targetPortId": "A000.p000_installation",
+  "nativeInstanceHierarchyPath": "FL9C254098P000.001-2",
+  "baseInstanceHierarchyPath": "FL9C254098A000.001-1",
+  "nativeInstanceSelectionBasis": "Existing published P000 installation recipe closes the free-slot position using the P000-2 measured datum; do not select the first duplicate token.",
+  "captureOpeningDirectionWorld": [0, 1, 0],
+  "cupCatalogInputKeys": ["cup1", "cup2"],
+  "inputs": {
+    "nativeGraph": "demo/layout_previews/project05_module_mate_graph.json",
+    "captureState": "demo/cross_project_substitution/six-role-project03-base-v1/standard/read-only-chain-verification.json",
+    "cup1": "demo/role_station_strengthening_20261028/functional-chain-v1/geometry/p000-cup-1.json",
+    "cup2": "demo/role_station_strengthening_20261028/functional-chain-v1/geometry/p000-cup-2.json",
+    "referenceReleasePath": "demo/global_assembly_catalog/releases/relation-v61-project05-complete-seven-addon-driving-20261014/release-manifest.json"
+  },
+  "acceptance": {"projectionToleranceMeters": 0.000001, "angularToleranceDegrees": 1, "equalMouthHeightRequired": false},
+  "coordinateSystem": "A000_module_local; measured_native_P000-2_function_points",
+  "interpretationLimits": ["Native transforms calibrate expected local cup points only; existing active mates drive the new instance.", "Two-dimensional mouth projection and opening direction are Demo checks; fastening, real dispensing and B-rep remain unverified."]
+}

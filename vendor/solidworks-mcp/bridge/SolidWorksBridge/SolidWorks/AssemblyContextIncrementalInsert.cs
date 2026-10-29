@@ -331,7 +331,12 @@ public partial class AssemblyService
         document.ForceRebuild3(true);
         CompletePhase("rebuild-driving-mates");
 
-        var save = sw.SaveDocAs(output, sourcePath: null, saveAsCopy: false);
+        // The transaction copied the source to `output` and opened that exact file
+        // before applying the insert.  Saving it through SaveAs3 with the same source
+        // and destination path is unnecessary and can leave SolidWorks busy in a
+        // long-running cumulative session.  Persist the already-open output document
+        // in place through Save3 instead.
+        var save = sw.SaveDoc(output);
         if (save.Errors != 0)
             diagnostics.Add($"SolidWorks save returned errors={save.Errors}, warnings={save.Warnings}.");
         // The public bridge close contract accepts a path and resolves the exact open

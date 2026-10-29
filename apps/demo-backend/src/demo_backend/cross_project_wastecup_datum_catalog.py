@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import math
 from typing import Any
 
 from .global_module_catalog import validate_global_module_catalog
@@ -92,7 +93,8 @@ def build_wastecup_datum_catalog_package(
     base_global_catalog: dict[str, Any],
     candidate_graph: dict[str, Any],
     candidate_audit: dict[str, Any],
-    a600_endpoint_catalog: dict[str, Any],
+    a600_endpoint_catalog: dict[str, Any] | None = None,
+    context_endpoint_catalog: dict[str, Any] | None = None,
     p000_endpoint_catalog: dict[str, Any],
     semantic_catalog_path: str,
     endpoint_catalog_path: str,
@@ -105,6 +107,68 @@ def build_wastecup_datum_catalog_package(
         raise CrossProjectWasteCupDatumCatalogError("候选审计版本不受支持。")
     if candidate_audit.get("status") != "ready_for_nonprototype_cad_validation":
         raise CrossProjectWasteCupDatumCatalogError("候选基准图未进入CAD验证状态。")
+    target_project = str(candidate_audit.get("targetProjectId") or "").strip()
+    base_token = str(candidate_audit.get("targetBaseToken") or "").strip()
+    if not target_project or not base_token or not base_token.isalnum():
+        raise CrossProjectWasteCupDatumCatalogError("候选审计缺少有效的目标项目或基座编号。")
+    if context_endpoint_catalog is None:
+        context_endpoint_catalog = a600_endpoint_catalog
+    elif a600_endpoint_catalog is not None and context_endpoint_catalog != a600_endpoint_catalog:
+        raise CrossProjectWasteCupDatumCatalogError("新旧基座端点目录参数不能指向不同内容。")
+    if context_endpoint_catalog is None:
+        raise CrossProjectWasteCupDatumCatalogError("缺少基座端点目录。")
+    legacy_a600 = (target_project, base_token) == ("project02", "A600")
+    mate_prefix = f"P000_{base_token}_DATUM"
+    mate_names = [f"{mate_prefix}_{suffix}" for suffix in ("DISTANCE_1", "DISTANCE_2", "SUPPORT")]
+
+    # Preserve legacy identities, but give the opt-in support-position recipe
+    # its own template identity. Distances must come from the validated graph,
+    # never from hard-coded defaults that silently discard an edited parameter.
+    support_policy = candidate_graph.get("SupportPositionDemoPolicy") or {}
+    support_demo = candidate_audit.get("mode") == "support_position_demo"
+    graph_mates = {row.get("MateName"): row for row in candidate_graph.get("Mates") or []}
+    alignments = []
+    alignment_names = {0: "swMateAlignALIGNED", 1: "swMateAlignANTI_ALIGNED", 2: "swMateAlignCLOSEST"}
+    for name, mate_type in zip(mate_names, (5, 5, 0)):
+        mate = graph_mates.get(name) or {}
+        alignment = mate.get("Alignment")
+        if (
+            mate.get("MateType") != mate_type
+            or isinstance(alignment, bool)
+            or not isinstance(alignment, int)
+            or alignment not in alignment_names
+            or mate.get("AlignmentName") not in (None, "", alignment_names[alignment])
+        ):
+            raise CrossProjectWasteCupDatumCatalogError("基准配合类型或对齐方向无效/不一致。")
+        alignments.append(alignment)
+    distances = []
+    for name in mate_names[:2]:
+        value = (graph_mates.get(name) or {}).get("Distance")
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+            raise CrossProjectWasteCupDatumCatalogError("距离配合必须包含有限非负的位置参数。")
+        distances.append(value)
+    legacy_template_id = (
+        LEGACY_TEMPLATE_ID if legacy_a600
+        else f"P000_to_{base_token}_cross_project_datum_placement_demo_v1"
+    )
+    if support_demo:
+        parameters = support_policy.get("positionParametersMeters") or {}
+        if not (
+            support_policy.get("mode") == "support_position_demo"
+            and support_policy.get("holePatternMatchRequired") is False
+            and support_policy.get("actualFixationMethod") == "not_verified"
+            and support_policy.get("directMechanicalCompatibilityClaim") is False
+            and parameters == candidate_audit.get("positionParametersMeters")
+            and parameters.get("longitudinal") == distances[0]
+            and parameters.get("lateral") == distances[1]
+            and parameters.get("supportGap") == 0
+        ):
+            raise CrossProjectWasteCupDatumCatalogError("支承定位Demo的参数或能力边界与执行图不一致。")
+        legacy_template_id = f"P000_to_{base_token}_support_position_demo_v2_" + _digest(parameters)[:10]
+    # Preserve published A600 identities for their original directions. A
+    # changed direction must never silently reuse the same executable recipe.
+    if alignments != [0, 0, 1]:
+        legacy_template_id += "_alignment_" + _digest(alignments)[:10]
 
     roles = ["longitudinal_datum", "lateral_datum", "support_datum"]
     target_ids = list(candidate_audit.get("targetEndpointIds") or [])
@@ -112,20 +176,21 @@ def build_wastecup_datum_catalog_package(
     if len(target_ids) != 3 or len(context_ids) != 3:
         raise CrossProjectWasteCupDatumCatalogError("候选必须恰好包含两侧各三个基准端点。")
     p000_rows = _endpoint_rows(p000_endpoint_catalog, target_ids)
-    a600_rows = _endpoint_rows(a600_endpoint_catalog, context_ids)
+    context_rows = _endpoint_rows(context_endpoint_catalog, context_ids)
     endpoint_catalog = {
         "SchemaVersion": "solidworks-face-endpoint-catalog/v1",
         "SourceAssemblyPath": candidate_graph.get("SourceAssemblyPath"),
         "CatalogMode": "cross-project-wastecup-datum-demo-endpoints-only",
         "EndpointCount": 6,
-        "Endpoints": [*p000_rows, *a600_rows],
+        "Endpoints": [*p000_rows, *context_rows],
     }
 
     p000_hierarchy = str((p000_rows[0].get("Endpoint") or {}).get("ModuleHierarchyPath") or "")
-    a600_hierarchy = str((a600_rows[0].get("Endpoint") or {}).get("ModuleHierarchyPath") or "")
+    context_hierarchy = str((context_rows[0].get("Endpoint") or {}).get("ModuleHierarchyPath") or "")
+    p000_port_suffix = "" if legacy_a600 else f".{base_token.lower()}"
     ports = [
         {
-            "portId": "P000.cross_project_wastecup_datum",
+            "portId": f"P000.cross_project_wastecup_datum{p000_port_suffix}",
             "displayName": "P000跨项目排胶杯三平面基准端口",
             "moduleToken": "P000",
             "moduleHierarchyPath": p000_hierarchy,
@@ -144,17 +209,17 @@ def build_wastecup_datum_catalog_package(
                 for role, row in zip(roles, p000_rows)
             ],
             "projectId": "project05",
-            "validationStatus": "real-cad-confirmed-datum-placement-demo",
+            "validationStatus": "candidate-awaiting-nonprototype-cad-validation",
         },
         {
-            "portId": "A600.cross_project_wastecup_datum_slot",
-            "displayName": "A600排胶杯三平面基准槽位",
-            "moduleToken": "A600",
-            "moduleHierarchyPath": a600_hierarchy,
+            "portId": f"{base_token}.cross_project_wastecup_datum_slot",
+            "displayName": f"{base_token}排胶杯三平面基准槽位",
+            "moduleToken": base_token,
+            "moduleHierarchyPath": context_hierarchy,
             "category": "mechanical",
             "interfaceType": INTERFACE_TYPE,
             "capabilities": ["installation", "datum_placement_demo"],
-            "aliases": ["A600排胶杯基准定位槽位"],
+            "aliases": [f"{base_token}排胶杯基准定位槽位"],
             "status": "confirmed",
             "portable": True,
             "endpointBindings": [
@@ -163,39 +228,39 @@ def build_wastecup_datum_catalog_package(
             ],
             "endpointEvidence": [
                 _endpoint_evidence(role, row)
-                for role, row in zip(roles, a600_rows)
+                for role, row in zip(roles, context_rows)
             ],
-            "projectId": "project02",
-            "validationStatus": "real-cad-confirmed-datum-placement-demo",
+            "projectId": target_project,
+            "validationStatus": "candidate-awaiting-nonprototype-cad-validation",
         },
     ]
     steps = [
         {
-            "mateName": "P000_A600_DATUM_DISTANCE_1",
+            "mateName": mate_names[0],
             "mateType": 5,
             "mateTypeName": "swMateDISTANCE",
-            "alignment": 0,
-            "alignmentName": "swMateAlignALIGNED",
-            "distanceMeters": 0.08,
+            "alignment": alignments[0],
+            "alignmentName": alignment_names[alignments[0]],
+            "distanceMeters": distances[0],
             "endpointRoleA": roles[0],
             "endpointRoleB": roles[0],
         },
         {
-            "mateName": "P000_A600_DATUM_DISTANCE_2",
+            "mateName": mate_names[1],
             "mateType": 5,
             "mateTypeName": "swMateDISTANCE",
-            "alignment": 0,
-            "alignmentName": "swMateAlignALIGNED",
-            "distanceMeters": 0.39,
+            "alignment": alignments[1],
+            "alignmentName": alignment_names[alignments[1]],
+            "distanceMeters": distances[1],
             "endpointRoleA": roles[1],
             "endpointRoleB": roles[1],
         },
         {
-            "mateName": "P000_A600_DATUM_SUPPORT",
+            "mateName": mate_names[2],
             "mateType": 0,
             "mateTypeName": "swMateCOINCIDENT",
-            "alignment": 1,
-            "alignmentName": "swMateAlignANTI_ALIGNED",
+            "alignment": alignments[2],
+            "alignmentName": alignment_names[alignments[2]],
             "endpointRoleA": roles[2],
             "endpointRoleB": roles[2],
         },
@@ -203,27 +268,31 @@ def build_wastecup_datum_catalog_package(
     semantic_catalog = {
         "schemaVersion": "semantic-port-catalog/v1",
         "projectId": "project-global",
-        "catalogPurpose": "Project05 P000 to Project02 A600 datum-placement demo only.",
+        "catalogPurpose": f"Project05 P000 to {target_project} {base_token} datum-placement demo candidate only.",
         "endpointCatalogPath": endpoint_catalog_path,
         "effectiveMateGraphPath": str(candidate_audit.get("effectiveGraphPath") or ""),
         "ports": ports,
         "connectionTemplates": [
             {
-                "templateId": LEGACY_TEMPLATE_ID,
+                "templateId": legacy_template_id,
                 "purposes": ["installation", "datum_placement_demo"],
                 "interfaceTypeA": INTERFACE_TYPE,
                 "interfaceTypeB": INTERFACE_TYPE,
                 "constraintEffect": {
-                    "purpose": "Locate P000 on A600 by three orthogonal planar datums.",
+                    "purpose": f"Locate P000 on {base_token} by three orthogonal planar datums.",
                     "fullyLocatesAddedComponent": True,
                     "expectedResidualDof": 0,
-                    "drivingAuthorization": "real_cad_validated_datum_placement_demo",
+                    "drivingAuthorization": "explicit_datum_placement_demo_candidate",
+                    "cadValidationStatus": "not_yet_validated",
                     "directMechanicalInterfaceCompatible": False,
                 },
                 "mateSteps": steps,
             }
         ],
     }
+    if support_demo:
+        semantic_catalog["supportPositionDemoPolicy"] = copy.deepcopy(support_policy)
+        semantic_catalog["connectionTemplates"][0]["constraintEffect"]["supportPositionDemoPolicy"] = copy.deepcopy(support_policy)
     validate_semantic_port_catalog(semantic_catalog, endpoint_catalog)
 
     # The generic packet executor needs both the fixed context module and the
@@ -236,7 +305,7 @@ def build_wastecup_datum_catalog_package(
     base_graph["TargetLeafPoseAnchors"] = []
     base_graph["BaseGraphPolicy"] = {
         **copy.deepcopy(candidate_graph.get("BaseGraphPolicy") or {}),
-        "moduleTokens": ["A600"],
+        "moduleTokens": [base_token],
         "caseAnchorAllowed": False,
         "prototypeTopLevelTargetPoseAllowed": False,
         "targetLeafPoseAnchorsAllowed": False,
@@ -245,12 +314,13 @@ def build_wastecup_datum_catalog_package(
 
     result = copy.deepcopy(base_global_catalog)
     p000_definition = _definition(result, "project05", "P000")
-    a600_definition = _definition(result, "project02", "A600")
+    context_definition = _definition(result, target_project, base_token)
     global_p000_id = _global_port_id(
-        p000_definition["moduleDefinitionId"], "p000-cross-project-wastecup-datum"
+        p000_definition["moduleDefinitionId"],
+        "p000-cross-project-wastecup-datum" + ("" if legacy_a600 else f"-{base_token.lower()}"),
     )
-    global_a600_id = _global_port_id(
-        a600_definition["moduleDefinitionId"], "a600-cross-project-wastecup-datum-slot"
+    global_context_id = _global_port_id(
+        context_definition["moduleDefinitionId"], f"{base_token.lower()}-cross-project-wastecup-datum-slot"
     )
     provenance_common = {
         "projectId": "project-global",
@@ -291,29 +361,29 @@ def build_wastecup_datum_catalog_package(
     result.setdefault("semanticPorts", []).extend(
         [
             global_port(ports[0], p000_definition, global_p000_id),
-            global_port(ports[1], a600_definition, global_a600_id),
+            global_port(ports[1], context_definition, global_context_id),
         ]
     )
     for definition, port_id in (
         (p000_definition, global_p000_id),
-        (a600_definition, global_a600_id),
+        (context_definition, global_context_id),
     ):
         definition.setdefault("portIds", []).append(port_id)
         definition["portIds"] = sorted(set(definition["portIds"]))
 
     global_template_id = (
-        "template/project-global/p000-a600-wastecup-datum-demo/"
-        + _digest((global_p000_id, global_a600_id, LEGACY_TEMPLATE_ID))[:10]
+        f"template/project-global/p000-{base_token.lower()}-wastecup-datum-demo/"
+        + _digest((global_p000_id, global_context_id, legacy_template_id))[:10]
     )
     result.setdefault("connectionTemplates", []).append(
         {
             "globalTemplateId": global_template_id,
-            "legacyTemplateId": LEGACY_TEMPLATE_ID,
+            "legacyTemplateId": legacy_template_id,
             "purposes": ["installation", "datum_placement_demo"],
             "interfaceTypeA": INTERFACE_TYPE,
             "interfaceTypeB": INTERFACE_TYPE,
             "candidatePortIdsA": [global_p000_id],
-            "candidatePortIdsB": [global_a600_id],
+            "candidatePortIdsB": [global_context_id],
             "constraintEffect": copy.deepcopy(
                 semantic_catalog["connectionTemplates"][0]["constraintEffect"]
             ),
@@ -324,7 +394,7 @@ def build_wastecup_datum_catalog_package(
     result.setdefault("compatibility", []).append(
         {
             "portAId": global_p000_id,
-            "portBId": global_a600_id,
+            "portBId": global_context_id,
             "globalTemplateId": global_template_id,
             "purpose": "installation",
             "directional": True,
@@ -375,6 +445,6 @@ def build_wastecup_datum_catalog_package(
         "baseGraph": base_graph,
         "candidateGlobalCatalog": result,
         "globalTemplateId": global_template_id,
-        "globalPortIds": [global_p000_id, global_a600_id],
+        "globalPortIds": [global_p000_id, global_context_id],
     }
 

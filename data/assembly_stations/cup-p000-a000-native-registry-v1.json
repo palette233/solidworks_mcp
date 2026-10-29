@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "target-station-rule-registry/v1",
+  "scopePath": "data/assembly_stations/scope-v1.json",
+  "rules": [{
+    "ruleId": "cup-p000-a000-native-v1",
+    "role": "WasteCup",
+    "sourceModuleDefinitionId": "project05::P000",
+    "targetBaseDefinitionId": "project05::A000",
+    "evaluator": {"kind": "native_cup_station", "inputPath": "data/assembly_stations/cup-p000-a000-native-v1.json"},
+    "placement": {"strategy": "released_recipe", "postcheck": "native_cup_mouth_projection"},
+    "requiresPrototypeEstimateAuthorization": true,
+    "validation": {"status": "candidate"}
+  }]
+}

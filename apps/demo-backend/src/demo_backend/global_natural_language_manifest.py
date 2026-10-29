@@ -21,6 +21,8 @@ from .global_assembly_workbench import (
     context_path,
     create_context,
     load_context,
+    load_global_catalog,
+    load_released_relation_catalog,
 )
 from .global_cad_manifest_orchestrator import (
     build_manifest_job_plan,
@@ -32,6 +34,9 @@ from .evidence_backed_long_chain import (
     order_requirements_by_released_installation_dependencies,
 )
 from .global_relation_catalog_release import load_relation_catalog_release
+from .global_interface_contract_planner import (
+    assess_global_assembly_context_interfaces,
+)
 
 
 SCHEMA = "global-natural-language-manifest-compilation/v1"
@@ -78,6 +83,41 @@ def compile_natural_language_manifest_job(
         raise GlobalNaturalLanguageManifestError(
             "catalogPath与releaseManifestPath不能同时指定。"
         )
+    selections = payload.get("confirmedModuleSelections")
+    confirmed_selections: list[dict[str, Any]] | None = None
+    if selections is not None:
+        if not isinstance(selections, list) or len(selections) != len(normalized):
+            raise GlobalNaturalLanguageManifestError(
+                "confirmedModuleSelections必须与requirements逐项对应且长度相同。"
+            )
+        confirmed_selections = []
+        for index, selection in enumerate(selections, start=1):
+            if not isinstance(selection, dict) or selection.get("confirmed") is not True:
+                raise GlobalNaturalLanguageManifestError(
+                    f"第{index}项模组选定必须由调用方显式confirmed=true。"
+                )
+            definition_id = selection.get("moduleDefinitionId")
+            if not isinstance(definition_id, str) or not definition_id.strip():
+                raise GlobalNaturalLanguageManifestError(
+                    f"第{index}项模组选定缺少moduleDefinitionId。"
+                )
+            confirmed_selections.append(
+                {"inputOrder": index, "moduleDefinitionId": definition_id.strip(), "confirmed": True}
+            )
+        selected_catalog = (
+            load_released_relation_catalog(workspace, release_manifest_path)[0]
+            if release_manifest_path
+            else load_global_catalog(workspace, catalog_path)
+        )
+        known_definitions = {
+            row["moduleDefinitionId"] for row in selected_catalog.get("moduleDefinitions") or []
+        }
+        for selection in confirmed_selections:
+            if selection["moduleDefinitionId"] not in known_definitions:
+                raise GlobalNaturalLanguageManifestError(
+                    f"第{selection['inputOrder']}项moduleDefinitionId不存在于当前绑定目录。"
+                )
+    original_confirmed_selections = confirmed_selections
     created = create_context(
         workspace,
         {
@@ -127,6 +167,7 @@ def compile_natural_language_manifest_job(
                 "status": "blocked_before_manifest",
                 "contextId": context_id,
                 "requirements": original_requirements,
+                "confirmedModuleSelections": original_confirmed_selections,
                 "dependencyOrdering": dependency_ordering,
                 "releaseManifestPath": release_manifest_path,
                 "cadStarted": False,
@@ -144,6 +185,16 @@ def compile_natural_language_manifest_job(
             _write(report_path, report)
             return {**report, "reportPath": str(report_path)}
         normalized = list(dependency_ordering["orderedRequirements"])
+        if confirmed_selections is not None:
+            ordered_selections = []
+            for step in dependency_ordering["steps"]:
+                selection = confirmed_selections[step["inputOrder"] - 1]
+                if step["moduleDefinitionId"] != selection["moduleDefinitionId"]:
+                    raise GlobalNaturalLanguageManifestError(
+                        "自动依赖排序的识别结果与已确认模组不同；不能替换工程师选择。"
+                    )
+                ordered_selections.append(selection)
+            confirmed_selections = ordered_selections
     phase_started = perf_counter()
     sequence = apply_command_sequence(
         workspace,
@@ -151,7 +202,19 @@ def compile_natural_language_manifest_job(
         {
             "catalogPath": catalog_path,
             "confirmed": True,
-            "commands": [{"requirement": item} for item in normalized],
+            "commands": [
+                {
+                    "requirement": item,
+                    **(
+                        {
+                            "moduleDefinitionId": confirmed_selections[index]["moduleDefinitionId"],
+                            "confirmed": True,
+                        }
+                        if confirmed_selections is not None else {}
+                    ),
+                }
+                for index, item in enumerate(normalized)
+            ],
             "relationExecutionMode": payload.get("relationExecutionMode"),
         },
     )
@@ -167,12 +230,51 @@ def compile_natural_language_manifest_job(
             "status": "blocked_before_manifest",
             "contextId": context_id,
             "requirements": normalized,
+            "confirmedModuleSelections": confirmed_selections,
             "relationExecutionMode": str(
                 payload.get("relationExecutionMode") or "direct_installation"
             ),
             "releaseManifestPath": release_manifest_path,
             "sequence": sequence,
             "cadStarted": False,
+            "collisionStatus": "not_evaluated",
+            "generatedAt": datetime.now(timezone.utc).isoformat(),
+            "timingSeconds": {
+                "phasesSeconds": phases,
+                "totalSeconds": round(perf_counter() - compile_started, 6),
+            },
+        }
+        _write(report_path, report)
+        return {**report, "reportPath": str(report_path)}
+
+    phase_started = perf_counter()
+    mechanical_interface_preflight = assess_global_assembly_context_interfaces(
+        workspace,
+        load_context(workspace, context_id),
+        relation_execution_mode=payload.get("relationExecutionMode"),
+    )
+    phases["mechanicalInterfacePreflight"] = round(
+        perf_counter() - phase_started, 6
+    )
+    if (
+        bool(payload.get("enforceMechanicalInterfaceContracts"))
+        and mechanical_interface_preflight.get("status") != "ready"
+    ):
+        report = {
+            "schemaVersion": SCHEMA,
+            "success": False,
+            "status": "blocked_by_mechanical_interface_contracts",
+            "contextId": context_id,
+            "requirements": normalized,
+            "confirmedModuleSelections": confirmed_selections,
+            "relationExecutionMode": str(
+                payload.get("relationExecutionMode") or "direct_installation"
+            ),
+            "releaseManifestPath": release_manifest_path,
+            "sequence": sequence,
+            "mechanicalInterfacePreflight": mechanical_interface_preflight,
+            "cadStarted": False,
+            "jobCreated": False,
             "collisionStatus": "not_evaluated",
             "generatedAt": datetime.now(timezone.utc).isoformat(),
             "timingSeconds": {
@@ -208,6 +310,7 @@ def compile_natural_language_manifest_job(
             "status": "blocked_before_job_creation",
             "contextId": context_id,
             "requirements": normalized,
+            "confirmedModuleSelections": confirmed_selections,
             "contextPath": str(context_file),
             "releaseManifestPath": release_manifest_path,
             "manifestPath": str(manifest_path),
@@ -215,6 +318,7 @@ def compile_natural_language_manifest_job(
             "positioningStandardId": positioning_standard_id,
             "positioningStandard": manifest.get("positioningStandard"),
             "drivingStrategySelections": manifest.get("drivingStrategySelections"),
+            "mechanicalInterfacePreflight": mechanical_interface_preflight,
             "blockers": manifest.get("blockers") or [],
             "cadStarted": False,
             "jobCreated": False,
@@ -257,6 +361,7 @@ def compile_natural_language_manifest_job(
         "naturalLanguageCompilation": {
             "totalSeconds": total_seconds,
             "phasesSeconds": phases,
+            "confirmedModuleSelections": confirmed_selections,
         },
     }
     _write(store._dir(job["jobId"]) / "preflight.json", preflight)
@@ -267,6 +372,8 @@ def compile_natural_language_manifest_job(
         "status": "job_created_not_started",
         "contextId": context_id,
         "requirements": normalized,
+        "confirmedModuleSelections": confirmed_selections,
+        "originalConfirmedModuleSelections": original_confirmed_selections,
         "relationExecutionMode": str(
             payload.get("relationExecutionMode") or "direct_installation"
         ),
@@ -280,6 +387,7 @@ def compile_natural_language_manifest_job(
         "positioningStandardId": positioning_standard_id,
         "positioningStandard": manifest.get("positioningStandard"),
         "drivingStrategySelections": manifest.get("drivingStrategySelections"),
+        "mechanicalInterfacePreflight": mechanical_interface_preflight,
         "packetCount": manifest.get("packetCount"),
         "jobId": job["jobId"],
         "cadStarted": False,

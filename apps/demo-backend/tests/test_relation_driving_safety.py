@@ -120,3 +120,21 @@ def test_all_released_a700_template_variants_are_revoked(template_id):
     assert result["blockers"][0]["code"] == (
         "DRIVING_TEMPLATE_EXTERNAL_POSE_EQUIVALENCE_REQUIRED"
     )
+
+
+def test_g000_free_slot_release_is_revoked_after_current_closure_failure():
+    registry = json.loads(
+        (
+            WORKSPACE
+            / "demo/global_assembly_catalog/relation-driving-safety-v1.json"
+        ).read_text(encoding="utf-8")
+    )
+    template_id = "template/project05/g000-to-a000-static-four-relation-v2/f738bc665b"
+
+    result = assess_relation_driving_safety(template_id, registry=registry)
+
+    assert result["status"] == "blocked_external_pose_branch"
+    assert result["blockers"][0]["code"] == (
+        "DRIVING_TEMPLATE_EXTERNAL_POSE_EQUIVALENCE_REQUIRED"
+    )
+    assert "欠约束" in result["reason"]

@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "calibration-function-point-sources/v1",
+  "pointToleranceMeters": 0.005,
+  "entries": [
+    {
+      "moduleDefinitionId": "project01::BD00",
+      "targetBaseDefinitionId": "project01::JJ00",
+      "moduleToken": "BD00",
+      "baseToken": "JJ00",
+      "kind": "service_point_world_and_installation_frame",
+      "servicePointPath": "demo/layout_previews/project01_service_points.json",
+      "servicePointId": "calibration-prism-target",
+      "nativeGraphPath": "demo/layout_previews/project01_module_mate_graph.json"
+    },
+    {
+      "moduleDefinitionId": "project02::A500",
+      "targetBaseDefinitionId": "project02::A600",
+      "moduleToken": "A500",
+      "baseToken": "A600",
+      "kind": "approach_envelope_bottom_center_proxy",
+      "parameterPackagePath": "demo/project02_parameter_package.json",
+      "serviceModuleInstance": "FL9A24D062A500.001-1",
+      "approachEnvelopeId": "valve-vertical-approach",
+      "nativeGraphPath": "demo/layout_previews/project02_module_mate_graph_v6_all_bodies.json"
+    },
+    {
+      "moduleDefinitionId": "project03::AH00",
+      "targetBaseDefinitionId": "project03::AA00",
+      "moduleToken": "AH00",
+      "baseToken": "AA00",
+      "kind": "service_point_world_and_installation_frame",
+      "servicePointPath": "demo/layout_previews/project03_service_points.json",
+      "servicePointId": "calibration-prism-target",
+      "nativeGraphPath": "demo/layout_previews/project03_module_mate_graph.json"
+    },
+    {
+      "moduleDefinitionId": "project05::G000",
+      "targetBaseDefinitionId": "project05::A000",
+      "moduleToken": "G000",
+      "baseToken": "A000",
+      "kind": "service_point_world_and_installation_frame",
+      "servicePointPath": "demo/layout_previews/project05_service_points.json",
+      "servicePointId": "calibration-glue-target",
+      "nativeGraphPath": "demo/layout_previews/project05_module_mate_graph.json"
+    }
+  ],
+  "boundary": "All points are prototype-derived Demo proxies. They screen whether a published placement carries the source calibration point to the target native calibration station; they do not verify calibration accuracy, nozzle reach, fastening, collision/B-rep or production use."
+}

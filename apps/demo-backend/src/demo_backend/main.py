@@ -181,6 +181,37 @@ from .cross_project_module_substitution import (
     build_module_role_overlay,
     compile_substitution_preview,
 )
+from .short_term_cross_project_scope import (
+    ShortTermCrossProjectScopeError,
+    load_short_term_cross_project_scope_readiness,
+)
+from .mechanical_interface_contracts import (
+    MechanicalInterfaceContractError,
+    load_ccd_contract_catalog,
+    load_native_wastecup_contract_catalog,
+    load_calibration_contract_catalog,
+    load_cleaning_weighing_contract_catalog,
+    load_contextual_transport_contract_catalog,
+    load_contextual_scanner_contract_catalog,
+    load_scanner_contract_catalog,
+    load_transport_contract_catalog,
+    load_wastecup_contract_catalog,
+    plan_from_contract_catalog,
+)
+from .interface_contract_coverage import (
+    InterfaceContractCoverageError,
+    load_interface_contract_coverage,
+)
+from .global_interface_contract_planner import (
+    assess_global_assembly_context_interfaces,
+    build_global_interface_contract_registry,
+    plan_global_interface_connection,
+    plan_preferred_interface_connection,
+)
+from .parameterized_datum_placement import (
+    load_parameterized_datum_placement_catalog,
+    plan_parameterized_datum_placement,
+)
 from .assembly_pipeline_audit import audit_project02_assembly_pipeline
 from .assembly_release_contract import build_assembly_release_contract
 from .engineering_validation_jobs import (
@@ -1106,6 +1137,510 @@ def get_global_module_port_coverage(
     try:
         return load_module_port_coverage(workspace, catalog_path)
     except (GlobalAssemblyWorkbenchError, OSError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/short-term-cross-project-scope")
+def get_short_term_cross_project_scope() -> dict:
+    """Return the six-family milestone readiness and honest capability boundary."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return load_short_term_cross_project_scope_readiness(workspace)
+    except (ShortTermCrossProjectScopeError, OSError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts/cleaning-weighing")
+def get_cleaning_weighing_interface_contracts() -> dict:
+    """Return reusable module-port/base-slot contracts and their match matrix."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return load_cleaning_weighing_contract_catalog(workspace)
+    except (
+        MechanicalInterfaceContractError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts")
+def get_global_mechanical_interface_contract_registry() -> dict:
+    """Return one discovery view over all registered mechanical interface families."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return build_global_interface_contract_registry(workspace)
+    except (
+        MechanicalInterfaceContractError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts/plan")
+def plan_global_mechanical_interface_connection(
+    module_definition_id: str = Query(alias="moduleDefinitionId"),
+    selected_slot_contract_id: str | None = Query(
+        default=None, alias="selectedSlotContractId"
+    ),
+    selected_slot_definition_id: str | None = Query(
+        default=None, alias="selectedSlotDefinitionId"
+    ),
+) -> dict:
+    """Find the owning interface family and plan without requiring a family-specific API."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return plan_global_interface_connection(
+            workspace,
+            module_definition_id,
+            selected_slot_contract_id=selected_slot_contract_id,
+            selected_slot_definition_id=selected_slot_definition_id,
+        )
+    except (
+        MechanicalInterfaceContractError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts/preferred-plan")
+def plan_preferred_mechanical_or_datum_connection(
+    module_definition_id: str = Query(alias="moduleDefinitionId"),
+    selected_slot_definition_id: str = Query(alias="selectedSlotDefinitionId"),
+    allow_datum_fallback: bool = Query(default=True, alias="allowDatumFallback"),
+) -> dict:
+    """Prefer real interfaces and return a bounded datum fallback when needed."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return plan_preferred_interface_connection(
+            workspace,
+            module_definition_id,
+            selected_slot_definition_id=selected_slot_definition_id,
+            allow_datum_fallback=allow_datum_fallback,
+        )
+    except (
+        MechanicalInterfaceContractError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts/context-preflight")
+def preflight_global_mechanical_interface_context(
+    context_id: str = Query(alias="contextId"),
+) -> dict:
+    """Check a saved assembly context against released mechanical contracts."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return assess_global_assembly_context_interfaces(
+            workspace,
+            load_context(workspace, context_id),
+        )
+    except (
+        GlobalAssemblyWorkbenchError,
+        MechanicalInterfaceContractError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts/cleaning-weighing/plan")
+def plan_cleaning_weighing_interface_connection(
+    module_definition_id: str = Query(alias="moduleDefinitionId"),
+    selected_slot_contract_id: str | None = Query(
+        default=None, alias="selectedSlotContractId"
+    ),
+) -> dict:
+    """Select a compatible registered slot and instantiate the generic recipe."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        report = load_cleaning_weighing_contract_catalog(workspace)
+        return plan_from_contract_catalog(
+            report,
+            module_definition_id,
+            selected_slot_contract_id=selected_slot_contract_id,
+        )
+    except (
+        MechanicalInterfaceContractError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts/transport")
+def get_transport_interface_contracts() -> dict:
+    """Return the project-independent transport interface matrix."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return load_transport_contract_catalog(workspace)
+    except (
+        MechanicalInterfaceContractError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts/transport/plan")
+def plan_transport_interface_connection(
+    module_definition_id: str = Query(alias="moduleDefinitionId"),
+    selected_slot_contract_id: str | None = Query(
+        default=None, alias="selectedSlotContractId"
+    ),
+) -> dict:
+    """Require slot confirmation when more than one released transport slot fits."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return plan_from_contract_catalog(
+            load_transport_contract_catalog(workspace),
+            module_definition_id,
+            selected_slot_contract_id=selected_slot_contract_id,
+        )
+    except (
+        MechanicalInterfaceContractError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts/calibration")
+def get_calibration_interface_contracts() -> dict:
+    """Return the project-independent calibration interface matrix."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return load_calibration_contract_catalog(workspace)
+    except (
+        MechanicalInterfaceContractError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts/calibration/plan")
+def plan_calibration_interface_connection(
+    module_definition_id: str = Query(alias="moduleDefinitionId"),
+    selected_slot_contract_id: str | None = Query(
+        default=None, alias="selectedSlotContractId"
+    ),
+) -> dict:
+    """Plan a released calibration module/slot combination."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return plan_from_contract_catalog(
+            load_calibration_contract_catalog(workspace),
+            module_definition_id,
+            selected_slot_contract_id=selected_slot_contract_id,
+        )
+    except (
+        MechanicalInterfaceContractError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts/scanner")
+def get_scanner_interface_contracts() -> dict:
+    """Return scanner mechanical contracts plus read-only process semantics."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return load_scanner_contract_catalog(workspace)
+    except (
+        MechanicalInterfaceContractError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts/datum-placement")
+def get_parameterized_datum_placement_contracts() -> dict:
+    """Return the non-fastening fallback for scanner and cleaning placement."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return load_parameterized_datum_placement_catalog(workspace)
+    except (
+        MechanicalInterfaceContractError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts/datum-placement/plan")
+def plan_parameterized_datum_placement_connection(
+    module_definition_id: str = Query(alias="moduleDefinitionId"),
+    selected_slot_definition_id: str | None = Query(
+        default=None, alias="selectedSlotDefinitionId"
+    ),
+) -> dict:
+    """Plan a bounded pose fallback without claiming physical fastening."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return plan_parameterized_datum_placement(
+            workspace,
+            module_definition_id,
+            selected_slot_definition_id=selected_slot_definition_id,
+        )
+    except (
+        MechanicalInterfaceContractError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts/ccd")
+def get_ccd_interface_contracts() -> dict:
+    """Return exact A200 and M000 CCD mechanical installation contracts."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return load_ccd_contract_catalog(workspace)
+    except (
+        MechanicalInterfaceContractError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts/ccd/plan")
+def plan_ccd_interface_connection(
+    module_definition_id: str = Query(alias="moduleDefinitionId"),
+    selected_slot_contract_id: str | None = Query(
+        default=None, alias="selectedSlotContractId"
+    ),
+) -> dict:
+    """Plan CCD mechanics without treating visual coverage as a driving mate."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return plan_from_contract_catalog(
+            load_ccd_contract_catalog(workspace),
+            module_definition_id,
+            selected_slot_contract_id=selected_slot_contract_id,
+        )
+    except (
+        MechanicalInterfaceContractError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts/native-wastecup")
+def get_native_wastecup_interface_contracts() -> dict:
+    """Return P000/A000's released native four-relation installation contract."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return load_native_wastecup_contract_catalog(workspace)
+    except (
+        MechanicalInterfaceContractError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts/native-wastecup/plan")
+def plan_native_wastecup_interface_connection(
+    module_definition_id: str = Query(alias="moduleDefinitionId"),
+    selected_slot_contract_id: str | None = Query(
+        default=None, alias="selectedSlotContractId"
+    ),
+) -> dict:
+    """Plan P000's native A000 relation bundle without using its source pose."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return plan_from_contract_catalog(
+            load_native_wastecup_contract_catalog(workspace),
+            module_definition_id,
+            selected_slot_contract_id=selected_slot_contract_id,
+        )
+    except (
+        MechanicalInterfaceContractError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts/scanner/plan")
+def plan_scanner_interface_connection(
+    module_definition_id: str = Query(alias="moduleDefinitionId"),
+    selected_slot_contract_id: str | None = Query(
+        default=None, alias="selectedSlotContractId"
+    ),
+) -> dict:
+    """Plan scanner mechanics without turning optical validation into driving mates."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return plan_from_contract_catalog(
+            load_scanner_contract_catalog(workspace),
+            module_definition_id,
+            selected_slot_contract_id=selected_slot_contract_id,
+        )
+    except (
+        MechanicalInterfaceContractError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts/wastecup")
+def get_wastecup_interface_contracts() -> dict:
+    """Return released support-position Demo contracts and their explicit boundaries."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return load_wastecup_contract_catalog(workspace)
+    except (
+        MechanicalInterfaceContractError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts/wastecup/plan")
+def plan_wastecup_interface_connection(
+    module_definition_id: str = Query(alias="moduleDefinitionId"),
+    selected_slot_contract_id: str | None = Query(
+        default=None, alias="selectedSlotContractId"
+    ),
+) -> dict:
+    """Select a base then instantiate support plus explicit offset relations."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return plan_from_contract_catalog(
+            load_wastecup_contract_catalog(workspace),
+            module_definition_id,
+            selected_slot_contract_id=selected_slot_contract_id,
+        )
+    except (
+        MechanicalInterfaceContractError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts/coverage")
+def get_mechanical_interface_contract_coverage() -> dict:
+    """Return aggregate coverage, evidence counts and prioritized catalog gaps."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return load_interface_contract_coverage(workspace)
+    except (
+        InterfaceContractCoverageError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts/contextual-transport")
+def get_contextual_transport_interface_contracts() -> dict:
+    """Return released D000 and A800 contextual transport contracts."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return load_contextual_transport_contract_catalog(workspace)
+    except (
+        MechanicalInterfaceContractError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts/contextual-scanner")
+def get_contextual_scanner_interface_contracts() -> dict:
+    """Return A180/F000 exact mechanical bundles and optical evidence status."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return load_contextual_scanner_contract_catalog(workspace)
+    except (
+        MechanicalInterfaceContractError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts/contextual-scanner/plan")
+def plan_contextual_scanner_interface_connection(
+    module_definition_id: str = Query(alias="moduleDefinitionId"),
+    selected_slot_contract_id: str | None = Query(
+        default=None, alias="selectedSlotContractId"
+    ),
+) -> dict:
+    """Plan exact scanner mechanics without using optical data as mates."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return plan_from_contract_catalog(
+            load_contextual_scanner_contract_catalog(workspace),
+            module_definition_id,
+            selected_slot_contract_id=selected_slot_contract_id,
+        )
+    except (
+        MechanicalInterfaceContractError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/demo/mechanical-interface-contracts/contextual-transport/plan")
+def plan_contextual_transport_interface_connection(
+    module_definition_id: str = Query(alias="moduleDefinitionId"),
+    selected_slot_contract_id: str | None = Query(
+        default=None, alias="selectedSlotContractId"
+    ),
+) -> dict:
+    """Plan a contextual transport port and preserve variant boundaries."""
+    workspace = Path(__file__).resolve().parents[4]
+    try:
+        return plan_from_contract_catalog(
+            load_contextual_transport_contract_catalog(workspace),
+            module_definition_id,
+            selected_slot_contract_id=selected_slot_contract_id,
+        )
+    except (
+        MechanicalInterfaceContractError,
+        OSError,
+        ValueError,
+        TypeError,
+    ) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "cup-projection-rule/v1",
+  "ruleId": "cup-p000-aa00-v1",
+  "sourceModuleDefinitionId": "project05::P000",
+  "targetBaseDefinitionId": "project03::AA00",
+  "nativeRoleModuleDefinitionId": "project03::AG00",
+  "inputs": {
+    "geometryRequestPath": "demo/role_station_strengthening_20261028/functional-chain-v1/cup-function-point-request.json"
+  },
+  "coordinateSystem": "target_base_local_via_registered_datum_planes",
+  "acceptance": {
+    "mouthProjectionToleranceMeters": 0.000001,
+    "openingAngularToleranceDegrees": 1,
+    "equalMouthHeightRequired": false
+  },
+  "interpretationLimits": [
+    "Native AG40 mouth projections are a measured target-side Demo station, not a discharge-process approval.",
+    "The historical observed assembly is measurement evidence only, never a cumulative source checkpoint or execution pose.",
+    "Every new candidate needs actual active mates, non-prototype insertion and save/reopen verification; fastening is not verified."
+  ]
+}

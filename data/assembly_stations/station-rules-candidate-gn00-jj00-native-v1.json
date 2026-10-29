@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "target-station-rule-registry/v1",
+  "scopePath": "data/assembly_stations/scope-v1.json",
+  "rules": [
+    {
+      "ruleId": "cleaning-gn00-jj00-native-v1",
+      "role": "CleaningWeighing",
+      "sourceModuleDefinitionId": "project01::GN00",
+      "targetBaseDefinitionId": "project01::JJ00",
+      "evaluator": {
+        "kind": "native_cleaning_station",
+        "inputPath": "data/assembly_stations/cleaning-gn00-jj00-native-v1.json"
+      },
+      "placement": {
+        "strategy": "released_recipe",
+        "postcheck": "native_cleaning_service_subtree_envelopes"
+      },
+      "requiresPrototypeEstimateAuthorization": false,
+      "validation": {
+        "status": "candidate"
+      }
+    }
+  ],
+  "parameterRecipes": []
+}

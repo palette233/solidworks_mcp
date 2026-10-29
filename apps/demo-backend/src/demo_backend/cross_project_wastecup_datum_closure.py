@@ -41,6 +41,10 @@ def close_project05_p000_to_project02_a600_datum_demo(
     cad_result: dict[str, Any],
     effective_graph_path: Path,
     output_assembly_path: Path,
+    read_only_state: dict[str, Any] | None = None,
+    expected_context_module_tokens: tuple[str, ...] = ("A600",),
+    target_base_token: str = "A600",
+    target_project_id: str = "project02",
 ) -> dict[str, Any]:
     if candidate_audit.get("schemaVersion") != (
         "cross-project-wastecup-datum-candidate/v1"
@@ -66,6 +70,8 @@ def close_project05_p000_to_project02_a600_datum_demo(
     graph_sha256 = _sha256(effective_graph_path)
     output_sha256 = _sha256(output_assembly_path)
     checks = {
+        "targetBaseIdentityMatches": candidate_audit.get("targetBaseToken", "A600") == target_base_token
+        and candidate_audit.get("targetProjectId", "project02") == target_project_id,
         "candidateAuthorizedCadValidation": candidate_audit.get("cadLaunchAllowed")
         is True,
         "candidateUsesNoPrototypeTopLevelPose": candidate_audit.get(
@@ -117,6 +123,32 @@ def close_project05_p000_to_project02_a600_datum_demo(
         "outputDigestMatchesCadRun": output_sha256
         == str(cad_result.get("outputAssemblySha256") or "").lower(),
     }
+    support_demo = candidate_audit.get("mode") == "support_position_demo"
+    if support_demo:
+        # This opt-in mode proves geometric placement, not a screw/hole joint.
+        # Do not let the weaker physical scope weaken real-CAD state evidence.
+        state = read_only_state or {}
+        observed = state.get("observed") or {}
+        components = observed.get("components") or []
+        base = [row for row in components if f"{target_base_token}.001-" in row.get("name", "")]
+        target = [row for row in components if "P000.001-" in row.get("name", "")]
+        mates = observed.get("mates") or []
+        expected_names = {row.get("ExpectedMateName") for row in verifications}
+        checks.update({
+            "supportDemoExplicitlyExcludesFixationClaim": candidate_audit.get("holePatternMatchRequired") is False
+            and candidate_audit.get("actualFixationMethod") == "not_verified"
+            and candidate_audit.get("directMechanicalCompatibilityClaim") is False,
+            "readOnlyStateBoundToOutput": state.get("success") is True
+            and state.get("assemblySha256") == output_sha256
+            and observed.get("readOnly") is True,
+            "onlyBaseFixedTargetLocatedByMates": len(components) == len(expected_context_module_tokens) + 1
+            and len(base) == 1 and base[0].get("isFixed") is True
+            and len(target) == 1 and target[0].get("isFixed") is False
+            and all(sum(f"{token}.001-" in row.get("name", "") for row in components) == 1 for token in expected_context_module_tokens),
+            "threeNamedMatesActiveAfterReopen": len(mates) == 3
+            and {row.get("name") for row in mates} == expected_names
+            and all(row.get("isSuppressed") is False and row.get("errorCode") == 0 for row in mates),
+        })
     _require(checks)
 
     uses_body_face_index = any("BodyFaceIndex" in row for row in strategies)
@@ -125,15 +157,15 @@ def close_project05_p000_to_project02_a600_datum_demo(
         for row in mate_results
     )
     timing = tool.get("PhaseDurationsSeconds") or {}
-    return {
+    result = {
         "schemaVersion": SCHEMA,
         "generatedAtUtc": datetime.now(timezone.utc).isoformat(),
         "status": "PASSED_CROSS_PROJECT_DATUM_PLACEMENT_DEMO",
         "success": True,
         "sourceProjectId": "project05",
         "sourceModuleToken": "P000",
-        "targetProjectId": "project02",
-        "targetBaseToken": "A600",
+        "targetProjectId": target_project_id,
+        "targetBaseToken": target_base_token,
         "moduleRole": "WasteCup",
         "placementMode": "three_orthogonal_planar_datums",
         "semanticDatumPlacementPassed": True,
@@ -161,7 +193,7 @@ def close_project05_p000_to_project02_a600_datum_demo(
             "phases": timing,
         },
         "limitations": [
-            "该闭环证明P000可由三个语义基准面定位到A600，并不证明孔系、紧固件或实体转接件兼容。",
+            f"该闭环证明P000可由三个语义基准面定位到{target_base_token}，并不证明孔系、紧固件或实体转接件兼容。",
             "P000端点通过BodyFaceIndex恢复；源零件拓扑改变后必须重新登记或重新验证。",
             "碰撞、B-rep、维护空间和工艺可达性未纳入本轮验收。",
             "该结果仅授权基准定位Demo，不得写入直接机械替换角色统计。",
@@ -172,4 +204,21 @@ def close_project05_p000_to_project02_a600_datum_demo(
             "三条真实SolidWorks配合完成完全约束、保存关闭和重开复核。"
         ),
     }
+    if support_demo:
+        result.update({
+            "status": "PASSED_SUPPORT_POSITION_DEMO",
+            "mode": "support_position_demo",
+            "holePatternMatchRequired": False,
+            "actualFixationMethod": "not_verified",
+            "actualFixationNotice": "实际固定方式暂未验证",
+            "positionParametersMeters": candidate_audit["positionParametersMeters"],
+            "parameterAuthority": candidate_audit["parameterAuthority"],
+            "readOnlyStateVerification": read_only_state,
+            "legacyExternalPlacementWitness": {
+                "passed": tool.get("ExternalPlacementEquivalencePassed"),
+                "acceptanceCriterion": False,
+                "reason": "本轮SourceTransform是identity占位，不是最终位姿目标；验收支承/距离配合与重开状态，不验收与该占位变换相等。",
+            },
+        })
+    return result
 

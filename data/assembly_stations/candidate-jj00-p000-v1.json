@@ -1,0 +1,14 @@
+{
+  "chainId": "station-jj00-p000-candidate-v1",
+  "baseRequirement": "建立设备固定基座。",
+  "baseSelection": {"projectId": "project01", "moduleToken": "JJ00", "confirmed": true},
+  "stationRegistryPath": "data/assembly_stations/station-rules-v7.json",
+  "allowPrototypeEstimate": true,
+  "placementValidationMode": "target_role_station",
+  "steps": [{
+    "stageId": "s01-cup",
+    "requirement": "按目标基座原生排胶工位的杯口投影添加排胶杯，允许支承定位Demo。",
+    "moduleSelection": {"projectId": "project05", "moduleToken": "P000", "confirmed": true},
+    "allowDatumFallback": true
+  }]
+}

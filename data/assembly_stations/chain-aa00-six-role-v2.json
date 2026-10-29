@@ -1,0 +1,61 @@
+{
+  "chainId": "station-aa00-six-role-v2",
+  "baseRequirement": "建立一套设备箱体与固定安装基座。",
+  "baseSelection": {
+    "projectId": "project03",
+    "moduleToken": "AA00",
+    "confirmed": true
+  },
+  "stationRegistryPath": "data/assembly_stations/station-rules-v2.json",
+  "allowPrototypeEstimate": true,
+  "placementValidationMode": "target_role_station",
+  "steps": [
+    {
+      "stageId": "s01-transport",
+      "requirement": "在当前基座安装已确认的产品传输模组。",
+      "moduleSelection": {
+        "projectId": "project01",
+        "moduleToken": "SS00",
+        "confirmed": true
+      }
+    },
+    {
+      "stageId": "s02-scanner",
+      "requirement": "增加条码扫描模组，关联当前产品传输模组。",
+      "moduleSelection": {
+        "projectId": "project03",
+        "moduleToken": "AI00",
+        "confirmed": true
+      }
+    },
+    {
+      "stageId": "s03-calibration",
+      "requirement": "增加喷嘴校准模组。",
+      "moduleSelection": {
+        "projectId": "project01",
+        "moduleToken": "BD00",
+        "confirmed": true
+      }
+    },
+    {
+      "stageId": "s04-cleaning",
+      "requirement": "在目标基座的清洁服务区添加清洁称重模组，允许基准定位Demo。",
+      "moduleSelection": {
+        "projectId": "project01",
+        "moduleToken": "GN00",
+        "confirmed": true
+      },
+      "allowDatumFallback": true
+    },
+    {
+      "stageId": "s05-cup",
+      "requirement": "按目标基座原生排胶工位的杯口投影添加排胶杯，允许支承定位Demo。",
+      "moduleSelection": {
+        "projectId": "project05",
+        "moduleToken": "P000",
+        "confirmed": true
+      },
+      "allowDatumFallback": true
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "chainId": "batch-cup-p000-a000-native-20261028-v1",
+  "baseRequirement": "建立已确认的固定基座。",
+  "baseSelection": {"projectId": "project05", "moduleToken": "A000", "confirmed": true},
+  "stationRegistryPath": "data/assembly_stations/cup-p000-a000-native-registry-v1.json",
+  "allowPrototypeEstimate": true,
+  "placementValidationMode": "target_role_station",
+  "steps": [{"stageId": "cup", "requirement": "在当前基座原生排胶工位安装排胶杯，并验证杯口位置。", "moduleSelection": {"projectId": "project05", "moduleToken": "P000", "confirmed": true}}]
+}

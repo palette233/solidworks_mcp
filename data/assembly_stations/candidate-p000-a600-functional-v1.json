@@ -1,0 +1,24 @@
+{
+  "chainId": "batch-wastecup-p000-a600-functional-20261028-v1",
+  "baseRequirement": "建立已确认的固定基座。",
+  "baseSelection": {
+    "projectId": "project02",
+    "moduleToken": "A600",
+    "confirmed": true
+  },
+  "stationRegistryPath": "data/assembly_stations/cup-p000-a600-functional-registry-v1.json",
+  "allowPrototypeEstimate": true,
+  "placementValidationMode": "target_role_station",
+  "steps": [
+    {
+      "stageId": "wastecup",
+      "requirement": "在当前基座的排胶工位安装双杯排胶模组；以原生双杯功能簇中心定位，并确认两个原生目标点分别落在新杯口有效区域内。",
+      "moduleSelection": {
+        "projectId": "project05",
+        "moduleToken": "P000",
+        "confirmed": true
+      },
+      "allowDatumFallback": true
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "native-service-semantic-binding-batch/v1",
+  "entries": [
+    {
+      "sourceModuleDefinitionId": "project01::GN00",
+      "targetBaseDefinitionId": "project01::JJ00",
+      "nativeRoleModuleDefinitionId": "project01::GN00",
+      "sourceToken": "GN00",
+      "targetBaseToken": "JJ00",
+      "serviceSubtrees": ["FJ00", "GN10", "GN20", "GN30"],
+      "excludedSubtrees": ["GN00-common-support"],
+      "occupancyPath": "demo/layout_previews/project01_module_occupancy.json",
+      "nativeGraphPath": "demo/semantic_ports/project01_GN00_fourth_increment_v1/assembly_plan_effective.json"
+    }
+  ]
+}

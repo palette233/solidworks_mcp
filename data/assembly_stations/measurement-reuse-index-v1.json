@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "station-measurement-reuse-index/v1",
+  "entries": [
+    {
+      "targetBaseDefinitionId": "project02::A600",
+      "role": "WasteCup",
+      "nativeRoleModuleDefinitionId": "project02::A300",
+      "paths": ["demo/role_station_strengthening_20261028/wastecup/p000-a600-target-station-v3.json", "demo/semantic_ports/project02_service_installations_v1/A300/face_endpoint_catalog.json"],
+      "available": ["native_signed_installation_datums", "target_reference_frame", "historical_saved_position_measurement"],
+      "stillRequired": ["A300_native_cup_mouth_point_and_opening_direction", "source_to_target_cup_mouth_local_mapping"],
+      "boundary": "Historical datum alignment is not a cup-mouth alignment proof; recorded 80/390 mm must not be copied between different source datum frames."
+    },
+    {
+      "targetBaseDefinitionId": "project02::A600",
+      "role": "CleaningWeighing",
+      "nativeRoleModuleDefinitionId": "project02::A700",
+      "paths": ["demo/goal_role_station_and_matched_slot_cases_20261028/n000-a600-a700-role-station-audit.json"],
+      "available": ["native_role_envelope_in_A600_installation_frame", "N000_replacement_footprint_measurement"],
+      "stillRequired": ["static_target_service_station_datum_binding", "source_service_function_region_mapping"],
+      "boundary": "Reuse existing outer role region only; no A700 internal mechanism investigation. Envelope fit alone does not authorize location."
+    },
+    {
+      "targetBaseDefinitionId": "project05::A000",
+      "role": "WasteCup",
+      "nativeRoleModuleDefinitionId": "project05::P000",
+      "paths": ["demo/layout_previews/project05_module_occupancy.json", "demo/layout_previews/project05_module_mate_graph.json", "demo/semantic_ports/project05_p000_locator_discovery_v1/a000-p000-support-leaf-face-catalog.json", "demo/role_station_strengthening_20261028/functional-chain-v1/cup-function-point-request.json"],
+      "available": ["native_P000_occupancy", "native_module_transform_for_measurement", "A000_support_face_capture", "P000_cup_geometry_request"],
+      "stillRequired": ["bind_separate_cup_capture_to_native_P000_frame", "derive_target_station_signed_parameters"],
+      "boundary": "Separate capture transforms must be reconciled before projecting cup points; a native world transform is not a placement command."
+    },
+    {
+      "targetBaseDefinitionId": "project05::A000",
+      "role": "CleaningWeighing",
+      "nativeRoleModuleDefinitionId": "project05::N000",
+      "paths": ["demo/layout_previews/project05_module_occupancy.json", "demo/layout_previews/project05_module_mate_graph.json"],
+      "available": ["native_N000_complete_leaf_occupancy", "native_module_transform_for_measurement"],
+      "stillRequired": ["N000_service_subtree_labels", "occupancy_to_native_graph_frame_binding", "target_and_source_static_datum_capture_binding"],
+      "boundary": "N000 has multiple subtrees. Full bounding-box center is not automatically the cleaning service point."
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "cleaning-service-capability-coverage-index/v1",
+  "entries": [
+    {
+      "sourceModuleDefinitionId": "project01::GN00",
+      "targetBaseDefinitionId": "project02::A600",
+      "role": "CleaningWeighing",
+      "reportPath": "demo/station_gap_batch_20261028/cleaning-capability-audit-v3/project01-gn00-to-project02-a600.json",
+      "reportSha256": "fb6ebf14cd3da971515b3ebef9f11e2c57f771c4b3af3c390943fc94630b18ec",
+      "auditDigest": "ba76ab991dba1096975c84c039c7d8fe871a7c4353a4b44dff2efb1bacd78696",
+      "passed": false,
+      "missingCapabilities": [
+        "inspection"
+      ],
+      "classification": "target_service_capability_incomplete",
+      "boundary": "Catalog-role discovery only. Capability synonyms, station geometry, mechanical compatibility and process performance are not inferred.",
+      "nearMatchProviderCount": 1
+    },
+    {
+      "sourceModuleDefinitionId": "project03::AG00",
+      "targetBaseDefinitionId": "project02::A600",
+      "role": "CleaningWeighing",
+      "reportPath": "demo/station_gap_batch_20261028/cleaning-capability-audit-v3/project03-ag00-to-project02-a600.json",
+      "reportSha256": "f132a4b0f414f69bf2bfa877014d80c04254cdcda4b8bcc20c492086722686d1",
+      "auditDigest": "ba9299231f447fc88a2d8d2d6670f121c9defb727eeb6fe3ace0db196de7601d",
+      "passed": false,
+      "missingCapabilities": [
+        "inspection"
+      ],
+      "classification": "target_service_capability_incomplete",
+      "boundary": "Catalog-role discovery only. Capability synonyms, station geometry, mechanical compatibility and process performance are not inferred.",
+      "nearMatchProviderCount": 1
+    },
+    {
+      "sourceModuleDefinitionId": "project01::GN00",
+      "targetBaseDefinitionId": "project05::A000",
+      "role": "CleaningWeighing",
+      "reportPath": "demo/station_gap_batch_20261028/cleaning-capability-audit-v3/project01-gn00-to-project05-a000.json",
+      "reportSha256": "ec29ae0cb25fda96ae766b5b47c4c5d7ed7434618e025886fc818147ac45aab7",
+      "auditDigest": "8d11561faabab9aecb12d6a4a1c2b27aa6c7358842945cc12ee2232d05c7d20b",
+      "passed": false,
+      "missingCapabilities": [
+        "inspection"
+      ],
+      "classification": "target_service_capability_incomplete",
+      "boundary": "Catalog-role discovery only. Capability synonyms, station geometry, mechanical compatibility and process performance are not inferred.",
+      "nearMatchProviderCount": 1
+    },
+    {
+      "sourceModuleDefinitionId": "project03::AG00",
+      "targetBaseDefinitionId": "project05::A000",
+      "role": "CleaningWeighing",
+      "reportPath": "demo/station_gap_batch_20261028/cleaning-capability-audit-v3/project03-ag00-to-project05-a000.json",
+      "reportSha256": "7fbfb6784e86741ccc890b8fa21138f4c4329c1cbb19b05c5317d8c3c8758df0",
+      "auditDigest": "b85ce674bbe7d2308259034f186118e386185e00e904adf44639151cbdbe0028",
+      "passed": false,
+      "missingCapabilities": [
+        "inspection"
+      ],
+      "classification": "target_service_capability_incomplete",
+      "boundary": "Catalog-role discovery only. Capability synonyms, station geometry, mechanical compatibility and process performance are not inferred.",
+      "nearMatchProviderCount": 1
+    }
+  ],
+  "summary": {
+    "pairCount": 4,
+    "passedCount": 0,
+    "incompleteCount": 4,
+    "nearMatchDecisionPairCount": 4
+  },
+  "cadStarted": false,
+  "boundary": "Exact reviewed capability labels only. Near matches remain explicit engineering decisions and do not authorize station CAD."
+}

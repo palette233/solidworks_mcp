@@ -1,0 +1,267 @@
+{
+  "schemaVersion": "target-station-rule-registry/v1",
+  "scopePath": "data/assembly_stations/scope-v1.json",
+  "rules": [
+    {
+      "ruleId": "transport-ss00-aa00-v1",
+      "role": "Transport",
+      "sourceModuleDefinitionId": "project01::SS00",
+      "targetBaseDefinitionId": "project03::AA00",
+      "evaluator": {
+        "kind": "released_mate_parameters",
+        "inputPath": "data/assembly_stations/transport-ss00-aa00-v1.json"
+      },
+      "placement": {
+        "strategy": "released_recipe"
+      },
+      "validation": {
+        "status": "candidate",
+        "profile": "declared_demo_geometry"
+      }
+    },
+    {
+      "ruleId": "calibration-bd00-aa00-v1",
+      "role": "Calibration",
+      "sourceModuleDefinitionId": "project01::BD00",
+      "targetBaseDefinitionId": "project03::AA00",
+      "evaluator": {
+        "kind": "released_mate_parameters",
+        "inputPath": "data/assembly_stations/calibration-bd00-aa00-v1.json"
+      },
+      "placement": {
+        "strategy": "released_recipe"
+      },
+      "validation": {
+        "status": "candidate",
+        "profile": "declared_demo_geometry"
+      }
+    },
+    {
+      "ruleId": "cleaning-gn00-aa00-v1",
+      "role": "CleaningWeighing",
+      "sourceModuleDefinitionId": "project01::GN00",
+      "targetBaseDefinitionId": "project03::AA00",
+      "evaluator": {
+        "kind": "cleaning_service_region",
+        "inputPath": "data/assembly_stations/cleaning-gn00-aa00-v1.json"
+      },
+      "placement": {
+        "strategy": "target_role_region"
+      },
+      "requiresPrototypeEstimateAuthorization": true,
+      "validation": {
+        "status": "released_demo",
+        "profile": "declared_demo_geometry",
+        "kind": "station_plan_current_postcheck",
+        "configurationSha256": "d99ee4b9b4bd721c3f48328c02360ec6d5b4066cfeb416dc92b7a5f842fc23e3",
+        "planPath": "demo/unified_six_role_goal_20261028/station-preparation-v2/s04-cleaning/station-plan.json",
+        "cadResultPath": "demo/unified_six_role_goal_20261028/station-preparation-v2/s04-cleaning/cad-result.json",
+        "savedStatePath": "demo/unified_six_role_goal_20261028/station-preparation-v2/s04-cleaning/reopened-state.json",
+        "releaseManifestPath": "demo/global_assembly_catalog/releases/relation-station-gn00-aa00-20261028-v1/release-manifest.json"
+      }
+    },
+    {
+      "ruleId": "cleaning-ag00-aa00-native-v1",
+      "role": "CleaningWeighing",
+      "sourceModuleDefinitionId": "project03::AG00",
+      "targetBaseDefinitionId": "project03::AA00",
+      "evaluator": {
+        "kind": "cleaning_service_region",
+        "inputPath": "data/assembly_stations/cleaning-ag00-aa00-native-v1.json"
+      },
+      "placement": {
+        "strategy": "target_role_region"
+      },
+      "requiresPrototypeEstimateAuthorization": true,
+      "validation": {
+        "status": "candidate",
+        "profile": "declared_demo_geometry"
+      }
+    },
+    {
+      "ruleId": "cup-p000-aa00-v1",
+      "role": "WasteCup",
+      "sourceModuleDefinitionId": "project05::P000",
+      "targetBaseDefinitionId": "project03::AA00",
+      "evaluator": {
+        "kind": "cup_projection",
+        "inputPath": "data/assembly_stations/cup-p000-aa00-v1.json"
+      },
+      "placement": {
+        "strategy": "target_function_points"
+      },
+      "requiresPrototypeEstimateAuthorization": true,
+      "validation": {
+        "status": "released_demo",
+        "profile": "declared_demo_geometry",
+        "kind": "station_plan_current_postcheck",
+        "configurationSha256": "52db8009b08ffda12034996c5e12efefc8f1b12e25658d78ef79d03d79fd2b12",
+        "planPath": "demo/unified_six_role_goal_20261028/station-preparation-v2/s05-cup/station-plan.json",
+        "cadResultPath": "demo/unified_six_role_goal_20261028/station-preparation-v2/s05-cup/cad-result.json",
+        "savedStatePath": "demo/unified_six_role_goal_20261028/station-preparation-v2/s05-cup/reopened-state.json",
+        "releaseManifestPath": "demo/global_assembly_catalog/releases/relation-station-p000-aa00-20261028-v1/release-manifest.json"
+      }
+    },
+    {
+      "ruleId": "scanner-ai00-ss00-aa00-v1",
+      "role": "Scanner",
+      "sourceModuleDefinitionId": "project03::AI00",
+      "targetBaseDefinitionId": "project03::AA00",
+      "evaluator": {
+        "kind": "scanner_target",
+        "inputPath": "data/assembly_stations/scanner-ai00-ss00-aa00-v1.json"
+      },
+      "placement": {
+        "strategy": "released_recipe"
+      },
+      "dependencies": [
+        {
+          "role": "Transport",
+          "moduleDefinitionId": "project01::SS00"
+        }
+      ],
+      "requiresPrototypeEstimateAuthorization": true,
+      "validation": {
+        "status": "candidate",
+        "profile": "declared_demo_geometry"
+      }
+    },
+    {
+      "ruleId": "scanner-sm00-ss00-jj00-v1",
+      "role": "Scanner",
+      "sourceModuleDefinitionId": "project01::SM00",
+      "targetBaseDefinitionId": "project01::JJ00",
+      "evaluator": {
+        "kind": "scanner_target",
+        "inputPath": "data/assembly_stations/scanner-sm00-ss00-jj00-v1.json"
+      },
+      "placement": {
+        "strategy": "released_recipe"
+      },
+      "dependencies": [
+        {
+          "role": "Transport",
+          "moduleDefinitionId": "project01::SS00"
+        }
+      ],
+      "requiresPrototypeEstimateAuthorization": true,
+      "validation": {
+        "status": "candidate",
+        "profile": "declared_demo_geometry"
+      }
+    },
+    {
+      "ruleId": "calibration-ah00-aa00-v1",
+      "role": "Calibration",
+      "sourceModuleDefinitionId": "project03::AH00",
+      "targetBaseDefinitionId": "project03::AA00",
+      "evaluator": {
+        "kind": "released_mate_parameters",
+        "inputPath": "data/assembly_stations/calibration-ah00-aa00-v1.json"
+      },
+      "placement": {
+        "strategy": "released_recipe"
+      },
+      "validation": {
+        "status": "candidate",
+        "profile": "declared_demo_geometry"
+      }
+    },
+    {
+      "ruleId": "transport-ss00-jj00-v1",
+      "role": "Transport",
+      "sourceModuleDefinitionId": "project01::SS00",
+      "targetBaseDefinitionId": "project01::JJ00",
+      "evaluator": {
+        "kind": "released_mate_parameters",
+        "inputPath": "data/assembly_stations/transport-ss00-jj00-v1.json"
+      },
+      "placement": {
+        "strategy": "released_recipe"
+      },
+      "validation": {
+        "status": "candidate",
+        "profile": "declared_demo_geometry"
+      }
+    },
+    {
+      "ruleId": "calibration-bd00-jj00-v1",
+      "role": "Calibration",
+      "sourceModuleDefinitionId": "project01::BD00",
+      "targetBaseDefinitionId": "project01::JJ00",
+      "evaluator": {
+        "kind": "released_mate_parameters",
+        "inputPath": "data/assembly_stations/calibration-bd00-jj00-v1.json"
+      },
+      "placement": {
+        "strategy": "released_recipe"
+      },
+      "validation": {
+        "status": "candidate",
+        "profile": "declared_demo_geometry"
+      }
+    },
+    {
+      "ruleId": "cleaning-ag00-jj00-v1",
+      "role": "CleaningWeighing",
+      "sourceModuleDefinitionId": "project03::AG00",
+      "targetBaseDefinitionId": "project01::JJ00",
+      "evaluator": {
+        "kind": "cleaning_service_region",
+        "inputPath": "data/assembly_stations/cleaning-ag00-jj00-v1.json"
+      },
+      "placement": {
+        "strategy": "target_role_region"
+      },
+      "requiresPrototypeEstimateAuthorization": true,
+      "validation": {
+        "status": "released_demo",
+        "profile": "declared_demo_geometry",
+        "kind": "station_plan_current_postcheck",
+        "configurationSha256": "8c57512d661e824dec2d8217f1293f6b29c9f5a8948c9ff04b3f9dd0868e40ca",
+        "planPath": "demo/unified_six_role_goal_20261028/jj00-ag00-candidate-v1/s01-cleaning/station-plan.json",
+        "cadResultPath": "demo/unified_six_role_goal_20261028/jj00-ag00-cad-v1/cad-result.json",
+        "savedStatePath": "demo/unified_six_role_goal_20261028/jj00-ag00-cad-v1/reopened-state.json",
+        "releaseManifestPath": "demo/global_assembly_catalog/releases/relation-station-ag00-jj00-20261028-v1/release-manifest.json"
+      }
+    },
+    {
+      "ruleId": "cup-p000-jj00-v1",
+      "role": "WasteCup",
+      "sourceModuleDefinitionId": "project05::P000",
+      "targetBaseDefinitionId": "project01::JJ00",
+      "evaluator": {
+        "kind": "cup_projection",
+        "inputPath": "data/assembly_stations/cup-p000-jj00-v1.json"
+      },
+      "placement": {
+        "strategy": "target_function_points"
+      },
+      "requiresPrototypeEstimateAuthorization": true,
+      "validation": {
+        "status": "released_demo",
+        "profile": "declared_demo_geometry",
+        "kind": "station_plan_current_postcheck",
+        "configurationSha256": "00047cf3b407677f06c3b56160cc175010c93656987fd4451cb3989908e99787",
+        "planPath": "demo/unified_six_role_goal_20261028/jj00-p000-candidate-v3/s01-cup/station-plan.json",
+        "cadResultPath": "demo/unified_six_role_goal_20261028/jj00-p000-cad-v1/cad-result.json",
+        "savedStatePath": "demo/unified_six_role_goal_20261028/jj00-p000-cad-v1/reopened-state.json",
+        "releaseManifestPath": "demo/global_assembly_catalog/releases/relation-station-p000-jj00-20261028-v1/release-manifest.json"
+      }
+    }
+  ],
+  "parameterRecipes": [
+    {
+      "ruleId": "cleaning-gn00-aa00-v1",
+      "positionParametersMeters": {
+        "longitudinal": 0.36630906453119677,
+        "lateral": 0.231,
+        "supportGap": 0
+      },
+      "planPath": "demo/unified_six_role_goal_20261028/gn00-plus10mm-candidate-v1/s04-cleaning/station-plan.json",
+      "cadResultPath": "demo/unified_six_role_goal_20261028/gn00-plus10mm-cad-v1/cad-result.json",
+      "savedStatePath": "demo/unified_six_role_goal_20261028/gn00-plus10mm-cad-v1/reopened-state.json",
+      "releaseManifestPath": "demo/global_assembly_catalog/releases/relation-station-gn00-aa00-plus10mm-20261028-v1/release-manifest.json"
+    }
+  ]
+}

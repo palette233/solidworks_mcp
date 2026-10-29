@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "released-station-parameters-rule/v1",
+  "ruleId": "wastecup-a300-a600-native-v1",
+  "sourceModuleDefinitionId": "project02::A300",
+  "targetBaseDefinitionId": "project02::A600",
+  "nativeRoleModuleDefinitionId": "project02::A300",
+  "sourcePortId": "A300.frame_installation",
+  "targetPortId": "A600.a300_installation",
+  "expectedGlobalTemplateId": "template/project02/a300-to-a600-nonanchor-driving-v1/13cdc938bd",
+  "allowExplicitImmutableReleaseWhenCurrentCatalogMissing": true,
+  "inputs": {
+    "referenceReleasePath": "demo/global_assembly_catalog/releases/relation-v36-project02-nine-addon-portable-driving-20261011/release-manifest.json"
+  },
+  "coordinateSystem": "target_registered_native_role_installation_datums",
+  "interpretationLimits": [
+    "Exact native A300 installation recipe; current target-station postcheck is still required.",
+    "Cup-mouth geometry, real discharge performance, fastening and collision are not verified by this rule."
+  ],
+  "inputSha256": {
+    "referenceReleasePath": "f7001d87fa9bdd244a6ce6cc58ee234dbbf1826d5fefd19ac116ef9e47cf6d9c"
+  }
+}

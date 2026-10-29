@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "native-cleaning-station-rule/v1",
+  "ruleId": "cleaning-gn00-jj00-native-v1",
+  "sourceModuleDefinitionId": "project01::GN00",
+  "targetBaseDefinitionId": "project01::JJ00",
+  "nativeRoleModuleDefinitionId": "project01::GN00",
+  "sourceToken": "GN00",
+  "baseToken": "JJ00",
+  "sourcePortId": "cad/fl9c24n074gn00-001/1fe0a530a501::port/gn00-jj00-plane-two-hole-installation-v1/8ee036ec06",
+  "targetPortId": "cad/fl9c24n074jj00-001/79d4fd749ac0::port/jj00-gn00-plane-two-hole-installation-v1/682230f042",
+  "nativeInstanceHierarchyPath": "FL9C24N074GN00.001-1",
+  "baseInstanceHierarchyPath": "FL9C24N074JJ00.001-1",
+  "nativeInstanceSelectionBasis": "The grouped occupancy, nonprototype three-mate validation graph and released plane/two-hole template identify the same GN00 and JJ00 instances.",
+  "expectedGlobalTemplateId": "template/project01/gn00-to-jj00-plane-two-hole-installation-v1/17b53b5625",
+  "captureMode": "complete_grouped_subtree_unions",
+  "occupancySource": "leaf-subtree-unions",
+  "inputs": {
+    "movingOccupancy": "demo/layout_previews/project01_module_occupancy.json",
+    "subtreeLabels": "data/assembly_stations/gn00-service-subtrees-v1.json",
+    "nativeGraph": "demo/cross_project_substitution/cleaning-weighing-base-only-v1/project01_GN00_project03_AG00/two-hole-candidate-v1/assembly_plan_effective.nonprototype.json",
+    "referenceReleasePath": "demo/global_assembly_catalog/releases/relation-v65-project01-gn00-base-only-two-hole-driving-20261022/release-manifest.json"
+  },
+  "inputSha256": {
+    "movingOccupancy": "14d7c85513d9489937b37d9e70507c0bdd128a4b31812414a3f4eaf1b595efb6",
+    "subtreeLabels": "9490c0cf09a3a6809b6771cdb6d8cfb7714dfaa8c14ae98e846f4e09602aa969",
+    "nativeGraph": "7b2693dae1c955223787f9e0bc4fb3134eed981639eb4a99ae0ba8916846e551",
+    "referenceReleasePath": "0616140e0aaeb98fe27fd358b9d88f174cc97620824084f3efb9f8b5819a3da0"
+  },
+  "acceptance": {
+    "groupBoundsToleranceMeters": 0.000001
+  },
+  "coordinateSystem": "Project01 installation frame; saved CAD is reprojected through the actual JJ00 and GN00 root transforms before the four service-subtree envelopes are compared.",
+  "interpretationLimits": [
+    "The immutable three-relation plane/two-hole recipe drives placement; grouped prototype occupancy is validation geometry only.",
+    "FJ00, GN10, GN20 and GN30 remain separate subtree-envelope proxies; detailed actions are not evaluated.",
+    "Matching the proxies after save/reopen does not verify real process performance, collision/B-rep, fastening or production readiness."
+  ]
+}

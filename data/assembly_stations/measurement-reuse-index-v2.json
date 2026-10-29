@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "station-measurement-reuse-index/v1",
+  "entries": [
+    {
+      "targetBaseDefinitionId": "project02::A600", "role": "WasteCup",
+      "nativeRoleModuleDefinitionId": "project02::A300",
+      "paths": ["demo/role_station_strengthening_20261028/wastecup/p000-a600-target-station-v3.json", "demo/semantic_ports/project02_service_installations_v1/A300/face_endpoint_catalog.json", "data/assembly_stations/a300-cup-acquisition-v1.json", "demo/station_gap_batch_20261028/a300-measurement-v1/cup-1.timing.json"],
+      "available": ["native_signed_installation_datums", "target_reference_frame", "bounded_cup_leaf_acquisition_request"],
+      "stillRequired": ["A300_native_cup_mouth_point_and_opening_direction", "source_to_target_cup_mouth_local_mapping"],
+      "acquisitionStatus": "failed_no_geometry_captured_session_not_restored",
+      "boundary": "102.136-second scan attempt failed; no usable cup catalog. Historical 80/390 mm datums are not cup-function evidence."
+    },
+    {
+      "targetBaseDefinitionId": "project02::A600", "role": "CleaningWeighing",
+      "nativeRoleModuleDefinitionId": "project02::A700",
+      "paths": ["demo/goal_role_station_and_matched_slot_cases_20261028/n000-a600-a700-role-station-audit.json"],
+      "available": ["native_role_envelope_in_A600_installation_frame", "N000_replacement_footprint_measurement"],
+      "stillRequired": ["static_target_service_station_datum_binding", "source_service_function_region_mapping"],
+      "boundary": "Reuse outer role region only; no A700 internal mechanism work. Envelope fit alone does not authorize placement."
+    },
+    {
+      "targetBaseDefinitionId": "project05::A000", "role": "WasteCup",
+      "nativeRoleModuleDefinitionId": "project05::P000",
+      "paths": ["data/assembly_stations/cup-p000-a000-native-v1.json", "demo/layout_previews/project05_module_mate_graph.json", "demo/role_station_strengthening_20261028/functional-chain-v1/geometry/p000-cup-1.json", "demo/role_station_strengthening_20261028/functional-chain-v1/geometry/p000-cup-2.json", "demo/station_gap_batch_20261028/p000-a000-cad-v1/cup/station-check-attempts/attempt-001/postcheck.json"],
+      "available": ["explicit_native_P000_instance_2", "two_rigid_analytic_cup_mouths_in_module_local_frame", "target_mouths_in_A000_local_frame", "new_nonprototype_CAD_saved_reopen_projection_postcheck"],
+      "stillRequired": ["explicit_function_point_correspondence_for_different_cup_models"],
+      "boundary": "P000-to-A000 validated through four active mates, not fixed placement. Other cup models still need explicit mapping and fresh CAD; real dispensing and fastening remain unknown."
+    },
+    {
+      "targetBaseDefinitionId": "project05::A000", "role": "CleaningWeighing",
+      "nativeRoleModuleDefinitionId": "project05::N000",
+      "paths": ["demo/layout_previews/project05_module_occupancy.json", "demo/layout_previews/project05_module_mate_graph.json"],
+      "available": ["native_N000_complete_leaf_occupancy", "native_module_transform_for_measurement"],
+      "stillRequired": ["N000_service_subtree_labels", "occupancy_to_native_graph_frame_binding", "target_and_source_static_datum_capture_binding"],
+      "boundary": "Multiple service subtrees must be labeled explicitly; whole-module bounding-box center is not a cleaning point."
+    }
+  ]
+}

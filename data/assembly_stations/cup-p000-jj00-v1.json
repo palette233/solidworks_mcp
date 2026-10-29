@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "cup-projection-rule/v1",
+  "ruleId": "cup-p000-jj00-v1",
+  "sourceModuleDefinitionId": "project05::P000",
+  "targetBaseDefinitionId": "project01::JJ00",
+  "nativeRoleModuleDefinitionId": "project01::GN00",
+  "inputs": {
+    "geometryRequestPath": "demo/unified_six_role_goal_20261028/jj00-cup-measurement-v1/cup-function-point-request.json"
+  },
+  "coordinateSystem": "target_base_local_via_registered_datum_planes",
+  "acceptance": {
+    "mouthProjectionToleranceMeters": 0.000001,
+    "openingAngularToleranceDegrees": 1,
+    "equalMouthHeightRequired": false
+  },
+  "interpretationLimits": [
+    "Native GN00/FJ00 cup mouths define a measured JJ00 Demo station, not a discharge-process approval.",
+    "Native partial-reference CaptureOnly state is scoped pose evidence, not whole-prototype CAD acceptance; separate resolved leaf catalogs provide cup geometry.",
+    "Source and native captures use distinct saved assemblies; only local functional points and target datum coordinates determine the new candidate.",
+    "This candidate rule has no CAD release yet. New placements require active mates, non-prototype insertion and save/reopen verification. Fastening and B-rep remain unverified."
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "target-station-rule-registry/v1",
+  "scopePath": "data/assembly_stations/scope-v1.json",
+  "rules": [
+    {
+      "ruleId": "cup-p000-a600-functional-v1",
+      "role": "WasteCup",
+      "sourceModuleDefinitionId": "project05::P000",
+      "targetBaseDefinitionId": "project02::A600",
+      "evaluator": {
+        "kind": "cup_projection",
+        "inputPath": "data/assembly_stations/cup-p000-a600-functional-v1.json"
+      },
+      "placement": {
+        "strategy": "target_function_points"
+      },
+      "requiresPrototypeEstimateAuthorization": true,
+      "validation": {
+        "status": "candidate"
+      }
+    }
+  ]
+}

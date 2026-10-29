@@ -1,0 +1,24 @@
+{
+  "chainId": "station-jj00-ag00-candidate-v1",
+  "baseRequirement": "建立设备固定基座。",
+  "baseSelection": {
+    "projectId": "project01",
+    "moduleToken": "JJ00",
+    "confirmed": true
+  },
+  "stationRegistryPath": "data/assembly_stations/station-rules-v5.json",
+  "allowPrototypeEstimate": true,
+  "placementValidationMode": "target_role_station",
+  "steps": [
+    {
+      "stageId": "s01-cleaning",
+      "requirement": "在目标基座原生清洁服务区域安装已确认的清洁称重模组，允许基准定位Demo。",
+      "moduleSelection": {
+        "projectId": "project03",
+        "moduleToken": "AG00",
+        "confirmed": true
+      },
+      "allowDatumFallback": true
+    }
+  ]
+}

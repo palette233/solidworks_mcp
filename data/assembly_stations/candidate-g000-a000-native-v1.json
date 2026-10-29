@@ -1,0 +1,23 @@
+{
+  "chainId": "batch-calibration-g000-a000-native-20261028-v1",
+  "baseRequirement": "建立已确认的固定基座。",
+  "baseSelection": {
+    "projectId": "project05",
+    "moduleToken": "A000",
+    "confirmed": true
+  },
+  "stationRegistryPath": "data/assembly_stations/station-rules-v17.json",
+  "allowPrototypeEstimate": false,
+  "placementValidationMode": "target_role_station",
+  "steps": [
+    {
+      "stageId": "calibration",
+      "requirement": "在当前基座的原生校准工位安装校准模组，并复核发布配合参数。",
+      "moduleSelection": {
+        "projectId": "project05",
+        "moduleToken": "G000",
+        "confirmed": true
+      }
+    }
+  ]
+}

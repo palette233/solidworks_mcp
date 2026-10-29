@@ -1,0 +1,45 @@
+{
+  "chainId": "station-aa00-six-role-plus10mm-current-v1",
+  "baseRequirement": "建立一套设备箱体与固定安装基座。",
+  "baseSelection": {"projectId": "project03", "moduleToken": "AA00", "confirmed": true},
+  "stationRegistryPath": "data/assembly_stations/station-rules-v34.json",
+  "placementValidationMode": "target_role_station",
+  "steps": [
+    {
+      "stageId": "s01-transport",
+      "moduleRole": "Transport",
+      "requirement": "在当前基座安装已确认的产品传输模组。",
+      "moduleSelection": {"projectId": "project01", "moduleToken": "SS00", "confirmed": true}
+    },
+    {
+      "stageId": "s02-scanner",
+      "moduleRole": "Scanner",
+      "allowPrototypeEstimate": true,
+      "requirement": "增加条码扫描模组，关联当前产品传输模组。",
+      "moduleSelection": {"projectId": "project03", "moduleToken": "AI00", "confirmed": true}
+    },
+    {
+      "stageId": "s03-calibration",
+      "moduleRole": "Calibration",
+      "requirement": "增加喷嘴校准模组。",
+      "moduleSelection": {"projectId": "project01", "moduleToken": "BD00", "confirmed": true}
+    },
+    {
+      "stageId": "s04-cleaning",
+      "moduleRole": "CleaningWeighing",
+      "allowPrototypeEstimate": true,
+      "allowDatumFallback": true,
+      "requirement": "在目标基座添加清洁称重模组，并将纵向工位增加10毫米。",
+      "moduleSelection": {"projectId": "project01", "moduleToken": "GN00", "confirmed": true},
+      "positionParametersMeters": {"longitudinal": 0.36630906453119677, "lateral": 0.231, "supportGap": 0.0}
+    },
+    {
+      "stageId": "s05-cup",
+      "moduleRole": "WasteCup",
+      "allowPrototypeEstimate": true,
+      "allowDatumFallback": true,
+      "requirement": "按目标基座原生排胶工位的杯口投影添加排胶杯，允许支承定位Demo。",
+      "moduleSelection": {"projectId": "project05", "moduleToken": "P000", "confirmed": true}
+    }
+  ]
+}

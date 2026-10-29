@@ -1,7 +1,13 @@
-data/
+data/*
+!data/assembly_stations/
+data/assembly_stations/*
+!data/assembly_stations/*.json
 .tmp/
 .runtime/
 tmp/
+.build/
+.codex-artifacts/
+.codex_ppt_build_*/
 .codex-finalizer/
 .codex-ppt-build/
 upstream_solidworks_mcp/
@@ -38,6 +44,8 @@ demo/**/*.txt
 demo/runtime/
 demo/**/*.log
 demo/**/*.jsonl
+demo/**/*.xml
+demo/**/*.aborted-*
 demo/**/*.cache
 demo/**/*.exe
 logs/

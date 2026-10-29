@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "station-functional-screening-index/v1",
+  "entries": [
+    {
+      "sourceModuleDefinitionId": "project02::A300",
+      "targetBaseDefinitionId": "project05::A000",
+      "role": "WasteCup",
+      "reportPath": "demo/station_gap_batch_20261028/a300-a000-station-v1/published-pose-screening.json",
+      "reportSha256": "02ba395b925a5269ed70b2cd189e31026a2c223f249ae7ba07187c4d02283ccf",
+      "passed": false,
+      "status": "published_orientation_cannot_reach_target_by_translation",
+      "nextAction": "select_or_authorize_a_reoriented_A300_installation_candidate_then_run_nonprototype_CAD_and_target_station_postcheck",
+      "boundary": "This is an offline screen of the existing published orientation. It proves that one common planar translation cannot place both native P000 target points inside the A300 openings with 5 mm margin; it does not prove every possible rotated A300 placement is infeasible."
+    }
+  ]
+}

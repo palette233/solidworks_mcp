@@ -8,7 +8,9 @@ import subprocess
 import pytest
 
 from demo_backend.global_cad_manifest_orchestrator import (
+    CAD_OUTPUT_PATH_MAX_CHARS,
     GlobalCadManifestOrchestrationError,
+    _cad_output_path,
     _packet_module_token,
     build_manifest_job_plan,
     manifest_cad_step_runner,
@@ -50,6 +52,43 @@ PROJECT02_A700_FALLBACK_MANIFEST = (
     / "demo/global_assembly_contexts/"
     "project02-explicit-a700-fallback-v14.cad-transaction-manifest.json"
 )
+
+
+def test_cad_output_path_preserves_short_legacy_filename(tmp_path):
+    path = _cad_output_path(tmp_path, "short-context", "packet-001")
+    assert path == tmp_path / "short-context-packet-001.SLDASM"
+
+
+def test_cad_output_path_shortens_long_context_deterministically(tmp_path):
+    context = "long-context-" * 30
+    path = _cad_output_path(tmp_path, context, "packet-001")
+    assert path.parent == tmp_path
+    assert path.name.startswith("asm-")
+    assert path.suffix == ".SLDASM"
+    assert len(str(path).encode("utf-16-le")) // 2 <= CAD_OUTPUT_PATH_MAX_CHARS
+    assert path == _cad_output_path(tmp_path, context, "packet-001")
+    assert path != _cad_output_path(tmp_path, context, "packet-002")
+
+
+def test_cad_output_path_rejects_directory_that_cannot_fit_short_name(tmp_path):
+    run_dir = tmp_path / ("a" * 150) / ("b" * 100)
+    with pytest.raises(GlobalCadManifestOrchestrationError, match="启动CAD前阻断"):
+        _cad_output_path(run_dir, "short-context", "packet-001")
+    assert not run_dir.exists()
+
+
+def test_long_output_directory_is_rejected_before_subprocess(tmp_path, monkeypatch):
+    plan = build_manifest_job_plan(WORKSPACE, PROJECT05_V7_RELEASED_MANIFEST, packet_limit=1)
+    store = DurableAssemblyJobStore(tmp_path / "jobs")
+    job = store.create(plan, execution_mode="generic_cad_manifest")
+    monkeypatch.setattr(store, "_dir", lambda _job_id: tmp_path / ("a" * 150) / ("b" * 100))
+
+    def must_not_start(*_args, **_kwargs):
+        pytest.fail("超过输出路径预算时不得启动CAD subprocess")
+
+    runner = manifest_cad_step_runner(WORKSPACE, store, command_runner=must_not_start)
+    with pytest.raises(GlobalCadManifestOrchestrationError, match="启动CAD前阻断"):
+        runner(job, {**job["steps"][0], "attemptCount": 1}, None)
 
 
 def _fake_command(command, **kwargs):

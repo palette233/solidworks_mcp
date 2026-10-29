@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "target-station-rule-registry/v1",
+  "scopePath": "data/assembly_stations/scope-v1.json",
+  "rules": [
+    {
+      "ruleId": "wastecup-a300-a600-native-v1",
+      "role": "WasteCup",
+      "sourceModuleDefinitionId": "project02::A300",
+      "targetBaseDefinitionId": "project02::A600",
+      "evaluator": {
+        "kind": "released_mate_parameters",
+        "inputPath": "data/assembly_stations/wastecup-a300-a600-native-v1.json"
+      },
+      "placement": {
+        "strategy": "released_recipe"
+      },
+      "validation": {
+        "status": "candidate"
+      }
+    }
+  ]
+}

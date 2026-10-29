@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "direct-interface-candidate-request/v1",
+  "compilerInputs": {
+    "contract_catalog": "demo/cross_project_substitution/calibration-interface-contract-v1/interface-contract-catalog.json",
+    "module_definition_id": "project01::BD00",
+    "slot_definition_id": "project01::JJ00",
+    "module_face_catalog": "demo/semantic_ports/project01_BD00_fifth_increment_v1/face_endpoint_catalog.json",
+    "slot_face_catalog": "demo/semantic_ports/project01_BD00_fifth_increment_v1/face_endpoint_catalog.json",
+    "module_source_path": "D:/zengshuang/workspace/cuhksz/cad_data/001-给港中文AI训练用资料_20260624/项目01/01-项目3D图纸/CITLB24N074&CITLB24N075/8.FL9C24N074BD00.001_标定模组/FL9C24N074BD00.001.SLDASM",
+    "slot_source_path": "D:/zengshuang/workspace/cuhksz/cad_data/001-给港中文AI训练用资料_20260624/项目01/01-项目3D图纸/CITLB24N074&CITLB24N075/1.FL9C24N074JJ00.001_机架模组/FL9C24N074JJ00.001.SLDASM",
+    "base_wrapper_path": "demo/global_assembly_contexts/base_wrapper_cache/dad06b92e1848df5fe6378286bb3dc08fbb620ec4b8c00c0ce98103fc98fe568/base-context-wrapper.SLDASM",
+    "module_hierarchy_path": "FL9C24N074BD00.001-1",
+    "slot_hierarchy_path": "FL9C24N074JJ00.001-1"
+  }
+}
