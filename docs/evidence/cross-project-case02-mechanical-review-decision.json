@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "mechanical-review-decision/v1",
+  "packageId": "cross-project-assembly-review-20261015-v1",
+  "recordedOn": "2026-10-21",
+  "source": "user_reported_company_mechanical_engineer_review",
+  "decisions": [
+    {
+      "caseId": "case02",
+      "caseKind": "direct_installation_cross_project",
+      "decision": "accepted_for_stage_demo",
+      "summary": "跨项目多模组累计装配结果符合要求，满足本阶段展示需求。",
+      "acceptedScope": [
+        "module_selection",
+        "semantic_port_binding",
+        "real_mate_creation",
+        "nonprototype_initial_pose",
+        "cumulative_save_close_reopen"
+      ],
+      "notClaimed": [
+        "arbitrary_cross_project_interchange",
+        "collision_or_brep_validation",
+        "dynamic_process_validation",
+        "production_release"
+      ]
+    }
+  ]
+}
